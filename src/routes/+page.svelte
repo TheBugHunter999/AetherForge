@@ -99,6 +99,13 @@
   import ParallelAgents from "$lib/ParallelAgents.svelte";
   import AgentActivityFeed from "$lib/AgentActivityFeed.svelte";
   import WindowChrome from "$lib/WindowChrome.svelte";
+  import FolderTrustDialog from "$lib/FolderTrustDialog.svelte";
+  import {
+    isFolderTrusted,
+    shouldPromptFolderTrust,
+    trustFolder,
+    type FolderTrustChoice,
+  } from "$lib/folder-trust";
   import { attachParser, startActivitySession } from "$lib/agent-activity/activity-bridge";
   import { getActiveActivitySession, isSessionLive } from "$lib/agent-activity/activity-store";
   import { type MissionGoal, type ParallelAgent } from "$lib/agent-grid";
@@ -147,6 +154,9 @@
 
   let folderPath = $state<string | null>(null);
   let selectedFolderPath = $state<string | null>(null);
+  let folderRestricted = $state(false);
+  let folderTrustPendingPath = $state<string | null>(null);
+  let folderTrustParent = $state(false);
   let explorerNodes = $state<ExplorerNode[]>([]);
   let tabs = $state<EditorTab[]>([]);
   let activeTabPath = $state<string | null>(null);
@@ -555,6 +565,10 @@
   }
 
   async function saveTab(tab: { path: string; name?: string }) {
+    if (folderRestricted) {
+      restrictedFeatureNotice("Saving files");
+      return;
+    }
     const target = tabs.find((t) => t.path === tab.path);
     if (!target || !isDirty(target)) return;
     const pipeline = applySavePipeline(target.content, target.name, settings);
@@ -689,7 +703,7 @@
     }
     if (matchKeybinding(event, "toggleTerminal", settings)) {
       event.preventDefault();
-      terminalOpen = !terminalOpen;
+      toggleTerminalPanel();
       return;
     }
     if (matchKeybinding(event, "openSettings", settings)) {
@@ -857,7 +871,87 @@
     }
   }
 
+  function restrictedFeatureNotice(feature: string) {
+    settingsNotice = `Restricted mode: ${feature} is disabled until you trust this folder.`;
+    setTimeout(() => {
+      if (settingsNotice.startsWith("Restricted mode:")) settingsNotice = "";
+    }, 5000);
+  }
+
+  function enableTrustedFolderFeatures() {
+    folderRestricted = false;
+  }
+
+  async function applyFolderWorkspace(path: string, choice: FolderTrustChoice) {
+    folderRestricted = choice === "restricted";
+    folderPath = path;
+    const entries = await invoke<FileEntry[]>("list_folder", listFolderArgs(path));
+    explorerNodes = entries.map((entry) => createExplorerNode(entry, 0));
+    selectedFolderPath = path;
+    tabs = [];
+    activeTabPath = null;
+    if (folderRestricted) {
+      terminalOpen = false;
+      if (view === "agents") closeAgentSwarm();
+    }
+  }
+
+  function beginFolderTrustPrompt(path: string) {
+    folderTrustPendingPath = path;
+    folderTrustParent = false;
+  }
+
+  async function resolveFolderOpen(path: string) {
+    if (shouldPromptFolderTrust(path)) {
+      beginFolderTrustPrompt(path);
+      return;
+    }
+    enableTrustedFolderFeatures();
+    try {
+      await applyFolderWorkspace(path, "trusted");
+    } catch (error) {
+      console.error("Failed to open folder:", error);
+    }
+  }
+
+  async function handleFolderTrustChoice(choice: FolderTrustChoice) {
+    const path = folderTrustPendingPath;
+    if (!path) return;
+    folderTrustPendingPath = null;
+    if (choice === "trusted") {
+      trustFolder(path, { trustParent: folderTrustParent });
+      enableTrustedFolderFeatures();
+    }
+    try {
+      await applyFolderWorkspace(path, choice);
+    } catch (error) {
+      console.error("Failed to open folder:", error);
+    }
+  }
+
+  function trustCurrentFolder() {
+    if (!folderPath) return;
+    trustFolder(folderPath);
+    enableTrustedFolderFeatures();
+    settingsNotice = "Folder trusted — terminals and agents are now enabled.";
+    setTimeout(() => {
+      if (settingsNotice.startsWith("Folder trusted")) settingsNotice = "";
+    }, 4000);
+  }
+
+  function toggleTerminalPanel() {
+    if (folderRestricted && !terminalOpen) {
+      restrictedFeatureNotice("Terminal");
+      return;
+    }
+    terminalOpen = !terminalOpen;
+  }
+
   function launchGrokCli() {
+    if (folderRestricted) {
+      restrictedFeatureNotice("Grok CLI");
+      return;
+    }
     if (grokLaunching) return;
     if (grokCliAvailable !== true) {
       if (grokCliAvailable === false) {
@@ -898,6 +992,10 @@
   const activeAgentSession = $derived(getActiveActivitySession());
 
   function openAgentSwarm() {
+    if (folderRestricted) {
+      restrictedFeatureNotice("Parallel Agent Swarm");
+      return;
+    }
     agentSwarmOpen = true;
     view = "agents";
     sidebarCollapsed = true;
@@ -977,10 +1075,12 @@
       const saved = parseSessionPayload(raw);
       if (!saved) return;
       if (saved.folderPath) {
+        folderRestricted = !isFolderTrusted(saved.folderPath);
         const entries = await invoke<FileEntry[]>("list_folder", listFolderArgs(saved.folderPath));
         folderPath = saved.folderPath;
         explorerNodes = entries.map((entry) => createExplorerNode(entry, 0));
         selectedFolderPath = saved.folderPath;
+        if (folderRestricted) terminalOpen = false;
       }
       if (saved.tabs?.length) {
         const restored: EditorTab[] = [];
@@ -1066,12 +1166,7 @@
           if (settingsNotice.startsWith("New window mode")) settingsNotice = "";
         }, 4500);
       }
-      folderPath = selected;
-      const entries = await invoke<FileEntry[]>("list_folder", listFolderArgs(selected));
-      explorerNodes = entries.map((entry) => createExplorerNode(entry, 0));
-      selectedFolderPath = selected;
-      tabs = [];
-      activeTabPath = null;
+      await resolveFolderOpen(selected);
     } catch (error) {
       console.error("Failed to open folder:", error);
     }
@@ -1106,6 +1201,10 @@
   }
 
   async function createNewFile() {
+    if (folderRestricted) {
+      restrictedFeatureNotice("Creating files");
+      return;
+    }
     const parentPath = getTargetFolderPath();
     if (!parentPath) return;
     const input = window.prompt("New file name:");
@@ -1128,6 +1227,10 @@
   }
 
   async function createNewFolder() {
+    if (folderRestricted) {
+      restrictedFeatureNotice("Creating folders");
+      return;
+    }
     const parentPath = getTargetFolderPath();
     if (!parentPath) return;
     const input = window.prompt("New folder name:");
@@ -1293,7 +1396,7 @@
         <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2" width="5" height="5" rx="0.5" fill="none" stroke="currentColor" stroke-width="1.1"/><rect x="9" y="2" width="5" height="5" rx="0.5" fill="none" stroke="currentColor" stroke-width="1.1"/><rect x="2" y="9" width="5" height="5" rx="0.5" fill="none" stroke="currentColor" stroke-width="1.1"/><rect x="9" y="9" width="5" height="5" rx="0.5" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>
         <span class="rail-hint">Agent Swarm</span>
       </button>
-      <button type="button" class="rail-btn" class:active={terminalOpen} aria-label="Terminal" onclick={() => (terminalOpen = !terminalOpen)}>
+      <button type="button" class="rail-btn" class:active={terminalOpen} aria-label="Terminal" onclick={toggleTerminalPanel}>
         <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true"><rect x="2.5" y="3.5" width="11" height="9" rx="1" fill="none" stroke="currentColor" stroke-width="1.25"/><path d="M4.5 8l2 2 4-4" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>
         <span class="rail-hint">Terminal</span>
       </button>
@@ -1341,8 +1444,8 @@
 
         {#if activePanel === "explorer"}
           <div class="explorer-toolbar">
-            <button type="button" class="toolbar-link" disabled={!folderPath} onclick={createNewFile} title="New file">New file</button>
-            <button type="button" class="toolbar-link" disabled={!folderPath} onclick={createNewFolder} title="New folder">New folder</button>
+            <button type="button" class="toolbar-link" disabled={!folderPath || folderRestricted} onclick={createNewFile} title="New file">New file</button>
+            <button type="button" class="toolbar-link" disabled={!folderPath || folderRestricted} onclick={createNewFolder} title="New folder">New folder</button>
             <button type="button" class="toolbar-link" disabled={!folderPath} onclick={refreshExplorer} title="Refresh">Refresh</button>
           </div>
           {#if folderPath}
@@ -1441,6 +1544,17 @@
         <div class="save-error" transition:slide={slideY}>{saveError}</div>
       {/if}
 
+      {#if folderRestricted && folderPath}
+        <div class="restricted-banner" transition:slide={slideY}>
+          <span class="restricted-banner-text">
+            Restricted mode — browsing only. Terminals, agents, and file writes are disabled.
+          </span>
+          <button type="button" class="restricted-trust-btn" onclick={trustCurrentFolder}>
+            Trust this folder
+          </button>
+        </div>
+      {/if}
+
       {#if view === "settings"}
         <Settings bind:settings />
       {:else if view === "agents"}
@@ -1507,6 +1621,7 @@
               class:wrap={settings.wordWrap}
               class:insert-spaces={settings.insertSpaces}
               style="tab-size: {settings.insertSpaces ? settings.tabSize : 2}"
+              readonly={folderRestricted}
               value={activeTab.content}
               oninput={(e) => { updateTabContent(e.currentTarget.value); syncCursor(e); syncWhitespaceLayer(e); }}
               onkeydown={handleEditorKeydown}
@@ -1656,11 +1771,11 @@
             <Terminal
               {settings}
               cwd={folderPath}
-              sessionActive={terminalOpen}
-              visible={terminalOpen && bottomPanelTab === "terminal"}
+              sessionActive={terminalOpen && !folderRestricted}
+              visible={terminalOpen && bottomPanelTab === "terminal" && !folderRestricted}
               enableHelper={false}
               injectToken={grokInjectToken}
-              injectCommand={grokInjectCommand}
+              injectCommand={folderRestricted ? null : grokInjectCommand}
               onSpawned={handleMainTerminalSpawned}
             />
           </div>
@@ -1724,6 +1839,7 @@ This is a very long debug log line that demonstrates whether the debug console w
     <div class="status-left">
       <span class="status-chip accent">{view === "agents" ? `Swarm · ${parallelAgents.length} agents` : view === "settings" ? "Settings" : activeTab ? "Editing" : "Ready"}</span>
       {#if folderPath}<span class="status-chip" title={folderPath}>{folderName}</span>{/if}
+      {#if folderRestricted}<span class="status-chip warn" title="Trust the folder to enable terminals and agents">Restricted</span>{/if}
       {#if dirtyCount > 0}<span class="status-chip warn">{dirtyCount} unsaved</span>{/if}
       {#each scopedStatusChips as chip (chip.label)}
         <span
@@ -1802,6 +1918,16 @@ This is a very long debug log line that demonstrates whether the debug console w
       {/if}
     </div>
   </div>
+
+  {#if folderTrustPendingPath}
+    <FolderTrustDialog
+      folderPath={folderTrustPendingPath}
+      trustParent={folderTrustParent}
+      onTrustParentChange={(value) => (folderTrustParent = value)}
+      onTrust={() => void handleFolderTrustChoice("trusted")}
+      onRestricted={() => void handleFolderTrustChoice("restricted")}
+    />
+  {/if}
 
 </div>
 {/if}
@@ -2320,6 +2446,41 @@ This is a very long debug log line that demonstrates whether the debug console w
     background: var(--danger-soft);
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
+  }
+
+  .restricted-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 14px;
+    font-size: 12px;
+    color: var(--warn);
+    background: rgba(251, 191, 36, 0.08);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .restricted-banner-text {
+    flex: 1;
+    min-width: 0;
+    line-height: 1.4;
+  }
+
+  .restricted-trust-btn {
+    flex-shrink: 0;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-family: inherit;
+    color: var(--accent);
+    background: var(--accent-soft);
+    border: 1px solid var(--accent-mid);
+    border-radius: 5px;
+    cursor: pointer;
+  }
+
+  .restricted-trust-btn:hover {
+    background: var(--accent-mid);
   }
 
   .editor {
