@@ -668,7 +668,7 @@
   .nav-item:hover { background: var(--hover); color: var(--text-dim); }
   .nav-item.active { background: var(--hover); color: var(--text); box-shadow: inset 2px 0 0 var(--accent); }
 
-  .settings-content { flex: 1; overflow-y: auto; padding: 22px 34px 60px; }
+  .settings-content { flex: 1; overflow-y: auto; padding: 22px 34px 60px; max-width: 960px; width: 100%; margin: 0 auto; }
 
   .settings-tabs { display: flex; gap: 18px; margin-bottom: 18px; }
   .st-tab { font-size: 13px; color: var(--text-mute); padding-bottom: 4px; }

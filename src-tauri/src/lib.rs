@@ -297,7 +297,7 @@ fn transition_to_workspace(app: AppHandle) -> Result<(), String> {
         let _ = main.unmaximize();
     }
     unlock_workspace_window(&main)?;
-    main.maximize().map_err(|e| e.to_string())?;
+    center_window(&main);
     let _ = main.set_focus();
     Ok(())
 }

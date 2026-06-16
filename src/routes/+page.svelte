@@ -29,14 +29,12 @@
     buildIdeLayoutClassesWithSecondary,
     applyRestoredTerminalSettings,
     buildTerminalSessionSlice,
-    clampPanelSize,
     createChordState,
     extractOutlineSymbols,
     getSearchOptionFlags,
     initialSecondarySidebarOpen,
     panelInlineStyle,
     panelResizeCursor,
-    panelWorkspaceSpan,
     parseSessionPayload,
     resolveRestoredTerminalOpen,
     resolveSavedTerminalOpen,
@@ -88,8 +86,15 @@
   import {
     prepareWizardWindow,
     transitionToWorkspace,
+    restoreFullscreenIfRequested,
     delay,
   } from "$lib/window-lifecycle";
+  import {
+    createLayoutConstraintState,
+    reconcileLayout,
+    scheduleLayoutReconcile,
+  } from "$lib/layout/layout-store.svelte";
+  import { clampPanelSize, panelWorkspaceSpan } from "$lib/layout/solver";
   import SearchPanel from "$lib/SearchPanel.svelte";
   import SourceControl from "$lib/SourceControl.svelte";
   import Terminal from "$lib/Terminal.svelte";
@@ -162,6 +167,9 @@
   let saveError = $state("");
 
   let activePanel = $state<"explorer" | "search" | "scm">("explorer");
+  let userSidebarOpen = $state(true);
+  let userSecondaryOpen = $state(initialSecondarySidebarOpen(settings));
+  let userTerminalOpen = $state(settings.showTerminalOnStart);
   let sidebarCollapsed = $state(false);
   let terminalOpen = $state(settings.showTerminalOnStart);
   let secondarySidebarOpen = $state(initialSecondarySidebarOpen(settings));
@@ -204,6 +212,9 @@
   let workspaceBodyEl = $state<HTMLDivElement | undefined>();
   let workspaceBodyHeight = $state(720);
   let workspaceBodyWidth = $state(1280);
+  let layoutConstraint = createLayoutConstraintState();
+  let layoutStyle = $state("");
+  let resolvedPanelSize = $state(settings.panelDefaultSize);
   let showTerminalOnStartPrev = settings.showTerminalOnStart;
 
   const mockCollaborators = [
@@ -213,7 +224,7 @@
 
   $effect(() => {
     settings.panelDefaultLocation;
-    if (settings.panelMaximizeOnOpen && terminalOpen) {
+    if (settings.panelMaximizeOnOpen && userTerminalOpen) {
       terminalHeight = clampTerminalSize(panelMaximizedHeight(settings));
     } else {
       terminalHeight = clampTerminalSize(settings.panelDefaultSize);
@@ -229,6 +240,19 @@
     });
     ro.observe(el);
     return () => ro.disconnect();
+  });
+
+  $effect(() => {
+    settings.panelDefaultLocation;
+    settings.uiDensity;
+    settings.zenMode;
+    userSidebarOpen;
+    userSecondaryOpen;
+    userTerminalOpen;
+    terminalHeight;
+    workspaceBodyWidth;
+    workspaceBodyHeight;
+    scheduleLayoutReconcile(runLayoutReconcile);
   });
 
   $effect(() => {
@@ -267,8 +291,9 @@
 
   $effect(() => {
     if (settings.showTerminalOnStart !== showTerminalOnStartPrev) {
-      terminalOpen = settings.showTerminalOnStart;
+      userTerminalOpen = settings.showTerminalOnStart;
       showTerminalOnStartPrev = settings.showTerminalOnStart;
+      scheduleLayoutReconcile(runLayoutReconcile);
     }
   });
 
@@ -308,12 +333,13 @@
 
   $effect(() => {
     if (settings.zenMode) {
-      if (sidebarBeforeZen === null) sidebarBeforeZen = sidebarCollapsed;
-      sidebarCollapsed = true;
+      if (sidebarBeforeZen === null) sidebarBeforeZen = userSidebarOpen;
+      userSidebarOpen = false;
     } else if (sidebarBeforeZen !== null) {
-      sidebarCollapsed = sidebarBeforeZen;
+      userSidebarOpen = sidebarBeforeZen;
       sidebarBeforeZen = null;
     }
+    scheduleLayoutReconcile(runLayoutReconcile);
   });
 
   $effect(() => {
@@ -355,8 +381,8 @@
   });
 
   function hidePanelsOnEditorFocus() {
-    if (shouldAutoHideTerminal(settings) && terminalOpen) {
-      terminalOpen = false;
+    if (shouldAutoHideTerminal(settings) && userTerminalOpen) {
+      setUserTerminalOpen(false);
     }
   }
 
@@ -364,6 +390,7 @@
     if (!workspaceBodyEl) return;
     workspaceBodyHeight = workspaceBodyEl.clientHeight;
     workspaceBodyWidth = workspaceBodyEl.clientWidth;
+    scheduleLayoutReconcile(runLayoutReconcile);
   }
 
   function clampTerminalSize(size: number): number {
@@ -372,7 +399,67 @@
       workspaceBodyWidth,
       workspaceBodyHeight,
     );
-    return clampPanelSize(size, span);
+    const reserved =
+      settings.panelDefaultLocation !== "bottom"
+        ? (userSidebarOpen && !settings.zenMode ? 280 : 0) +
+          (userSecondaryOpen && !settings.zenMode ? 240 : 0)
+        : 0;
+    return clampPanelSize(size, span, { reservedAlongAxis: reserved });
+  }
+
+  function runLayoutReconcile() {
+    const railReserve = settings.zenMode ? 0 : settings.uiDensity === "compact" ? 42 : 40;
+    const chromeReserve = settings.uiDensity === "compact" ? 84 : settings.uiDensity === "spacious" ? 108 : 92;
+    const result = reconcileLayout({
+      settings,
+      measure: {
+        workspaceWidth: workspaceBodyWidth,
+        workspaceHeight: workspaceBodyHeight,
+        outerWidth: workspaceBodyWidth + railReserve,
+        outerHeight: workspaceBodyHeight + chromeReserve,
+      },
+      sidebarCollapsed: !userSidebarOpen,
+      secondarySidebarOpen: userSecondaryOpen,
+      terminalOpen: userTerminalOpen,
+      terminalHeight,
+      constraint: layoutConstraint,
+    });
+    layoutConstraint = result.constraint;
+    layoutStyle = result.layoutStyle;
+    resolvedPanelSize = result.panelSize;
+    sidebarCollapsed = result.sidebarCollapsed;
+    secondarySidebarOpen = result.secondarySidebarOpen;
+    terminalOpen = result.terminalOpen;
+    if (result.panelSize > 0 && result.terminalHeight !== terminalHeight) {
+      terminalHeight = result.terminalHeight;
+    }
+  }
+
+  function setUserSidebarOpen(open: boolean) {
+    userSidebarOpen = open;
+    layoutConstraint = {
+      ...layoutConstraint,
+      collapsedByConstraint: { ...layoutConstraint.collapsedByConstraint, sidebar: false },
+    };
+    runLayoutReconcile();
+  }
+
+  function setUserSecondaryOpen(open: boolean) {
+    userSecondaryOpen = open;
+    layoutConstraint = {
+      ...layoutConstraint,
+      collapsedByConstraint: { ...layoutConstraint.collapsedByConstraint, secondary: false },
+    };
+    runLayoutReconcile();
+  }
+
+  function setUserTerminalOpen(open: boolean) {
+    userTerminalOpen = open;
+    layoutConstraint = {
+      ...layoutConstraint,
+      collapsedByConstraint: { ...layoutConstraint.collapsedByConstraint, panel: false },
+    };
+    runLayoutReconcile();
   }
 
   function startTerminalResize(event: MouseEvent) {
@@ -381,7 +468,7 @@
     const sidePanel = settings.panelDefaultLocation !== "bottom";
     const startX = event.clientX;
     const startY = event.clientY;
-    const startSize = terminalHeight;
+    const startSize = resolvedPanelSize;
 
     const onMove = (ev: MouseEvent) => {
       const delta = sidePanel ? ev.clientX - startX : startY - ev.clientY;
@@ -431,7 +518,9 @@
   );
   let rootStyle = $derived(`${buildThemeStyle(settings)};${buildExtraThemeVars(settings)}`);
   let layoutClasses = $derived(buildIdeLayoutClassesWithSecondary(settings, secondarySidebarOpen));
-  let effectiveTerminalHeight = $derived(clampTerminalSize(terminalHeight));
+  let effectiveTerminalHeight = $derived(
+    terminalOpen ? (resolvedPanelSize > 0 ? resolvedPanelSize : clampTerminalSize(terminalHeight)) : 0,
+  );
   let panelStyle = $derived(panelInlineStyle(settings, effectiveTerminalHeight));
   let terminalDockedBottom = $derived(
     terminalOpen && settings.panelDefaultLocation === "bottom",
@@ -702,7 +791,7 @@
     }
     if (matchKeybinding(event, "toggleSidebar", settings) && !settings.zenMode) {
       event.preventDefault();
-      sidebarCollapsed = !sidebarCollapsed;
+      setUserSidebarOpen(!userSidebarOpen);
       return;
     }
     if (matchKeybinding(event, "toggleTerminal", settings)) {
@@ -877,7 +966,7 @@
 
   function selectBottomPanelTab(tab: "terminal" | "output" | "problems" | "debug") {
     bottomPanelTab = tab;
-    terminalOpen = true;
+    setUserTerminalOpen(true);
   }
 
   async function refreshGrokCliStatus() {
@@ -918,7 +1007,7 @@
     tabs = [];
     activeTabPath = null;
     if (folderRestricted) {
-      terminalOpen = false;
+      setUserTerminalOpen(false);
       if (view === "agents") closeAgentSwarm();
     }
   }
@@ -967,12 +1056,12 @@
   }
 
   function toggleTerminalPanel() {
-    if (folderRestricted && !terminalOpen) {
+    if (folderRestricted && !userTerminalOpen) {
       restrictedFeatureNotice("Terminal");
       return;
     }
-    const opening = !terminalOpen;
-    terminalOpen = !terminalOpen;
+    const opening = !userTerminalOpen;
+    setUserTerminalOpen(!userTerminalOpen);
     if (opening) selectBottomPanelTab("terminal");
   }
 
@@ -993,8 +1082,8 @@
       return;
     }
     grokLaunching = true;
-    terminalOpen = true;
-    secondarySidebarOpen = true;
+    setUserTerminalOpen(true);
+    setUserSecondaryOpen(true);
     secondaryPanelTab = "activity";
     grokActivityDetach?.();
     const sessionId = startActivitySession("Grok CLI");
@@ -1027,8 +1116,8 @@
     }
     agentSwarmOpen = true;
     view = "agents";
-    sidebarCollapsed = true;
-    secondarySidebarOpen = true;
+    setUserSidebarOpen(false);
+    setUserSecondaryOpen(true);
     secondaryPanelTab = "activity";
   }
 
@@ -1098,7 +1187,7 @@
           folderPath = saved.folderPath;
           await mountWorkspace(saved.folderPath, workspaceExcludePatterns(settings));
           selectedFolderPath = saved.folderPath;
-          if (folderRestricted) terminalOpen = false;
+          if (folderRestricted) userTerminalOpen = false;
         } catch (mountError) {
           folderPath = previousFolderPath;
           selectedFolderPath = previousSelectedFolderPath;
@@ -1127,16 +1216,16 @@
             ? candidate
             : restored[0]?.path ?? null;
       }
-      terminalOpen = folderRestricted
+      userTerminalOpen = folderRestricted
         ? false
         : resolveRestoredTerminalOpen(settings, resolveSavedTerminalOpen(saved));
       settings = applyRestoredTerminalSettings(settings, saved);
       if (saved.secondarySidebarOpen !== undefined) {
-        secondarySidebarOpen = saved.secondarySidebarOpen;
+        userSecondaryOpen = saved.secondarySidebarOpen;
       } else {
-        secondarySidebarOpen = initialSecondarySidebarOpen(settings);
+        userSecondaryOpen = initialSecondarySidebarOpen(settings);
       }
-      if (saved.sidebarCollapsed !== undefined) sidebarCollapsed = saved.sidebarCollapsed;
+      if (saved.sidebarCollapsed !== undefined) userSidebarOpen = !saved.sidebarCollapsed;
       if (saved.activePanel) activePanel = saved.activePanel;
     } catch (error) {
       console.error("Failed to restore session:", error);
@@ -1147,10 +1236,12 @@
     await refreshGrokCliStatus();
     await restoreSession();
     await transitionToWorkspace();
+    await restoreFullscreenIfRequested(settings.windowRestoreFullscreen);
     await delay(80);
     workspaceVisible = true;
     appPhase = "workspace";
     sessionHydrated = true;
+    scheduleLayoutReconcile(runLayoutReconcile);
   }
 
   function handleOnboardingComplete(updated: typeof settings) {
@@ -1347,7 +1438,7 @@
 {#if workspaceVisible}
 <div
   class="ide{layoutClasses.ide} workspace-enter"
-  style={rootStyle}
+  style="{rootStyle};{layoutStyle}"
   data-ui-lang={settings.uiLanguage}
   data-theme={settings.theme}
 >
@@ -1391,15 +1482,15 @@
 
   <div class="workspace{layoutClasses.workspace}">
     <nav class="activity-rail" aria-label="Activity bar" class:zen-hidden={settings.zenMode}>
-      <button type="button" class="rail-btn" class:active={activePanel === "explorer" && !sidebarCollapsed} aria-label="Explorer" onclick={() => { if (activePanel === "explorer" && !sidebarCollapsed) { sidebarCollapsed = true; } else { activePanel = "explorer"; sidebarCollapsed = false; } }}>
+      <button type="button" class="rail-btn" class:active={activePanel === "explorer" && !sidebarCollapsed} aria-label="Explorer" onclick={() => { if (activePanel === "explorer" && !sidebarCollapsed) { setUserSidebarOpen(false); } else { activePanel = "explorer"; setUserSidebarOpen(true); } }}>
         <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 2.5h6l1.5 1.5v7.5H2.5V2.5z" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/><path d="M8.5 2.5V4h3" fill="none" stroke="currentColor" stroke-width="1.25"/></svg>
         <span class="rail-hint">Explorer</span>
       </button>
-      <button type="button" class="rail-btn" class:active={activePanel === "search" && !sidebarCollapsed} aria-label="Search" onclick={() => { activePanel = "search"; sidebarCollapsed = false; }}>
+      <button type="button" class="rail-btn" class:active={activePanel === "search" && !sidebarCollapsed} aria-label="Search" onclick={() => { activePanel = "search"; setUserSidebarOpen(true); }}>
         <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4" fill="none" stroke="currentColor" stroke-width="1.25"/><path d="M10 10l3 3" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/></svg>
         <span class="rail-hint">Search</span>
       </button>
-      <button type="button" class="rail-btn" class:active={activePanel === "scm" && !sidebarCollapsed} aria-label="Source Control" disabled={!shouldShowGitPanel(settings)} onclick={() => { if (!shouldShowGitPanel(settings)) return; activePanel = "scm"; sidebarCollapsed = false; }}>
+      <button type="button" class="rail-btn" class:active={activePanel === "scm" && !sidebarCollapsed} aria-label="Source Control" disabled={!shouldShowGitPanel(settings)} onclick={() => { if (!shouldShowGitPanel(settings)) return; activePanel = "scm"; setUserSidebarOpen(true); }}>
         <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true"><circle cx="5" cy="4" r="1.5" fill="currentColor"/><circle cx="5" cy="12" r="1.5" fill="currentColor"/><circle cx="11" cy="7" r="1.5" fill="currentColor"/><path d="M5 5.5v5M5 7.5h4a1.5 1.5 0 0 0 0-3" fill="none" stroke="currentColor" stroke-width="1.25"/></svg>
         {#if dirtyCount > 0}<span class="rail-badge">{dirtyCount}</span>{/if}
         <span class="rail-hint">Source Control</span>
@@ -1420,9 +1511,9 @@
         aria-label="Agent activity"
         onclick={() => {
           if (secondarySidebarOpen && secondaryPanelTab === "activity") {
-            secondarySidebarOpen = false;
+            setUserSecondaryOpen(false);
           } else {
-            secondarySidebarOpen = true;
+            setUserSecondaryOpen(true);
             secondaryPanelTab = "activity";
           }
         }}
@@ -1687,7 +1778,7 @@
               {/if}
             </button>
           </div>
-          <button type="button" class="secondary-close" aria-label="Hide secondary sidebar" onclick={() => (secondarySidebarOpen = false)}>Close</button>
+          <button type="button" class="secondary-close" aria-label="Hide secondary sidebar" onclick={() => setUserSecondaryOpen(false)}>Close</button>
         </div>
         {#if secondaryPanelTab === "outline"}
           <ul class="outline-list">
@@ -1736,7 +1827,7 @@
             Problems{#if workspaceLintIssues.length > 0}<span class="tab-count">{workspaceLintIssues.length}</span>{/if}
           </button>
           <button type="button" class="terminal-tab" class:active={bottomPanelTab === "debug"} onclick={() => selectBottomPanelTab("debug")}>Debug</button>
-          <button type="button" class="terminal-close" aria-label="Hide terminal" onclick={() => (terminalOpen = false)}>Close</button>
+          <button type="button" class="terminal-close" aria-label="Hide terminal" onclick={() => setUserTerminalOpen(false)}>Close</button>
         </div>
         <div class="terminal-body">
           <div class="terminal-pane" class:terminal-pane-hidden={bottomPanelTab !== "terminal"}>
@@ -1936,29 +2027,31 @@ This is a very long debug log line that demonstrates whether the debug console w
   :global(html, body) {
     margin: 0;
     padding: 0;
+    width: 100%;
     height: 100%;
     overflow: hidden;
     font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
-    background: var(--bg, #09090d);
+    background: #09090d;
   }
 
   :global(#svelte) {
+    width: 100%;
     height: 100%;
     overflow: hidden;
   }
 
   .ide {
-    position: relative;
+    position: fixed;
+    inset: 0;
     display: flex;
     flex-direction: column;
+    width: 100%;
     height: 100%;
-    height: 100dvh;
-    max-height: 100dvh;
     background: var(--bg);
     color: var(--text-dim);
     overflow: hidden;
     transition: background 0.2s ease, color 0.2s ease;
-    contain: layout size;
+    contain: layout paint;
   }
 
   .topbar {
@@ -2121,7 +2214,7 @@ This is a very long debug log line that demonstrates whether the debug console w
   }
 
   .activity-rail {
-    width: 40px;
+    width: var(--rail-width, 40px);
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
@@ -2210,7 +2303,7 @@ This is a very long debug log line that demonstrates whether the debug console w
   .rail-spacer { flex: 1; }
 
   .sidebar {
-    width: 280px;
+    width: var(--sidebar-width, 280px);
     flex-shrink: 0;
     background: var(--panel);
     border-right: 1px solid var(--border);
@@ -2519,6 +2612,16 @@ This is a very long debug log line that demonstrates whether the debug console w
     min-width: 0;
     min-height: 100%;
     box-sizing: border-box;
+  }
+
+  .ide.centered-layout .editor-surface {
+    max-width: min(100ch, 100%);
+    margin: 0 auto;
+  }
+
+  .ide.centered-layout .editor-scroll {
+    display: flex;
+    justify-content: center;
   }
 
   .editor-placeholder {
@@ -2886,6 +2989,9 @@ This is a very long debug log line that demonstrates whether the debug console w
     background: var(--panel);
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-x: auto;
   }
   .terminal-tab {
     display: flex;
@@ -3102,7 +3208,7 @@ This is a very long debug log line that demonstrates whether the debug console w
   }
 
   .secondary-sidebar {
-    width: 240px;
+    width: var(--secondary-width, 240px);
     flex-shrink: 0;
     display: flex;
     flex-direction: column;

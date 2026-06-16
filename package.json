@@ -10,7 +10,8 @@
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
     "tauri": "tauri",
-    "tauri:build": "npm run tauri build"
+    "tauri:build": "npm run tauri build",
+    "test:layout": "npx tsx scripts/run-layout-tests.ts"
   },
   "license": "MIT",
   "dependencies": {

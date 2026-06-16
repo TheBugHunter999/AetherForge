@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 
 export async function prepareWizardWindow(): Promise<void> {
   try {
@@ -26,4 +27,15 @@ export async function signalAppReady(): Promise<void> {
 
 export function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export async function restoreFullscreenIfRequested(enabled: boolean): Promise<void> {
+  if (!enabled) return;
+  try {
+    const win = getCurrentWindow();
+    const fs = await win.isFullscreen();
+    if (!fs) await win.setFullscreen(true);
+  } catch {
+    // Browser dev fallback.
+  }
 }

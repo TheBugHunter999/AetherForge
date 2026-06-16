@@ -10,22 +10,31 @@
   } = $props();
 
   let maximized = $state(false);
+  let scaleFactor = $state(1);
   let appWindow: ReturnType<typeof getCurrentWindow> | null = null;
 
   onMount(() => {
-    let unlisten: (() => void) | undefined;
+    let unlistenResized: (() => void) | undefined;
+    let unlistenScale: (() => void) | undefined;
     void (async () => {
       try {
         appWindow = getCurrentWindow();
         maximized = await appWindow.isMaximized();
-        unlisten = await appWindow.onResized(async () => {
+        scaleFactor = await appWindow.scaleFactor();
+        unlistenResized = await appWindow.onResized(async () => {
           if (appWindow) maximized = await appWindow.isMaximized();
+        });
+        unlistenScale = await appWindow.onScaleChanged(({ payload }) => {
+          scaleFactor = payload.scaleFactor;
         });
       } catch {
         /* browser dev */
       }
     })();
-    return () => unlisten?.();
+    return () => {
+      unlistenResized?.();
+      unlistenScale?.();
+    };
   });
 
   function minimize() {
@@ -57,6 +66,7 @@
   class="window-chrome"
   class:locked
   class:maximized
+  style:--scale-factor={scaleFactor}
   data-tauri-drag-region={locked ? undefined : true}
   onmousedown={onDragMouseDown}
 >
@@ -183,6 +193,6 @@
   }
 
   .window-chrome.maximized .chrome-controls {
-    padding-right: env(titlebar-area-x, 0px);
+    padding-right: max(env(titlebar-area-x, 0px), calc((var(--scale-factor, 1) - 1) * 12px), 12px);
   }
 </style>

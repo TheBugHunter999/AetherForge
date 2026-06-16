@@ -1,5 +1,14 @@
 import { isTextFile, type AppSettings, type PanelLocation, type SearchMatch } from "$lib/editor-utils";
 
+export {
+  PANEL_MIN_SIZE,
+  PANEL_MAX_SIZE,
+  PANEL_MAX_RATIO,
+  MIN_MAIN_AREA,
+  clampPanelSize,
+  panelWorkspaceSpan,
+} from "$lib/layout/solver";
+
 /** RegExp that never matches — used when glob compilation fails. */
 const NEVER_MATCH = /(?!)/;
 
@@ -540,54 +549,6 @@ export function shouldShowGitPanel(settings: AppSettings): boolean {
 
 export function panelMaximizedHeight(settings: AppSettings): number {
   return settings.panelMaximizeOnOpen ? 480 : clamp(settings.panelDefaultSize, 120, 600);
-}
-
-/** Minimum bottom/side panel size along its resize axis (px). */
-export const PANEL_MIN_SIZE = 160;
-/** Maximum panel size along its resize axis (px). */
-export const PANEL_MAX_SIZE = 640;
-/** Max share of workspace span the panel may occupy. */
-export const PANEL_MAX_RATIO = 0.55;
-/** Minimum editor/main area preserved when the panel is open (px). */
-export const MIN_MAIN_AREA = 200;
-
-export type PanelClampOptions = {
-  minSize?: number;
-  minMain?: number;
-  maxSize?: number;
-  maxRatio?: number;
-};
-
-/** Clamp panel height (bottom) or width (left/right) against workspace span. */
-export function clampPanelSize(
-  size: number,
-  workspaceSpan: number,
-  options: PanelClampOptions = {},
-): number {
-  const minSize = options.minSize ?? PANEL_MIN_SIZE;
-  const minMain = options.minMain ?? MIN_MAIN_AREA;
-  const maxSize = options.maxSize ?? PANEL_MAX_SIZE;
-  const maxRatio = options.maxRatio ?? PANEL_MAX_RATIO;
-
-  if (workspaceSpan <= 0) return 0;
-
-  const maxByRatio = Math.floor(workspaceSpan * maxRatio);
-  const maxByMain = Math.max(0, workspaceSpan - minMain);
-  const upper = Math.min(maxSize, maxByRatio, maxByMain);
-  const lower = Math.min(minSize, upper);
-
-  if (upper <= 0) return 0;
-  if (!Number.isFinite(size)) return lower;
-  return Math.max(lower, Math.min(upper, size));
-}
-
-/** Workspace span along the panel resize axis (height for bottom, width for sides). */
-export function panelWorkspaceSpan(
-  location: PanelLocation,
-  workspaceWidth: number,
-  workspaceHeight: number,
-): number {
-  return location === "bottom" ? workspaceHeight : workspaceWidth;
 }
 
 export function panelResizeCursor(location: PanelLocation): "ns-resize" | "ew-resize" {

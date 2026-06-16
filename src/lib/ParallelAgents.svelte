@@ -259,7 +259,7 @@
   <div class="swarm-body">
     <section
       class="agent-grid"
-      style="grid-template-columns: repeat({gridLayout.cols}, minmax(0, 1fr)); grid-template-rows: repeat({gridLayout.rows}, minmax(0, 1fr));"
+      style="grid-template-columns: repeat({gridLayout.cols}, minmax(480px, 1fr)); grid-template-rows: repeat({gridLayout.rows}, minmax(0, 1fr));"
     >
       {#if agents.length === 0}
         {#each Array(clampAgentCount(agentCount)) as _, i (i)}
@@ -510,7 +510,8 @@
     min-width: 0;
     min-height: 0;
     background: var(--border);
-    overflow: hidden;
+    overflow-x: auto;
+    overflow-y: hidden;
   }
 
   .agent-cell {
