@@ -7,6 +7,10 @@ export type PanelLocation = "bottom" | "right" | "left";
 export type SidebarLocation = "left" | "right";
 export type BreakpointBehavior = "always" | "never" | "onException";
 export type TerminalCursorStyle = "block" | "underline" | "line";
+export type AgentModePreset = "strict" | "review-driven" | "agent-driven" | "custom";
+export type ExecutionPolicy = "ask-every-time" | "review-first" | "auto-run";
+export type ImportSource = "fresh" | "vscode" | "cursor";
+export type ExtensionSetupMode = "recommended" | "configure";
 
 export type AppSettings = {
   theme: string;
@@ -122,6 +126,14 @@ export type AppSettings = {
   terminalGpuAcceleration: boolean;
   terminalBell: boolean;
   terminalPersistSession: boolean;
+  onboardingCompleted: boolean;
+  agentModePreset: AgentModePreset;
+  terminalExecutionPolicy: ExecutionPolicy;
+  artifactReviewPolicy: ExecutionPolicy;
+  jsExecutionPolicy: ExecutionPolicy;
+  importSource: ImportSource;
+  extensionSetupMode: ExtensionSetupMode;
+  privacyImprovementConsent: boolean;
 };
 
 export const TEXT_EXTENSIONS = new Set([
@@ -466,6 +478,14 @@ export const DEFAULT_SETTINGS: AppSettings = {
   terminalGpuAcceleration: true,
   terminalBell: false,
   terminalPersistSession: false,
+  onboardingCompleted: false,
+  agentModePreset: "review-driven",
+  terminalExecutionPolicy: "review-first",
+  artifactReviewPolicy: "review-first",
+  jsExecutionPolicy: "review-first",
+  importSource: "fresh",
+  extensionSetupMode: "recommended",
+  privacyImprovementConsent: false,
 };
 
 export function extOf(name: string): string {

@@ -12,11 +12,17 @@
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "Grokden",
-        "width": 1280,
-        "height": 800,
+        "width": 1080,
+        "height": 720,
         "minWidth": 900,
-        "minHeight": 600
+        "minHeight": 600,
+        "visible": true,
+        "maximized": false,
+        "center": true,
+        "decorations": true,
+        "resizable": true
       }
     ],
     "security": {
@@ -43,10 +49,12 @@
       },
       "nsis": {
         "installMode": "both",
-        "displayLanguageSelector": false
+        "displayLanguageSelector": false,
+        "template": "windows/nsis/installer.nsi"
       },
       "wix": {
-        "language": "en-US"
+        "language": "en-US",
+        "template": "windows/main.wxs"
       }
     }
   }

@@ -24,6 +24,7 @@
     settings,
     cwd = null,
     visible = false,
+    sessionActive = true,
     injectToken = 0,
     injectCommand = null,
     injectPrompt = null,
@@ -34,6 +35,7 @@
     settings: AppSettings;
     cwd?: string | null;
     visible?: boolean;
+    sessionActive?: boolean;
     injectToken?: number;
     injectCommand?: string | null;
     injectPrompt?: string | null;
@@ -205,24 +207,24 @@
   }
 
   async function spawnSession() {
-    if (!term || !visible || terminalId) return;
+    if (!term || !sessionActive || terminalId) return;
 
     const generation = ++spawnGeneration;
     const shell = settings.terminalShellPath.trim() || null;
 
     try {
       const id = await spawnTerminal({ shell, cwd });
-      if (generation !== spawnGeneration || !term || !visible) {
+      if (generation !== spawnGeneration || !term || !sessionActive) {
         await closeTerminal({ id }).catch(() => undefined);
         return;
       }
 
+      terminalId = id;
       unregisterOutput = registerTerminalOutput(id, (data) => {
         if (terminalId === id && term) {
           term.write(data);
         }
       });
-      terminalId = id;
 
       await fitAndResize();
     } catch (error) {
@@ -352,25 +354,30 @@
   $effect(() => {
     if (!mounted || !term) return;
 
-    if (visible) {
+    if (sessionActive) {
       if (!terminalId) {
         void spawnSession();
-      } else {
-        void fitAndResize();
       }
-      const t1 = setTimeout(() => void fitAndResize(), 50);
-      const t2 = setTimeout(() => void fitAndResize(), 200);
-      return () => {
-        clearTimeout(t1);
-        clearTimeout(t2);
-      };
+      return;
     }
 
     void teardownSession();
   });
 
+  $effect(() => {
+    if (!mounted || !term || !visible || !terminalId) return;
+    void fitAndResize();
+    const t1 = setTimeout(() => void fitAndResize(), 50);
+    const t2 = setTimeout(() => void fitAndResize(), 200);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  });
+
   let lastInjectToken = 0;
   let injectInFlight = false;
+  let pendingInjectToken = 0;
 
   async function runInjectedCommand(cmd: string, id: number): Promise<boolean> {
     const data = cmd.endsWith("\r") || cmd.endsWith("\n") ? cmd : `${cmd}\r`;
@@ -393,7 +400,7 @@
     if (injectInFlight || token === lastInjectToken) return;
 
     const id = terminalId;
-    if (!id || !visible || generation !== spawnGeneration) return;
+    if (!id || !sessionActive || generation !== spawnGeneration) return;
 
     injectInFlight = true;
     try {
@@ -402,7 +409,7 @@
       const trimmed = prompt?.trim();
       if (trimmed) {
         await new Promise((resolve) => setTimeout(resolve, promptDelayMs));
-        if (!terminalId || terminalId !== id || !visible || generation !== spawnGeneration) {
+        if (!terminalId || terminalId !== id || !sessionActive || generation !== spawnGeneration) {
           return;
         }
         await writeTerminal({ id, data: `${trimmed}\r` });
@@ -412,6 +419,14 @@
       lastInjectToken = token;
     } finally {
       injectInFlight = false;
+      if (pendingInjectToken > lastInjectToken) {
+        const next = pendingInjectToken;
+        pendingInjectToken = 0;
+        const cmd = injectCommand?.trim();
+        if (cmd && next !== lastInjectToken) {
+          void runInjectSequence(cmd, injectPrompt ?? null, next, spawnGeneration);
+        }
+      }
     }
   }
 
@@ -419,7 +434,11 @@
     const token = injectToken;
     const cmd = injectCommand?.trim();
     const prompt = injectPrompt;
-    if (!token || token === lastInjectToken || !cmd || !visible || injectInFlight) return;
+    if (!token || token === lastInjectToken || !cmd || !sessionActive) return;
+    if (injectInFlight) {
+      pendingInjectToken = Math.max(pendingInjectToken, token);
+      return;
+    }
 
     const generation = spawnGeneration;
 

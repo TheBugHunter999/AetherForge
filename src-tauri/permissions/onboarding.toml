@@ -1,0 +1,39 @@
+[[permission]]
+identifier = "allow-read-editor-settings"
+description = "Enables reading VS Code / Cursor settings for onboarding import."
+commands.allow = ["read_editor_settings"]
+
+[[permission]]
+identifier = "allow-telemetry-record"
+description = "Enables local telemetry recording."
+commands.allow = ["telemetry_record"]
+
+[[permission]]
+identifier = "allow-telemetry-set-enabled"
+description = "Enables toggling local telemetry."
+commands.allow = ["telemetry_set_enabled"]
+
+[[permission]]
+identifier = "allow-telemetry-get-storage-info"
+description = "Enables reading local telemetry storage info."
+commands.allow = ["telemetry_get_storage_info"]
+
+[[permission]]
+identifier = "allow-telemetry-clear"
+description = "Enables clearing local telemetry data."
+commands.allow = ["telemetry_clear"]
+
+[[permission]]
+identifier = "allow-app-ready"
+description = "Signals main window readiness."
+commands.allow = ["app_ready"]
+
+[[permission]]
+identifier = "allow-prepare-wizard-window"
+description = "Sizes window for first-run wizard."
+commands.allow = ["prepare_wizard_window"]
+
+[[permission]]
+identifier = "allow-transition-to-workspace"
+description = "Maximizes window after onboarding."
+commands.allow = ["transition_to_workspace"]

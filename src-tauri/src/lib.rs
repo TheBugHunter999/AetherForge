@@ -1,10 +1,17 @@
 mod grok_cli;
+mod ide_import;
+mod telemetry;
 mod terminal;
 
+use ide_import::EditorImportResult;
 use serde::Serialize;
 use std::fs;
 use std::path::Path;
+use tauri::{AppHandle, LogicalSize, Manager};
 use terminal::TerminalState;
+
+const WIZARD_WIDTH: u32 = 1080;
+const WIZARD_HEIGHT: u32 = 720;
 
 const IGNORED_NAMES: &[&str] = &[
     "node_modules",
@@ -152,12 +159,96 @@ fn create_folder(parent_path: String, name: String) -> Result<String, String> {
     Ok(folder_path.to_string_lossy().to_string())
 }
 
+fn center_window(main: &tauri::WebviewWindow) {
+    let _ = main.center();
+}
+
+#[tauri::command]
+fn read_editor_settings(source: String) -> Result<EditorImportResult, String> {
+    ide_import::read_editor_settings(source)
+}
+
+#[tauri::command]
+fn telemetry_record(
+    app: AppHandle,
+    event: String,
+    properties: Option<serde_json::Value>,
+) -> Result<(), String> {
+    telemetry::record_event(&app, event, properties)
+}
+
+#[tauri::command]
+fn telemetry_set_enabled(enabled: bool) -> Result<(), String> {
+    telemetry::set_enabled(enabled);
+    Ok(())
+}
+
+#[tauri::command]
+fn telemetry_get_storage_info(app: AppHandle) -> Result<telemetry::TelemetryStorageInfo, String> {
+    telemetry::storage_info(&app)
+}
+
+#[tauri::command]
+fn telemetry_clear(app: AppHandle) -> Result<(), String> {
+    telemetry::clear_events(&app)
+}
+
+#[tauri::command]
+fn prepare_wizard_window(app: AppHandle) -> Result<(), String> {
+    let Some(main) = app.get_webview_window("main") else {
+        return Ok(());
+    };
+    let _ = main.unminimize();
+    if main.is_maximized().unwrap_or(false) {
+        let _ = main.unmaximize();
+    }
+    main
+        .set_size(LogicalSize::new(WIZARD_WIDTH, WIZARD_HEIGHT))
+        .map_err(|e| e.to_string())?;
+    center_window(&main);
+    let _ = main.show();
+    let _ = main.set_focus();
+    Ok(())
+}
+
+#[tauri::command]
+fn transition_to_workspace(app: AppHandle) -> Result<(), String> {
+    let Some(main) = app.get_webview_window("main") else {
+        return Ok(());
+    };
+    let _ = main.unminimize();
+    let _ = main.show();
+    if main.is_fullscreen().unwrap_or(false) {
+        let _ = main.set_fullscreen(false);
+    }
+    if main.is_maximized().unwrap_or(false) {
+        let _ = main.unmaximize();
+    }
+    main.maximize().map_err(|e| e.to_string())?;
+    let _ = main.set_focus();
+    Ok(())
+}
+
+#[tauri::command]
+fn app_ready(app: AppHandle) -> Result<(), String> {
+    transition_to_workspace(app)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .manage(TerminalState::new())
+        .setup(|app| {
+            if let Some(main) = app.get_webview_window("main") {
+                let _ = main.set_size(LogicalSize::new(WIZARD_WIDTH, WIZARD_HEIGHT));
+                center_window(&main);
+                let _ = main.show();
+                let _ = main.set_focus();
+            }
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             list_folder,
             read_file,
@@ -169,11 +260,21 @@ pub fn run() {
             terminal::terminal_spawn,
             terminal::terminal_write,
             terminal::terminal_resize,
-            terminal::terminal_close
+            terminal::terminal_close,
+            read_editor_settings,
+            telemetry_record,
+            telemetry_set_enabled,
+            telemetry_get_storage_info,
+            telemetry_clear,
+            app_ready,
+            prepare_wizard_window,
+            transition_to_workspace
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
+
+
 
 #[cfg(test)]
 mod tests {

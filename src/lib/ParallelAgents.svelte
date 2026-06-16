@@ -254,15 +254,20 @@
               <button type="button" class="cell-close" title="Remove agent" onclick={() => removeAgent(agent.id)}>×</button>
             </div>
             <div class="cell-terminal">
-              <Terminal
-                {settings}
-                {cwd}
-                visible={true}
-                compact={true}
-                enableHelper={false}
-                injectToken={agent.injectToken}
-                injectCommand={grokCommand || buildAgentGrokCommand(settings)}
-              />
+              {#if agent.status !== "idle"}
+                <Terminal
+                  {settings}
+                  {cwd}
+                  sessionActive={true}
+                  visible={true}
+                  compact={true}
+                  enableHelper={false}
+                  injectToken={agent.injectToken}
+                  injectCommand={grokCommand || buildAgentGrokCommand(settings)}
+                />
+              {:else}
+                <div class="cell-idle">Press Launch or ↻ to start this agent</div>
+              {/if}
             </div>
           </div>
         {/each}
@@ -545,6 +550,16 @@
   .empty-hint { font-size: 11px; color: var(--text-mute); font-style: italic; text-align: center; }
 
   .cell-terminal { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+  .cell-idle {
+    flex: 1;
+    display: grid;
+    place-items: center;
+    font-size: 12px;
+    color: var(--text-mute);
+    font-style: italic;
+    padding: 12px;
+    text-align: center;
+  }
 
   .mission-board {
     width: 300px;

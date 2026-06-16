@@ -22,6 +22,14 @@
     "allow-terminal-spawn",
     "allow-terminal-write",
     "allow-terminal-resize",
-    "allow-terminal-close"
+    "allow-terminal-close",
+    "allow-read-editor-settings",
+    "allow-telemetry-record",
+    "allow-telemetry-set-enabled",
+    "allow-telemetry-get-storage-info",
+    "allow-telemetry-clear",
+    "allow-app-ready",
+    "allow-prepare-wizard-window",
+    "allow-transition-to-workspace"
   ]
 }

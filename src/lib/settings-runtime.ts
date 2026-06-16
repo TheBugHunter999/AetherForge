@@ -161,6 +161,24 @@ export function nameMatchesQuery(name: string, query: string, settings: AppSetti
   return lineMatchesQuery(name, query, settings);
 }
 
+export function isSearchRegexValid(query: string): boolean {
+  const q = query.trim();
+  if (!q) return true;
+  try {
+    new RegExp(q);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function searchResultDirLabel(filePath: string): string {
+  const normalized = filePath.replace(/[/\\]+$/, "");
+  const index = Math.max(normalized.lastIndexOf("/"), normalized.lastIndexOf("\\"));
+  if (index <= 0) return "";
+  return normalized.slice(0, index);
+}
+
 export type SearchFileHit = { name: string; path: string };
 
 export function computeSearch<

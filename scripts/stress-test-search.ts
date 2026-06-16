@@ -5,6 +5,7 @@ import {
   globToRegExp,
   isPathExcluded,
   isSearchExcluded,
+  isSearchRegexValid,
   lineMatchesQuery,
   parsePatterns,
   pathMatchesAny,
@@ -81,6 +82,7 @@ assert("whole word miss", !lineMatchesQuery("foobar", "foo", { ...settings, sear
 const regex = { ...settings, searchUseRegex: true };
 assert("regex digit", lineMatchesQuery("a1b", "\\d", regex));
 assert("invalid regex", !lineMatchesQuery("a1b", "[", regex));
+assert("regex validity helper", isSearchRegexValid("\\d") && !isSearchRegexValid("["));
 const regexWord = { ...settings, searchUseRegex: true, searchWholeWord: true };
 assert("regex whole word", lineMatchesQuery("foo bar", "foo", regexWord));
 assert("regex whole word miss", !lineMatchesQuery("foobar", "foo", regexWord));

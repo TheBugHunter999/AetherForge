@@ -88,7 +88,7 @@
         <button type="button" class="toggle" class:on={settings.allowPrereleaseUpdates} role="switch" aria-checked={settings.allowPrereleaseUpdates} aria-label="Allow Prerelease Updates" onclick={() => (settings.allowPrereleaseUpdates = !settings.allowPrereleaseUpdates)}><span class="knob"></span></button></div>
     {/if}
     {#if showRow("general", "Telemetry usage analytics privacy data")}
-      <div class="row"><div class="meta"><div class="label">Telemetry</div><div class="desc">Send anonymous usage data to help improve Grokden.</div></div>
+      <div class="row"><div class="meta"><div class="label">Telemetry</div><div class="desc">Store anonymous usage events locally on this PC (no cloud upload). Saved under %LOCALAPPDATA%\com.grokden.desktop\telemetry.</div></div>
         <button type="button" class="toggle" class:on={settings.telemetryEnabled} role="switch" aria-checked={settings.telemetryEnabled} aria-label="Telemetry" onclick={() => (settings.telemetryEnabled = !settings.telemetryEnabled)}><span class="knob"></span></button></div>
     {/if}
     {#if showRow("general", "Crash Reports error diagnostics privacy")}

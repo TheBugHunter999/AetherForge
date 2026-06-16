@@ -78,8 +78,21 @@
     syncAiContext,
     syncRuntimeFlags,
     type ChordState,
+    type SearchOptionFlags,
   } from "$lib/settings-runtime";
   import Settings from "$lib/Settings.svelte";
+  import Onboarding from "$lib/Onboarding.svelte";
+  import LaunchSplash from "$lib/LaunchSplash.svelte";
+  import {
+    shouldRequireOnboarding,
+    markLegacyOnboardingComplete,
+  } from "$lib/onboarding-storage";
+  import { setTelemetryEnabled } from "$lib/telemetry-client";
+  import {
+    prepareWizardWindow,
+    transitionToWorkspace,
+    delay,
+  } from "$lib/window-lifecycle";
   import SearchPanel from "$lib/SearchPanel.svelte";
   import SourceControl from "$lib/SourceControl.svelte";
   import Terminal from "$lib/Terminal.svelte";
@@ -111,9 +124,14 @@
   const slideY = { duration: 200 };
   const fadeFast = { duration: 120 };
 
-  let settings = $state(loadSettings());
+  const initialSettings = markLegacyOnboardingComplete(loadSettings());
+  const needsOnboarding = shouldRequireOnboarding(initialSettings);
+  let settings = $state(initialSettings);
+  let appPhase = $state<"launch" | "onboarding" | "workspace">("launch");
+  let workspaceVisible = $state(false);
 
   $effect(() => {
+    if (!settings.onboardingCompleted && appPhase !== "workspace") return;
     try {
       if (typeof localStorage !== "undefined") {
         localStorage.setItem("Grokden.settings", JSON.stringify(settings));
@@ -214,6 +232,10 @@
 
   $effect(() => {
     syncAiContext(settings, tabs, activeTabPath);
+  });
+
+  $effect(() => {
+    void setTelemetryEnabled(settings.telemetryEnabled);
   });
 
   $effect(() => {
@@ -605,6 +627,26 @@
     cursorCol = 1;
   }
 
+  function toggleSearchOption(key: keyof SearchOptionFlags) {
+    switch (key) {
+      case "caseSensitive":
+        settings.searchCaseSensitive = !settings.searchCaseSensitive;
+        break;
+      case "useRegex":
+        settings.searchUseRegex = !settings.searchUseRegex;
+        break;
+      case "wholeWord":
+        settings.searchWholeWord = !settings.searchWholeWord;
+        break;
+      case "includeIgnored":
+        settings.searchIncludeIgnored = !settings.searchIncludeIgnored;
+        break;
+      case "followSymlinks":
+        settings.searchFollowSymlinks = !settings.searchFollowSymlinks;
+        break;
+    }
+  }
+
   function handleKeydown(event: KeyboardEvent) {
     const mod = event.ctrlKey || event.metaKey;
     const target = event.target as HTMLElement | null;
@@ -817,12 +859,15 @@
   }
 
   function launchGrokCli() {
-    if (grokCliAvailable === false) {
-      settingsNotice = "Install Grok CLI first — see the welcome screen or README for install commands.";
-      setTimeout(() => {
-        if (settingsNotice.startsWith("Install Grok CLI first")) settingsNotice = "";
-      }, 6000);
-      selectBottomPanelTab("terminal");
+    if (grokLaunching) return;
+    if (grokCliAvailable !== true) {
+      if (grokCliAvailable === false) {
+        settingsNotice = "Install Grok CLI first — see the welcome screen or README for install commands.";
+        setTimeout(() => {
+          if (settingsNotice.startsWith("Install Grok CLI first")) settingsNotice = "";
+        }, 6000);
+        selectBottomPanelTab("terminal");
+      }
       return;
     }
     grokLaunching = true;
@@ -909,8 +954,8 @@
       const saved = parseSessionPayload(raw);
       if (!saved) return;
       if (saved.folderPath) {
-        folderPath = saved.folderPath;
         const entries = await invoke<FileEntry[]>("list_folder", listFolderArgs(saved.folderPath));
+        folderPath = saved.folderPath;
         explorerNodes = entries.map((entry) => createExplorerNode(entry, 0));
         selectedFolderPath = saved.folderPath;
       }
@@ -941,6 +986,22 @@
     }
   }
 
+  async function enterWorkspace() {
+    await refreshGrokCliStatus();
+    await restoreSession();
+    await transitionToWorkspace();
+    await delay(80);
+    workspaceVisible = true;
+    appPhase = "workspace";
+    sessionHydrated = true;
+  }
+
+  function handleOnboardingComplete(updated: typeof settings) {
+    settings = updated;
+    void enterWorkspace();
+    void setTelemetryEnabled(updated.telemetryEnabled);
+  }
+
   onMount(() => {
     if (settings.startupBehavior === "empty" || settings.startupBehavior === "welcome") {
       tabs = [];
@@ -956,9 +1017,15 @@
       console.info("[Grokden] windowRestoreFullscreen enabled — fullscreen restore on next launch");
     }
     void (async () => {
-      await refreshGrokCliStatus();
-      await restoreSession();
-      sessionHydrated = true;
+      await setTelemetryEnabled(settings.telemetryEnabled);
+      if (needsOnboarding) {
+        await prepareWizardWindow();
+        await delay(900);
+        appPhase = "onboarding";
+      } else {
+        await delay(500);
+        await enterWorkspace();
+      }
     })();
   });
 
@@ -1125,8 +1192,20 @@
 
 <svelte:window onkeydown={handleKeydown} onbeforeunload={handleBeforeUnload} />
 
+{#key appPhase}
+  {#if appPhase === "launch"}
+    <div class="phase-shell" in:fade={{ duration: 200 }} out:fade={{ duration: 220 }}>
+      <LaunchSplash />
+    </div>
+  {:else if appPhase === "onboarding"}
+    <div class="phase-shell" in:fade={{ duration: 280 }} out:fade={{ duration: 220 }}>
+      <Onboarding {settings} oncomplete={handleOnboardingComplete} />
+    </div>
+  {/if}
+{/key}
+{#if workspaceVisible}
 <div
-  class="ide{layoutClasses.ide}"
+  class="ide{layoutClasses.ide} workspace-enter"
   style={rootStyle}
   data-ui-lang={settings.uiLanguage}
   data-theme={settings.theme}
@@ -1269,7 +1348,7 @@
             {/if}
           </ul>
         {:else if activePanel === "search"}
-          <SearchPanel {searchOptions} query={searchQuery} results={searchResults} onInput={(value) => (searchQuery = value)} onOpen={(hit) => openFile(hit)} onJump={(match) => jumpToMatch(match)} />
+          <SearchPanel {searchOptions} query={searchQuery} results={searchResults} onInput={(value) => (searchQuery = value)} onOpen={(hit) => openFile(hit)} onJump={(match) => jumpToMatch(match)} onToggleOption={toggleSearchOption} />
         {:else if shouldShowGitPanel(settings)}
           <SourceControl
             {changes}
@@ -1339,7 +1418,7 @@
           grokCliAvailable={grokCliAvailable}
           onGrokCliMissing={() => {
             settingsNotice = "Install Grok CLI first — see the welcome screen or README for install commands.";
-            view = "editor";
+            closeAgentSwarm();
           }}
           onClose={closeAgentSwarm}
         />
@@ -1530,7 +1609,8 @@
             <Terminal
               {settings}
               cwd={folderPath}
-              visible={terminalOpen && bottomPanelTab === "terminal"}
+              sessionActive={terminalOpen}
+              visible={bottomPanelTab === "terminal"}
               injectToken={grokInjectToken}
               injectCommand={grokInjectCommand}
             />
@@ -1673,9 +1753,23 @@ This is a very long debug log line that demonstrates whether the debug console w
       {/if}
     </div>
   </div>
+
 </div>
+{/if}
 
 <style>
+  :global(.phase-shell) {
+    position: fixed;
+    inset: 0;
+    z-index: 15000;
+  }
+  .workspace-enter {
+    animation: workspace-in 0.4s ease-out both;
+  }
+  @keyframes workspace-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
   :global(html, body) {
     margin: 0;
     padding: 0;
