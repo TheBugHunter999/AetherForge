@@ -18,6 +18,7 @@
     "allow-path-exists",
     "allow-create-file",
     "allow-create-folder",
+    "allow-workspace",
     "allow-grok-cli-available",
     "allow-terminal-spawn",
     "allow-terminal-write",

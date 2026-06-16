@@ -1,7 +1,7 @@
 <script lang="ts">
   import { fileMeta } from "$lib/editor-utils";
 
-  type Change = { name: string; path: string };
+  type Change = { name: string; path: string; status: string };
 
   let {
     changes,
@@ -68,7 +68,7 @@
       <li class="scm-item">
         <span class="badge" style="color: {fileMeta(c.name).color}">{fileMeta(c.name).label}</span>
         <button type="button" class="scm-name" title={c.path} onclick={() => onOpen(c)}>{c.name}</button>
-        <span class="scm-tag">M</span>
+        <span class="scm-tag" data-status={c.status} title="Status">{c.status}</span>
         <span class="scm-row-actions">
           <button type="button" class="scm-action" title="Save" aria-label="Save {c.name}" onclick={() => onSave(c)}>Save</button>
           <button type="button" class="scm-action" title="Revert" aria-label="Revert {c.name}" onclick={() => onRevert(c)}>Revert</button>
@@ -171,7 +171,14 @@
   }
   .scm-item:hover .scm-name { color: var(--text); }
 
-  .scm-tag { font-size: 11px; font-weight: 400; color: var(--warn); flex-shrink: 0; }
+  .scm-tag { font-size: 11px; font-weight: 400; flex-shrink: 0; }
+  .scm-tag[data-status="U"],
+  .scm-tag[data-status="?"] { color: var(--success); }
+  .scm-tag[data-status="A"],
+  .scm-tag[data-status="M"] { color: var(--warn); }
+  .scm-tag[data-status="D"],
+  .scm-tag[data-status="!"] { color: var(--danger); }
+  .scm-tag[data-status="R"] { color: var(--accent); }
 
   .scm-row-actions { display: flex; gap: 2px; flex-shrink: 0; }
   .scm-action {

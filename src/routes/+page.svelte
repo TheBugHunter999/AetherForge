@@ -1,7 +1,7 @@
 <script lang="ts">
   import { invoke } from "@tauri-apps/api/core";
   import { open } from "@tauri-apps/plugin-dialog";
-  import { onMount } from "svelte";
+  import { onDestroy, onMount } from "svelte";
   import { fade, slide } from "svelte/transition";
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import {
@@ -21,7 +21,6 @@
     buildEditorClasses,
     buildEditorStatusInfo,
     buildEditorStyleVars,
-    buildExplorerDisplayRows,
     computeSearch,
     buildExtraThemeVars,
     buildGrokLaunchCommand,
@@ -49,8 +48,7 @@
     formatContent,
     handleAutoClose,
     insertTabAtSelection,
-    isPathExcluded,
-    lineHasTrailingWhitespace,
+    isSearchExcluded,
     lintContent,
     lintWorkspaceTabs,
     type WorkspaceLintIssue,
@@ -62,7 +60,6 @@
     vimCursorLeft,
     vimCursorRight,
     vimCursorUp,
-    renderWhitespaceVisual,
     resetChord,
     resolveChordSecondKey,
     shouldAutoShareOnOpen,
@@ -100,6 +97,22 @@
   import AgentActivityFeed from "$lib/AgentActivityFeed.svelte";
   import WindowChrome from "$lib/WindowChrome.svelte";
   import FolderTrustDialog from "$lib/FolderTrustDialog.svelte";
+  import ExplorerPanel from "$lib/explorer/ExplorerPanel.svelte";
+  import QuickOpen from "$lib/explorer/QuickOpen.svelte";
+  import {
+    mountWorkspace,
+    unmountWorkspace,
+    refreshExplorerIndex,
+    refreshGitStatus,
+    invalidateChildren,
+    getSearchableExplorerNodes,
+    getGitStatusMap,
+    workspaceExcludePatterns,
+    setSelectedFolderPath,
+  } from "$lib/explorer/explorer-store.svelte";
+  import { gitStatusForPath } from "$lib/explorer/agent-overlay";
+  import { normalizePathKey } from "$lib/explorer/path-utils";
+  import type { ExplorerTreeNode } from "$lib/workspace/types";
   import {
     isFolderTrusted,
     shouldPromptFolderTrust,
@@ -114,20 +127,6 @@
     GROK_CLI_INSTALL_WINDOWS,
     isGrokCliAvailable,
   } from "$lib/grok-cli";
-
-  type FileEntry = { name: string; path: string; is_dir: boolean; is_symlink?: boolean };
-
-  type ExplorerNode = {
-    name: string;
-    path: string;
-    is_dir: boolean;
-    is_symlink?: boolean;
-    depth: number;
-    expanded: boolean;
-    loaded: boolean;
-    loading: boolean;
-    children: ExplorerNode[];
-  };
 
   type EditorTab = { path: string; name: string; content: string; savedContent: string };
 
@@ -157,8 +156,8 @@
   let folderRestricted = $state(false);
   let folderTrustPendingPath = $state<string | null>(null);
   let folderTrustParent = $state(false);
-  let explorerNodes = $state<ExplorerNode[]>([]);
   let tabs = $state<EditorTab[]>([]);
+  let quickOpenVisible = $state(false);
   let activeTabPath = $state<string | null>(null);
   let saveError = $state("");
 
@@ -166,7 +165,6 @@
   let sidebarCollapsed = $state(false);
   let terminalOpen = $state(settings.showTerminalOnStart);
   let secondarySidebarOpen = $state(initialSecondarySidebarOpen(settings));
-  let expandedNestParents = $state(new Set<string>());
   let view = $state<"editor" | "settings" | "agents">("editor");
   let parallelAgents = $state<ParallelAgent[]>([]);
   let missionGoals = $state<MissionGoal[]>([]);
@@ -183,7 +181,10 @@
   let mainTerminalId = $state<number | null>(null);
   let secondaryPanelTab = $state<"outline" | "activity">("outline");
   let autoSaveTimer: ReturnType<typeof setTimeout> | undefined;
+  let sessionPersistTimer: ReturnType<typeof setTimeout> | undefined;
   let gitFetchTimer: ReturnType<typeof setInterval> | undefined;
+  let aiContextTimer: ReturnType<typeof setTimeout> | undefined;
+  let sidebarBeforeZen: boolean | null = null;
   let terminalHeight = $state(settings.panelDefaultSize);
   let sessionKey = "Grokden.session";
   let sessionHydrated = $state(false);
@@ -199,6 +200,7 @@
   let formatNotice = $state("");
   let settingsNotice = $state("");
   let editorTextarea: HTMLTextAreaElement | undefined = $state();
+  let editorScrollEl = $state<HTMLDivElement | undefined>();
   let workspaceBodyEl = $state<HTMLDivElement | undefined>();
   let workspaceBodyHeight = $state(720);
   let workspaceBodyWidth = $state(1280);
@@ -240,7 +242,23 @@
   });
 
   $effect(() => {
-    syncAiContext(settings, tabs, activeTabPath);
+    const aiOn = settings.aiIncludeOpenFiles || settings.aiAutoContext;
+    if (!aiOn) {
+      if (aiContextTimer) {
+        clearTimeout(aiContextTimer);
+        aiContextTimer = undefined;
+      }
+      syncAiContext(settings, tabs, activeTabPath);
+      return;
+    }
+    if (aiContextTimer) clearTimeout(aiContextTimer);
+    aiContextTimer = setTimeout(() => {
+      syncAiContext(settings, tabs, activeTabPath);
+      aiContextTimer = undefined;
+    }, 400);
+    return () => {
+      if (aiContextTimer) clearTimeout(aiContextTimer);
+    };
   });
 
   $effect(() => {
@@ -290,7 +308,11 @@
 
   $effect(() => {
     if (settings.zenMode) {
+      if (sidebarBeforeZen === null) sidebarBeforeZen = sidebarCollapsed;
       sidebarCollapsed = true;
+    } else if (sidebarBeforeZen !== null) {
+      sidebarCollapsed = sidebarBeforeZen;
+      sidebarBeforeZen = null;
     }
   });
 
@@ -303,45 +325,39 @@
   });
 
   $effect(() => {
-    try {
-      if (typeof localStorage === "undefined") return;
-      const terminal = buildTerminalSessionSlice(settings, terminalOpen, folderPath);
-      const payload = {
-        folderPath,
-        tabs: tabs.map((t) => ({ path: t.path, name: t.name, savedContent: t.savedContent })),
-        activeTabPath,
-        terminalOpen,
-        terminal,
-        secondarySidebarOpen,
-        sidebarCollapsed,
-        activePanel,
-      };
-      if (shouldPersistSessionSnapshot(settings, sessionHydrated, payload)) {
-        localStorage.setItem(sessionKey, JSON.stringify(payload));
-      }
-    } catch {
-      /* ignore */
-    }
-  });
-
-  function listFolderArgs(path: string) {
-    return {
-      folderPath: path,
-      followSymlinks: settings.searchFollowSymlinks,
+    if (typeof localStorage === "undefined") return;
+    const terminal = buildTerminalSessionSlice(settings, folderRestricted ? false : terminalOpen, folderPath);
+    const payload = {
+      folderPath,
+      tabs: tabs.map((t) => ({
+        path: t.path,
+        name: t.name,
+        savedContent: t.savedContent,
+        ...(t.content !== t.savedContent ? { content: t.content } : {}),
+      })),
+      activeTabPath,
+      terminalOpen: folderRestricted ? false : terminalOpen,
+      terminal,
+      secondarySidebarOpen,
+      sidebarCollapsed,
+      activePanel,
     };
-  }
+    if (!shouldPersistSessionSnapshot(settings, sessionHydrated, payload)) return;
+    clearTimeout(sessionPersistTimer);
+    sessionPersistTimer = setTimeout(() => {
+      try {
+        localStorage.setItem(sessionKey, JSON.stringify(payload));
+      } catch {
+        /* ignore */
+      }
+    }, 800);
+    return () => clearTimeout(sessionPersistTimer);
+  });
 
   function hidePanelsOnEditorFocus() {
     if (shouldAutoHideTerminal(settings) && terminalOpen) {
       terminalOpen = false;
     }
-  }
-
-  function toggleNestParent(path: string) {
-    const next = new Set(expandedNestParents);
-    if (next.has(path)) next.delete(path);
-    else next.add(path);
-    expandedNestParents = next;
   }
 
   function measureWorkspaceBody() {
@@ -391,19 +407,22 @@
       : [],
   );
 
-  let visibleNodes = $derived(flattenTree(explorerNodes));
-
   let folderName = $derived(
     folderPath ? folderPath.split(/[/\\]+/).filter(Boolean).pop() ?? folderPath : "",
   );
 
   let dirtyCount = $derived(tabs.filter((tab) => isDirty(tab)).length);
-  let changes = $derived(tabs.filter((tab) => isDirty(tab)).map((tab) => ({ name: tab.name, path: tab.path })));
-  let filteredNodes = $derived(
-    visibleNodes.filter((n) => !isPathExcluded(n.path, settings)),
+  let changes = $derived(
+    tabs
+      .filter((tab) => isDirty(tab))
+      .map((tab) => ({
+        name: tab.name,
+        path: tab.path,
+        status: gitStatusForPath(getGitStatusMap(), tab.path) ?? "M",
+      })),
   );
-  let explorerRows = $derived(
-    buildExplorerDisplayRows(filteredNodes, settings, expandedNestParents),
+  let filteredNodes = $derived(
+    getSearchableExplorerNodes().filter((n) => !isSearchExcluded(n.path, settings)),
   );
   let searchResults = $derived(computeSearch(searchQuery, tabs, filteredNodes, settings));
   let searchOptions = $derived(getSearchOptionFlags(settings));
@@ -422,8 +441,8 @@
   );
   let editorClasses = $derived(buildEditorClasses(settings));
   let editorStyleVars = $derived(buildEditorStyleVars(settings));
-  let whitespaceVisual = $derived(
-    activeTab ? renderWhitespaceVisual(activeTab.content, settings.renderWhitespace) : "",
+  let editorTextHeight = $derived(
+    Math.max(editorLines.length, 1) * settings.lineHeight + 24,
   );
   let stickyHeaders = $derived(
     activeTab && settings.stickyScroll
@@ -461,62 +480,6 @@
   let aiStatusChips = $derived(buildAiStatusChips(settings));
   let outputPanelLines = $derived(buildOutputPanelLines(settings));
 
-  function createExplorerNode(entry: FileEntry, depth: number): ExplorerNode {
-    return {
-      name: entry.name,
-      path: entry.path,
-      is_dir: entry.is_dir,
-      is_symlink: entry.is_symlink,
-      depth,
-      expanded: false,
-      loaded: false,
-      loading: false,
-      children: [],
-    };
-  }
-
-  function updateNodeInTree(nodes: ExplorerNode[], path: string, updater: (node: ExplorerNode) => ExplorerNode): ExplorerNode[] {
-    return nodes.map((node) => {
-      if (node.path === path) return updater(node);
-      if (node.children.length > 0) return { ...node, children: updateNodeInTree(node.children, path, updater) };
-      return node;
-    });
-  }
-
-  function findNode(nodes: ExplorerNode[], path: string): ExplorerNode | null {
-    for (const node of nodes) {
-      if (node.path === path) return node;
-      const found = findNode(node.children, path);
-      if (found) return found;
-    }
-    return null;
-  }
-
-  function flattenTree(nodes: ExplorerNode[]): ExplorerNode[] {
-    const result: ExplorerNode[] = [];
-    for (const node of nodes) {
-      result.push(node);
-      if (node.is_dir && node.expanded && node.loaded) result.push(...flattenTree(node.children));
-    }
-    return result;
-  }
-
-  function mergeNodes(oldNodes: ExplorerNode[], newEntries: FileEntry[], depth: number): ExplorerNode[] {
-    return newEntries.map((entry) => {
-      const existing = oldNodes.find((node) => node.path === entry.path);
-      if (existing) {
-        return {
-          ...existing,
-          name: entry.name,
-          is_dir: entry.is_dir,
-          is_symlink: entry.is_symlink,
-          depth,
-        };
-      }
-      return createExplorerNode(entry, depth);
-    });
-  }
-
   function getParentPath(filePath: string): string {
     const normalized = filePath.replace(/[/\\]+$/, "");
     const index = Math.max(normalized.lastIndexOf("/"), normalized.lastIndexOf("\\"));
@@ -553,12 +516,17 @@
     if (!settings.autoSave) return;
     clearTimeout(autoSaveTimer);
     autoSaveTimer = setTimeout(() => {
-      if (activeTab) saveTab(activeTab);
+      void saveAll();
     }, 800);
   }
 
+  function findTabByPath(path: string) {
+    const key = normalizePathKey(path);
+    return tabs.find((tab) => normalizePathKey(tab.path) === key) ?? null;
+  }
+
   function updateTabContent(value: string) {
-    if (!activeTabPath) return;
+    if (folderRestricted || !activeTabPath) return;
     tabs = tabs.map((tab) => (tab.path === activeTabPath ? { ...tab, content: value } : tab));
     saveError = "";
     scheduleAutoSave();
@@ -582,12 +550,16 @@
       }, 2500);
     }
     const toSave = pipeline.content;
+    const snapshotBeforeSave = target.content;
     try {
       await invoke("save_file", { filePath: target.path, content: toSave });
-      tabs = tabs.map((t) =>
-        t.path === target.path ? { ...t, content: toSave, savedContent: toSave } : t,
-      );
+      tabs = tabs.map((t) => {
+        if (t.path !== target.path) return t;
+        const content = t.content === snapshotBeforeSave ? toSave : t.content;
+        return { ...t, content, savedContent: toSave };
+      });
       saveError = "";
+      void refreshGitStatus();
       if (shouldReloadAfterSave(settings)) {
         location.reload();
       }
@@ -633,11 +605,27 @@
     if (view === "settings") view = resolveViewAfterPanelClose("settings");
   }
 
+  function jumpToLine(line: number, col = 1) {
+    cursorLine = line;
+    cursorCol = col;
+    queueMicrotask(() => {
+      const el = editorTextarea;
+      if (!el) return;
+      const lines = el.value.split("\n");
+      let pos = 0;
+      for (let i = 0; i < line - 1 && i < lines.length; i++) pos += lines[i].length + 1;
+      pos += Math.max(0, col - 1);
+      el.focus();
+      el.setSelectionRange(pos, pos);
+      syncCursor({ currentTarget: el } as unknown as Event);
+      scrollEditorToLine(line);
+    });
+  }
+
   function jumpToMatch(match: SearchMatch) {
     activeTabPath = match.path;
     view = "editor";
-    cursorLine = match.line;
-    cursorCol = 1;
+    jumpToLine(match.line, 1);
   }
 
   function toggleSearchOption(key: keyof SearchOptionFlags) {
@@ -660,10 +648,26 @@
     }
   }
 
+  function isTerminalFocused(target: HTMLElement | null): boolean {
+    return !!target?.closest(".terminal-host, .xterm, [data-terminal-root]");
+  }
+
+  function shouldIgnoreGlobalShortcut(target: HTMLElement | null): boolean {
+    if (!target) return false;
+    if (target.classList.contains("code-textarea")) return false;
+    if (quickOpenVisible) return true;
+    if (settingsOpen && target.closest(".settings-view")) return true;
+    const tag = target.tagName;
+    return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+  }
+
   function handleKeydown(event: KeyboardEvent) {
+    if (!workspaceVisible || appPhase !== "workspace") return;
     const mod = event.ctrlKey || event.metaKey;
     const target = event.target as HTMLElement | null;
     const inEditor = target?.classList?.contains("code-textarea") ?? false;
+    if (isTerminalFocused(target)) return;
+    if (shouldIgnoreGlobalShortcut(target)) return;
 
     if (settings.enableChordKeybindings && mod && event.key.toLowerCase() === "k" && !event.shiftKey) {
       event.preventDefault();
@@ -716,14 +720,25 @@
       settings.zenMode = !settings.zenMode;
       return;
     }
+    if (matchKeybinding(event, "quickOpen", settings)) {
+      event.preventDefault();
+      quickOpenVisible = !quickOpenVisible;
+      return;
+    }
     if (matchKeybinding(event, "commandPalette", settings)) {
       event.preventDefault();
       openSettings();
       return;
     }
-    if (matchKeybinding(event, "closeTab", settings) && activeTabPath) {
+    if (matchKeybinding(event, "closeTab", settings)) {
       event.preventDefault();
-      closeTab(activeTabPath, event as unknown as MouseEvent);
+      if (view === "settings" && settingsOpen) {
+        closeSettings();
+      } else if (view === "agents" && agentSwarmOpen) {
+        closeAgentSwarm();
+      } else if (activeTabPath) {
+        closeTab(activeTabPath, event as unknown as MouseEvent);
+      }
       return;
     }
 
@@ -765,10 +780,12 @@
   }
 
   function handleEditorKeydown(event: KeyboardEvent) {
+    if (folderRestricted) return;
     const el = event.currentTarget as HTMLTextAreaElement;
     editorTextarea = el;
 
     if (settings.vimMode && vimSubMode === "NORMAL") {
+      event.preventDefault();
       return;
     }
 
@@ -824,6 +841,10 @@
   }
 
   function handleEditorPaste(event: ClipboardEvent) {
+    if (folderRestricted) {
+      event.preventDefault();
+      return;
+    }
     if (!settings.formatOnPaste || !activeTab) return;
     event.preventDefault();
     const pasted = event.clipboardData?.getData("text") ?? "";
@@ -845,13 +866,13 @@
     });
   }
 
-  function syncWhitespaceLayer(event: Event) {
-    const el = event.currentTarget as HTMLTextAreaElement;
-    const layer = el.parentElement?.querySelector(".whitespace-layer") as HTMLElement | null;
-    if (layer) {
-      layer.scrollTop = el.scrollTop;
-      layer.scrollLeft = el.scrollLeft;
-    }
+  function scrollEditorToLine(line: number) {
+    const viewport = editorScrollEl;
+    if (!viewport) return;
+    const lineHeight = settings.lineHeight;
+    const padTop = 12 + (settings.stickyScroll ? 28 : 0);
+    const lineTop = padTop + (line - 1) * lineHeight;
+    viewport.scrollTop = Math.max(0, lineTop - viewport.clientHeight / 3);
   }
 
   function selectBottomPanelTab(tab: "terminal" | "output" | "problems" | "debug") {
@@ -885,8 +906,7 @@
   async function applyFolderWorkspace(path: string, choice: FolderTrustChoice) {
     folderRestricted = choice === "restricted";
     folderPath = path;
-    const entries = await invoke<FileEntry[]>("list_folder", listFolderArgs(path));
-    explorerNodes = entries.map((entry) => createExplorerNode(entry, 0));
+    await mountWorkspace(path, workspaceExcludePatterns(settings));
     selectedFolderPath = path;
     tabs = [];
     activeTabPath = null;
@@ -944,7 +964,9 @@
       restrictedFeatureNotice("Terminal");
       return;
     }
+    const opening = !terminalOpen;
     terminalOpen = !terminalOpen;
+    if (opening) selectBottomPanelTab("terminal");
   }
 
   function launchGrokCli() {
@@ -1044,21 +1066,7 @@
   function jumpToLintIssue(issue: WorkspaceLintIssue) {
     activeTabPath = issue.path;
     view = "editor";
-    cursorLine = issue.line;
-    cursorCol = 1;
-    queueMicrotask(() => {
-      const el = editorTextarea;
-      if (!el || activeTabPath !== issue.path) return;
-      const lines = el.value.split("\n");
-      let pos = 0;
-      for (let i = 0; i < issue.line - 1 && i < lines.length; i++) {
-        pos += lines[i].length + 1;
-      }
-      el.focus();
-      el.setSelectionRange(pos, pos);
-      const lineHeight = settings.lineHeight * (settings.fontSize / 14);
-      el.scrollTop = Math.max(0, (issue.line - 1) * lineHeight - el.clientHeight / 3);
-    });
+    jumpToLine(issue.line, 1);
   }
 
   function handleBeforeUnload(event: BeforeUnloadEvent) {
@@ -1076,26 +1084,35 @@
       if (!saved) return;
       if (saved.folderPath) {
         folderRestricted = !isFolderTrusted(saved.folderPath);
-        const entries = await invoke<FileEntry[]>("list_folder", listFolderArgs(saved.folderPath));
         folderPath = saved.folderPath;
-        explorerNodes = entries.map((entry) => createExplorerNode(entry, 0));
+        await mountWorkspace(saved.folderPath, workspaceExcludePatterns(settings));
         selectedFolderPath = saved.folderPath;
         if (folderRestricted) terminalOpen = false;
       }
       if (saved.tabs?.length) {
         const restored: EditorTab[] = [];
         for (const t of saved.tabs) {
+          const rawTab = t as { content?: unknown };
+          const buffer = typeof rawTab.content === "string" ? rawTab.content : null;
           try {
-            const content = await invoke<string>("read_file", { filePath: t.path });
-            restored.push({ path: t.path, name: t.name, content, savedContent: content });
+            const disk = await invoke<string>("read_file", { filePath: t.path });
+            const content = buffer ?? disk;
+            restored.push({ path: t.path, name: t.name, content, savedContent: disk });
           } catch {
-            restored.push({ path: t.path, name: t.name, content: t.savedContent, savedContent: t.savedContent });
+            const fallback = buffer ?? t.savedContent ?? "";
+            restored.push({ path: t.path, name: t.name, content: fallback, savedContent: t.savedContent ?? fallback });
           }
         }
         tabs = restored;
-        activeTabPath = saved.activeTabPath ?? restored[0]?.path ?? null;
+        const candidate = saved.activeTabPath ?? restored[0]?.path ?? null;
+        activeTabPath =
+          candidate && restored.some((tab) => tab.path === candidate)
+            ? candidate
+            : restored[0]?.path ?? null;
       }
-      terminalOpen = resolveRestoredTerminalOpen(settings, resolveSavedTerminalOpen(saved));
+      terminalOpen = folderRestricted
+        ? false
+        : resolveRestoredTerminalOpen(settings, resolveSavedTerminalOpen(saved));
       settings = applyRestoredTerminalSettings(settings, saved);
       if (saved.secondarySidebarOpen !== undefined) {
         secondarySidebarOpen = saved.secondarySidebarOpen;
@@ -1130,7 +1147,7 @@
       tabs = [];
       activeTabPath = null;
       folderPath = null;
-      explorerNodes = [];
+      void unmountWorkspace();
       view = "editor";
       if (settings.startupBehavior === "welcome" && settings.verboseLogging) {
         console.info("[Grokden] Startup behavior: welcome screen");
@@ -1150,6 +1167,13 @@
         await enterWorkspace();
       }
     })();
+  });
+
+  onDestroy(() => {
+    clearTimeout(autoSaveTimer);
+    clearTimeout(sessionPersistTimer);
+    if (gitFetchTimer) clearInterval(gitFetchTimer);
+    grokActivityDetach?.();
   });
 
   async function openFolder() {
@@ -1172,27 +1196,10 @@
     }
   }
 
-  async function refreshFolder(path: string) {
-    const entries = await invoke<FileEntry[]>("list_folder", listFolderArgs(path));
-    if (path === folderPath) {
-      explorerNodes = mergeNodes(explorerNodes, entries, 0);
-      return;
-    }
-    const node = findNode(explorerNodes, path);
-    if (!node) return;
-    explorerNodes = updateNodeInTree(explorerNodes, path, (current) => ({
-      ...current,
-      loaded: true,
-      expanded: true,
-      children: mergeNodes(current.children, entries, current.depth + 1),
-    }));
-  }
-
   async function refreshExplorer() {
-    const target = getTargetFolderPath();
-    if (!target) return;
+    if (!folderPath) return;
     try {
-      await refreshFolder(target);
+      await refreshExplorerIndex(workspaceExcludePatterns(settings));
     } catch (error) {
       const message = String(error);
       console.error("Failed to refresh explorer:", error);
@@ -1217,7 +1224,8 @@
     const name = input.trim();
     try {
       const filePath = await invoke<string>("create_file", { parentPath, name });
-      await refreshFolder(parentPath);
+      await invalidateChildren(parentPath);
+      await refreshExplorerIndex(workspaceExcludePatterns(settings));
       await openFile({ name, path: filePath });
     } catch (error) {
       const message = String(error);
@@ -1243,7 +1251,8 @@
     const name = input.trim();
     try {
       const folderPathCreated = await invoke<string>("create_folder", { parentPath, name });
-      await refreshFolder(parentPath);
+      await invalidateChildren(parentPath);
+      await refreshExplorerIndex(workspaceExcludePatterns(settings));
       selectedFolderPath = folderPathCreated;
     } catch (error) {
       const message = String(error);
@@ -1252,33 +1261,13 @@
     }
   }
 
-  async function toggleFolder(path: string) {
-    selectedFolderPath = path;
-    const node = findNode(explorerNodes, path);
-    if (!node || !node.is_dir || node.loading) return;
-    if (!shouldExpandSymlinkDirectory(node.is_symlink, settings)) return;
-    if (!node.loaded) {
-      explorerNodes = updateNodeInTree(explorerNodes, path, (current) => ({ ...current, loading: true, expanded: true }));
-      try {
-        const entries = await invoke<FileEntry[]>("list_folder", listFolderArgs(path));
-        const children = entries.map((entry) => createExplorerNode(entry, node.depth + 1));
-        explorerNodes = updateNodeInTree(explorerNodes, path, (current) => ({ ...current, loading: false, loaded: true, expanded: true, children }));
-      } catch (error) {
-        console.error("Failed to load folder:", error);
-        explorerNodes = updateNodeInTree(explorerNodes, path, (current) => ({ ...current, loading: false, expanded: false }));
-      }
-      return;
-    }
-    explorerNodes = updateNodeInTree(explorerNodes, path, (current) => ({ ...current, expanded: !current.expanded }));
-  }
-
-  async function openFile(entry: { name: string; path: string }) {
+  async function openFile(entry: { name: string; path: string } | ExplorerTreeNode) {
     if (!isTextFile(entry.name)) return;
     selectedFolderPath = getParentPath(entry.path);
     view = "editor";
-    const existing = tabs.find((tab) => tab.path === entry.path);
+    const existing = findTabByPath(entry.path);
     if (existing) {
-      activeTabPath = entry.path;
+      activeTabPath = existing.path;
       return;
     }
     try {
@@ -1298,6 +1287,12 @@
     view = "editor";
     cursorLine = 1;
     cursorCol = 1;
+    queueMicrotask(() => {
+      const el = editorTextarea;
+      if (!el) return;
+      el.setSelectionRange(0, 0);
+      syncCursor({ currentTarget: el } as unknown as Event);
+    });
   }
 
   function closeTab(path: string, event: MouseEvent) {
@@ -1308,8 +1303,9 @@
     }
     const index = tabs.findIndex((t) => t.path === path);
     if (index === -1) return;
-    const remaining = tabs.filter((t) => t.path !== path);
-    tabs = remaining;
+    clearTimeout(autoSaveTimer);
+    tabs = [...tabs.slice(0, index), ...tabs.slice(index + 1)];
+    const remaining = tabs;
     if (activeTabPath === path) {
       activeTabPath = remaining.length === 0 ? null : remaining[Math.min(index, remaining.length - 1)].path;
     }
@@ -1435,56 +1431,30 @@
     <div class="workspace-panels{layoutClasses.workspacePanels}">
     {#if !sidebarCollapsed && !settings.zenMode}
       <aside class="sidebar" transition:slide={settings.enableAnimations ? slideX : { duration: 0 }}>
-        <div class="sidebar-header">
-          <span>{activePanel === "explorer" ? "Explorer" : activePanel === "search" ? "Search" : "Source Control"}</span>
-          {#if activePanel === "explorer"}
-            <button type="button" class="open-folder-btn" onclick={openFolder}>Open Folder</button>
-          {/if}
-        </div>
+        {#if activePanel !== "explorer"}
+          <div class="sidebar-header">
+            <span>{activePanel === "search" ? "Search" : "Source Control"}</span>
+          </div>
+        {/if}
 
         {#if activePanel === "explorer"}
-          <div class="explorer-toolbar">
-            <button type="button" class="toolbar-link" disabled={!folderPath || folderRestricted} onclick={createNewFile} title="New file">New file</button>
-            <button type="button" class="toolbar-link" disabled={!folderPath || folderRestricted} onclick={createNewFolder} title="New folder">New folder</button>
-            <button type="button" class="toolbar-link" disabled={!folderPath} onclick={refreshExplorer} title="Refresh">Refresh</button>
-          </div>
-          {#if folderPath}
-            <div class="folder-path" title={folderPath}><span class="chevron" aria-hidden="true"></span>{folderName}</div>
-          {/if}
-          <ul class="file-tree">
-            {#if explorerRows.length === 0}
-              <li class="tree-empty">No folder opened</li>
-            {:else}
-              {#each explorerRows as row (row.node.path)}
-                {@const node = row.node}
-                <li transition:fade={fadeFast}>
-                  {#if node.is_dir}
-                    <button type="button" class="tree-item folder" class:loading={node.loading} class:selected={selectedFolderPath === node.path} class:symlink={node.is_symlink} style="padding-left: {12 + node.depth * 14}px" onclick={() => toggleFolder(node.path)}>
-                      <span class="chevron tree-chevron" class:open={node.expanded} class:loading={node.loading} aria-hidden="true"></span>
-                      <span class="tree-label">{node.name}</span>
-                    </button>
-                  {:else if isTextFile(node.name)}
-                    <div class="tree-file-row" class:nest-child={row.isNestChild} style="padding-left: {12 + node.depth * 14 + row.depthOffset * 12}px">
-                      {#if row.hasNestedChildren}
-                        <button type="button" class="nest-chevron" class:open={expandedNestParents.has(node.path)} aria-label="Toggle nested files" onclick={() => toggleNestParent(node.path)}></button>
-                      {:else}
-                        <span class="nest-spacer" aria-hidden="true"></span>
-                      {/if}
-                      <button type="button" class="tree-item clickable file" class:active={view === "editor" && activeTabPath === node.path} onclick={() => openFile(node)}>
-                        <span class="file-badge" style="color: {fileMeta(node.name).color}">{fileMeta(node.name).label}</span>
-                        <span class="tree-label">{node.name}</span>
-                      </button>
-                    </div>
-                  {:else}
-                    <div class="tree-item non-text-file" style="padding-left: {26 + node.depth * 14 + row.depthOffset * 12}px">
-                      <span class="file-badge muted">BIN</span>
-                      <span class="tree-label">{node.name}</span>
-                    </div>
-                  {/if}
-                </li>
-              {/each}
-            {/if}
-          </ul>
+          <ExplorerPanel
+            {settings}
+            {folderPath}
+            {folderRestricted}
+            {selectedFolderPath}
+            {activeTabPath}
+            {view}
+            onOpenFolder={openFolder}
+            onOpenFile={openFile}
+            onNewFile={createNewFile}
+            onNewFolder={createNewFolder}
+            onRefresh={refreshExplorer}
+            onSelectFolder={(path) => {
+              selectedFolderPath = path;
+              setSelectedFolderPath(path);
+            }}
+          />
         {:else if activePanel === "search"}
           <SearchPanel {searchOptions} query={searchQuery} results={searchResults} onInput={(value) => (searchQuery = value)} onOpen={(hit) => openFile(hit)} onJump={(match) => jumpToMatch(match)} onToggleOption={toggleSearchOption} />
         {:else if shouldShowGitPanel(settings)}
@@ -1510,7 +1480,7 @@
     {/if}
 
     <main class="editor-area">
-      <div class="tab-bar">
+      <div class="tab-bar dark-scrollbar">
         {#if agentSwarmOpen}
           <button type="button" class="tab" class:active={view === "agents"} onclick={() => (view = "agents")}>
             <span class="tab-badge swarm-badge">SW</span>
@@ -1588,71 +1558,56 @@
               {/each}
             </div>
           {/if}
-          {#if settings.showLineNumbers}
-            <div class="line-numbers">
-              {#each editorLines as line (line.num)}
-                <span
-                  class="line-num"
-                  class:active={line.num === cursorLine}
-                  class:debug-line={debugPaused && line.num === cursorLine}
-                  class:trailing-ws={settings.renderWhitespace !== "none" && lineHasTrailingWhitespace(line.content)}
-                >
-                  {line.num}
-                  {#if debugInlineHint && line.num === cursorLine}
-                    <span class="inline-value" title="Inline debug value">{debugInlineHint}</span>
-                  {/if}
-                </span>
-              {/each}
+          <div class="editor-scroll dark-scrollbar" bind:this={editorScrollEl}>
+            <div class="editor-surface" class:wrap={settings.wordWrap}>
+              {#if settings.showLineNumbers}
+                <div class="line-numbers">
+                  {#each editorLines as line (line.num)}
+                    <span
+                      class="line-num"
+                      class:active={line.num === cursorLine}
+                      class:debug-line={debugPaused && line.num === cursorLine}
+                    >
+                      {line.num}
+                      {#if debugInlineHint && line.num === cursorLine}
+                        <span class="inline-value" title="Inline debug value">{debugInlineHint}</span>
+                      {/if}
+                    </span>
+                  {/each}
+                </div>
+              {/if}
+              <div class="editor-input-wrap">
+                <textarea
+                  bind:this={editorTextarea}
+                  class="code-textarea"
+                  class:insert-spaces={settings.insertSpaces}
+                  style="tab-size: {settings.insertSpaces ? settings.tabSize : 2}; height: {editorTextHeight}px"
+                  readonly={folderRestricted}
+                  value={activeTab.content}
+                  oninput={(e) => { updateTabContent(e.currentTarget.value); syncCursor(e); }}
+                  onkeydown={handleEditorKeydown}
+                  onpaste={handleEditorPaste}
+                  onfocus={hidePanelsOnEditorFocus}
+                  onmousedown={handleEditorMouseDown}
+                  onclick={handleEditorClick}
+                  onkeyup={syncCursor}
+                  spellcheck="false"
+                  aria-label="Editor for {activeTab.name}"
+                ></textarea>
+                {#if showCollabCursors}
+                  {#each mockCollaborators as collab (collab.name)}
+                    <span
+                      class="collab-cursor"
+                      style="--collab-color: {collab.color}; top: calc(12px + ({collab.line - 1} * var(--elh))); left: calc(16px + {collab.col}ch)"
+                      title="{collab.name}"
+                    >
+                      <span class="collab-label">{collab.name}</span>
+                    </span>
+                  {/each}
+                {/if}
+              </div>
             </div>
-          {/if}
-          <div class="editor-input-wrap">
-            {#if settings.renderWhitespace !== "none"}
-              <pre
-                class="whitespace-layer"
-                class:wrap={settings.wordWrap}
-                class:insert-spaces={settings.insertSpaces}
-                style="tab-size: {settings.insertSpaces ? settings.tabSize : 2}"
-                aria-hidden="true"
-              >{whitespaceVisual}</pre>
-            {/if}
-            <textarea
-              bind:this={editorTextarea}
-              class="code-textarea"
-              class:wrap={settings.wordWrap}
-              class:insert-spaces={settings.insertSpaces}
-              style="tab-size: {settings.insertSpaces ? settings.tabSize : 2}"
-              readonly={folderRestricted}
-              value={activeTab.content}
-              oninput={(e) => { updateTabContent(e.currentTarget.value); syncCursor(e); syncWhitespaceLayer(e); }}
-              onkeydown={handleEditorKeydown}
-              onpaste={handleEditorPaste}
-              onfocus={hidePanelsOnEditorFocus}
-              onmousedown={handleEditorMouseDown}
-              onclick={handleEditorClick}
-              onscroll={syncWhitespaceLayer}
-              onkeyup={syncCursor}
-              spellcheck="false"
-              aria-label="Editor for {activeTab.name}"
-            ></textarea>
-            {#if showCollabCursors}
-              {#each mockCollaborators as collab (collab.name)}
-                <span
-                  class="collab-cursor"
-                  style="--collab-color: {collab.color}; top: calc(12px + ({collab.line - 1} * var(--elh))); left: calc(16px + {collab.col}ch)"
-                  title="{collab.name}"
-                >
-                  <span class="collab-label">{collab.name}</span>
-                </span>
-              {/each}
-            {/if}
           </div>
-          {#if settings.minimap}
-            <div class="minimap" aria-hidden="true">
-              {#each editorLines as line (line.num)}
-                <span class="minimap-line" class:long={line.content.trim().length > 40}></span>
-              {/each}
-            </div>
-          {/if}
         </div>
       {:else}
         <div class="editor-placeholder" in:fade>
@@ -1726,7 +1681,7 @@
             {:else}
               {#each outlineSymbols as symbol (symbol.name + ":" + symbol.line)}
                 <li>
-                  <button type="button" class="outline-item" onclick={() => { cursorLine = symbol.line; cursorCol = 1; }}>
+                  <button type="button" class="outline-item" onclick={() => jumpToLine(symbol.line, 1)}>
                     <span class="outline-kind">{symbol.kind}</span>
                     <span class="outline-name">{symbol.name}</span>
                     <span class="outline-line">:{symbol.line}</span>
@@ -1919,6 +1874,12 @@ This is a very long debug log line that demonstrates whether the debug console w
     </div>
   </div>
 
+  <QuickOpen
+    open={quickOpenVisible}
+    onClose={() => (quickOpenVisible = false)}
+    onOpenFile={openFile}
+  />
+
   {#if folderTrustPendingPath}
     <FolderTrustDialog
       folderPath={folderTrustPendingPath}
@@ -2096,7 +2057,7 @@ This is a very long debug log line that demonstrates whether the debug console w
     background: var(--text-dim);
   }
 
-  .workspace { display: flex; flex: 1; min-height: 0; }
+  .workspace { display: flex; flex: 1; min-height: 0; min-width: 0; }
 
   .workspace-body {
     position: relative;
@@ -2218,13 +2179,15 @@ This is a very long debug log line that demonstrates whether the debug console w
   .rail-spacer { flex: 1; }
 
   .sidebar {
-    width: 250px;
+    width: 280px;
     flex-shrink: 0;
     background: var(--panel);
     border-right: 1px solid var(--border);
     display: flex;
     flex-direction: column;
     min-height: 0;
+    min-width: 0;
+    overflow: hidden;
   }
 
   .sidebar-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 12px 8px; flex-shrink: 0; }
@@ -2341,9 +2304,12 @@ This is a very long debug log line that demonstrates whether the debug console w
     display: flex;
     flex-direction: column;
     min-width: 0;
+    width: 100%;
     min-height: 0;
     overflow: hidden;
     background: var(--editor-bg);
+    isolation: isolate;
+    contain: layout paint;
   }
 
   .editor-content {
@@ -2352,6 +2318,7 @@ This is a very long debug log line that demonstrates whether the debug console w
     flex-direction: column;
     min-height: 0;
     min-width: 0;
+    width: 100%;
     overflow: hidden;
   }
 
@@ -2389,14 +2356,18 @@ This is a very long debug log line that demonstrates whether the debug console w
     transition: color 0.15s, background 0.15s;
   }
   .tab:hover { background: var(--hover); color: var(--text-dim); }
-  .tab.active { background: var(--accent-soft); color: var(--text); }
+  .tab.active {
+    background: var(--editor-bg);
+    color: var(--text);
+    font-weight: 400;
+  }
   .tab.active::after {
     content: "";
     position: absolute;
     left: 0;
     right: 0;
-    bottom: 0;
-    height: 2px;
+    top: 0;
+    height: 1px;
     background: var(--accent);
   }
   .tab.muted { color: var(--text-mute); cursor: default; }
@@ -2486,18 +2457,43 @@ This is a very long debug log line that demonstrates whether the debug console w
   .editor {
     position: relative;
     flex: 1;
+    min-width: 0;
     min-height: 0;
+    width: 100%;
+    height: 100%;
     display: flex;
-    flex-wrap: wrap;
-    overflow: auto;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--editor-bg);
     font-family: var(--code-font);
     font-size: var(--efs);
     line-height: var(--elh);
+    font-weight: 400;
+  }
+
+  .editor-scroll {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    width: 100%;
+    overflow: auto;
+    background: var(--editor-bg);
+  }
+
+  .editor-surface {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    width: 100%;
+    min-width: 0;
+    min-height: 100%;
+    box-sizing: border-box;
   }
 
   .editor-placeholder {
     flex: 1;
     min-height: 0;
+    min-width: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -2632,26 +2628,30 @@ This is a very long debug log line that demonstrates whether the debug console w
   .line-numbers {
     display: flex;
     flex-direction: column;
-    padding: 12px 0;
+    flex-shrink: 0;
+    min-width: 48px;
+    padding: 12px 8px 12px 4px;
     text-align: right;
     user-select: none;
-    background: var(--panel);
+    background: var(--editor-bg);
     border-right: 1px solid var(--border);
-    flex-shrink: 0;
+    box-sizing: border-box;
   }
   .line-num {
     position: relative;
-    padding: 0 14px;
+    padding: 0 8px 0 12px;
     color: var(--text-mute);
     opacity: 0.55;
     line-height: var(--elh);
     transition: color 0.12s, opacity 0.12s;
   }
-  .line-num.active { color: var(--accent); opacity: 1; font-weight: 500; }
+  .line-num.active { color: var(--text); opacity: 1; font-weight: 400; }
   .line-num.debug-line { background: var(--warn-soft); border-radius: 3px; }
   .inline-value {
+    position: absolute;
+    left: 0;
+    top: 100%;
     display: block;
-    margin-top: 1px;
     font-size: 9px;
     font-weight: 400;
     color: var(--accent);
@@ -2660,13 +2660,14 @@ This is a very long debug log line that demonstrates whether the debug console w
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 120px;
+    pointer-events: none;
   }
 
   .editor-input-wrap {
     position: relative;
-    flex: 1;
+    flex: 1 1 auto;
     min-width: 0;
-    display: flex;
+    display: block;
   }
   .editor.debug-paused .code-textarea { outline: 1px solid var(--warn); outline-offset: -1px; }
   .collab-cursor {
@@ -2690,53 +2691,57 @@ This is a very long debug log line that demonstrates whether the debug console w
   }
 
   .code-textarea {
-    flex: 1;
-    min-width: 0;
-    padding: 12px 16px;
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 12px 16px 12px 12px;
+    margin: 0;
     color: var(--text);
-    background: transparent;
+    background: var(--editor-bg);
     border: none;
     outline: none;
     resize: none;
+    overflow-x: auto;
+    overflow-y: hidden;
     font-family: inherit;
     font-size: inherit;
+    font-weight: 400;
     line-height: var(--elh);
     tab-size: var(--etab);
     white-space: pre;
     caret-color: var(--accent);
+    text-shadow: none;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(121, 121, 121, 0.45) transparent;
   }
-  .code-textarea.wrap { white-space: pre-wrap; word-break: break-word; }
+
+  .code-textarea::-webkit-scrollbar {
+    height: 10px;
+  }
+
+  .code-textarea::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .code-textarea::-webkit-scrollbar-thumb {
+    background: rgba(121, 121, 121, 0.45);
+    border: 2px solid transparent;
+    border-radius: 5px;
+    background-clip: padding-box;
+  }
+
+  .editor-surface.wrap .code-textarea {
+    overflow-x: hidden;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
   .code-textarea.insert-spaces { tab-size: var(--tab-space, var(--etab)); }
   .editor.use-tab-chars .code-textarea { tab-size: 4; }
   .editor.vim-mode .code-textarea { caret-color: var(--success); }
   .editor.ai-inline-suggestions .editor-input-wrap {
     box-shadow: inset 3px 0 0 var(--accent-soft);
   }
-
-  .whitespace-layer {
-    position: absolute;
-    inset: 0;
-    margin: 0;
-    padding: 12px 16px;
-    font-family: inherit;
-    font-size: inherit;
-    line-height: var(--elh);
-    white-space: pre;
-    overflow: hidden;
-    pointer-events: none;
-    color: transparent;
-    z-index: 0;
-    tab-size: var(--tab-space, var(--etab));
-  }
-  .whitespace-layer.wrap { white-space: pre-wrap; word-break: break-word; }
-  .editor.show-whitespace-all .whitespace-layer,
-  .editor.show-whitespace-boundary .whitespace-layer {
-    color: var(--text-mute);
-    opacity: 0.35;
-  }
-  .code-textarea { position: relative; z-index: 1; background: transparent; }
-  .editor.show-whitespace-all .code-textarea,
-  .editor.show-whitespace-boundary .code-textarea { color: var(--text); }
 
   .terminal {
     grid-row: 2;
@@ -3037,7 +3042,7 @@ This is a very long debug log line that demonstrates whether the debug console w
   .ide.titlebar-native .logo-img { display: none; }
   .ide.titlebar-native .app-name { font-size: 12px; font-weight: 400; color: var(--text-dim); }
   .ide.zen-mode .topbar { opacity: 0.6; }
-  .ide.centered-layout .editor-area { max-width: 960px; margin: 0 auto; width: 100%; }
+
   .ide.density-compact .topbar { height: 32px; }
   .ide.density-compact .tab-bar { height: 32px; }
   .ide.density-compact .statusbar { height: 20px; }
@@ -3070,6 +3075,7 @@ This is a very long debug log line that demonstrates whether the debug console w
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
+    min-height: 0;
     background: var(--panel);
     border-left: 1px solid var(--border);
     overflow: hidden;
@@ -3247,41 +3253,6 @@ This is a very long debug log line that demonstrates whether the debug console w
   .crumb:last-child { color: var(--accent); }
   .crumb-sep { opacity: 0.5; }
 
-  .editor.has-minimap .minimap { position: sticky; top: 0; }
-  .minimap {
-    width: 72px;
-    flex-shrink: 0;
-    padding: 12px 6px;
-    background: var(--panel);
-    border-left: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-    overflow: hidden;
-  }
-  .minimap-line {
-    display: block;
-    height: 2px;
-    border-radius: 1px;
-    background: var(--text-mute);
-    opacity: 0.2;
-    width: 30%;
-  }
-  .minimap-line.long { width: 70%; opacity: 0.35; }
-
-  .editor-input-wrap::after {
-    content: "";
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: calc(16px + var(--ruler-at, 80ch));
-    width: 1px;
-    background: var(--border);
-    opacity: 0.55;
-    pointer-events: none;
-    z-index: 0;
-  }
-
   .sticky-scroll-bar {
     position: absolute;
     top: 0;
@@ -3305,38 +3276,35 @@ This is a very long debug log line that demonstrates whether the debug console w
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .editor.sticky-scroll .editor-input-wrap,
-  .editor.sticky-scroll .line-numbers { padding-top: 28px; }
+  .editor.sticky-scroll .editor-scroll { padding-top: 28px; }
 
-  .line-num.trailing-ws::after {
-    content: "·";
-    margin-left: 4px;
-    color: var(--warn);
-    opacity: 0.7;
-    font-size: 10px;
-  }
+  .editor.scroll-beyond .editor-scroll { padding-bottom: 40vh; }
+  .editor.smooth-scroll .editor-scroll { scroll-behavior: smooth; }
 
-  .editor.bracket-colorize .code-textarea {
-    text-shadow:
-      0 0 0 var(--accent),
-      0 0 0 var(--success),
-      0 0 0 var(--warn);
+  :global(.dark-scrollbar) {
+    scrollbar-color: rgba(121, 121, 121, 0.45) transparent;
+    scrollbar-width: thin;
   }
-  .editor.bracket-colorize .editor-input-wrap {
-    background-image:
-      linear-gradient(90deg, transparent 0, transparent 100%),
-      repeating-linear-gradient(
-        0deg,
-        transparent,
-        transparent calc(var(--elh) - 1px),
-        color-mix(in srgb, var(--accent) 6%, transparent) calc(var(--elh) - 1px),
-        color-mix(in srgb, var(--accent) 6%, transparent) var(--elh)
-      );
+  :global(.dark-scrollbar::-webkit-scrollbar) {
+    width: 10px;
+    height: 10px;
   }
-
-  .editor.scroll-beyond { padding-bottom: 40vh; }
-  .editor:not(.scroll-beyond) { padding-bottom: 0; }
-  .editor.smooth-scroll { scroll-behavior: smooth; }
+  :global(.dark-scrollbar::-webkit-scrollbar-track) {
+    background: transparent;
+  }
+  :global(.dark-scrollbar::-webkit-scrollbar-thumb) {
+    background: rgba(121, 121, 121, 0.45);
+    border: 2px solid transparent;
+    border-radius: 5px;
+    background-clip: padding-box;
+  }
+  :global(.dark-scrollbar::-webkit-scrollbar-thumb:hover) {
+    background: rgba(121, 121, 121, 0.65);
+    background-clip: padding-box;
+  }
+  :global(.dark-scrollbar::-webkit-scrollbar-corner) {
+    background: transparent;
+  }
 
   .editor.cursor-block .code-textarea { caret-shape: block; }
   .editor.cursor-underline .code-textarea { caret-shape: underscore; }

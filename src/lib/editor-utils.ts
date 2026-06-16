@@ -416,7 +416,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   multiCursorModifier: "alt",
   enableChordKeybindings: true,
   keyRepeatDelay: 300,
-  minimap: true,
+  minimap: false,
   bracketPairColorization: true,
   formatOnSave: false,
   rulerColumn: 80,
@@ -537,6 +537,7 @@ export function hexToRgba(hex: string, alpha: number): string {
 
 export function buildThemeStyle(settings: AppSettings): string {
   const t = THEMES[settings.theme] ?? THEMES["grokden-dark"];
+  const [accent, accent2] = ACCENTS[settings.accent] ?? ACCENTS.violet;
   return [
     `--bg:${t.bg}`,
     `--panel:${t.panel}`,
@@ -554,10 +555,10 @@ export function buildThemeStyle(settings: AppSettings): string {
     `--success:${t.success}`,
     `--on-accent:${t.panelSolid}`,
     `--chip-bg:${t.chipBg}`,
-    `--accent:${t.textDim}`,
-    `--accent2:${t.text}`,
-    `--accent-soft:${t.hover}`,
-    `--accent-mid:${t.border}`,
+    `--accent:${accent}`,
+    `--accent2:${accent2}`,
+    `--accent-soft:${hexToRgba(accent, t.isLight ? 0.12 : 0.18)}`,
+    `--accent-mid:${hexToRgba(accent, t.isLight ? 0.35 : 0.45)}`,
     `--accent-strong:${t.border}`,
     `--accent-grad:none`,
     `--efs:${settings.fontSize}px`,

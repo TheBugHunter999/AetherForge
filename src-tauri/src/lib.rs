@@ -2,12 +2,15 @@ mod grok_cli;
 mod ide_import;
 mod telemetry;
 mod terminal;
+mod workspace;
 
 use ide_import::EditorImportResult;
 use serde::Serialize;
 use std::fs;
+use std::fs::OpenOptions;
+use std::io::ErrorKind;
 use std::path::Path;
-use tauri::{AppHandle, LogicalSize, Manager};
+use tauri::{AppHandle, LogicalSize, Manager, State};
 use terminal::TerminalState;
 
 const WIZARD_WIDTH: u32 = 1080;
@@ -66,7 +69,11 @@ fn collect_folder_entries(
     let mut entries = Vec::new();
 
     for entry in fs::read_dir(folder_path).map_err(|e| e.to_string())? {
-        let entry = entry.map_err(|e| e.to_string())?;
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(error) if error.kind() == ErrorKind::PermissionDenied => continue,
+            Err(error) => return Err(error.to_string()),
+        };
         let name = entry.file_name().to_string_lossy().to_string();
 
         if IGNORED_NAMES.contains(&name.as_str()) {
@@ -75,6 +82,7 @@ fn collect_folder_entries(
 
         match build_file_entry(&entry) {
             Ok(file_entry) => entries.push(file_entry),
+            Err(error) if error.kind() == ErrorKind::PermissionDenied => continue,
             Err(error) => {
                 return Err(format!(
                     "Failed to read entry '{}': {error}",
@@ -99,14 +107,54 @@ fn list_folder(folder_path: String, follow_symlinks: Option<bool>) -> Result<Vec
     collect_folder_entries(Path::new(&folder_path), follow_symlinks)
 }
 
+const MAX_READ_FILE_BYTES: u64 = 10 * 1024 * 1024;
+
 #[tauri::command]
-fn read_file(file_path: String) -> Result<String, String> {
-    fs::read_to_string(&file_path).map_err(|e| format!("Failed to read file: {e}"))
+fn read_file(
+    state: State<'_, workspace::WorkspaceState>,
+    file_path: String,
+) -> Result<String, String> {
+    let path = state.resolve_workspace_path(&file_path)?;
+    let metadata = fs::metadata(&path).map_err(|e| format!("Failed to read file metadata: {e}"))?;
+    if metadata.len() > MAX_READ_FILE_BYTES {
+        return Err(format!(
+            "File exceeds maximum read size of {} bytes",
+            MAX_READ_FILE_BYTES
+        ));
+    }
+    fs::read_to_string(&path).map_err(|e| format!("Failed to read file: {e}"))
 }
 
 #[tauri::command]
-fn save_file(file_path: String, content: String) -> Result<(), String> {
-    fs::write(&file_path, content).map_err(|e| format!("Failed to save file: {e}"))
+fn save_file(
+    state: State<'_, workspace::WorkspaceState>,
+    file_path: String,
+    content: String,
+) -> Result<(), String> {
+    let path = state.resolve_workspace_path(&file_path)?;
+    let tmp_path = path.with_extension(format!(
+        "{}.tmp",
+        path.extension()
+            .map(|ext| ext.to_string_lossy())
+            .unwrap_or_default()
+    ));
+    // Use sibling .tmp file: path.tmp when no extension, path.ext.tmp when extension exists
+    let tmp_path = {
+        let mut tmp = path.clone();
+        let file_name = path
+            .file_name()
+            .ok_or_else(|| "Invalid file path".to_string())?
+            .to_string_lossy()
+            .to_string();
+        tmp.set_file_name(format!("{file_name}.tmp"));
+        tmp
+    };
+
+    fs::write(&tmp_path, content).map_err(|e| format!("Failed to save file: {e}"))?;
+    fs::rename(&tmp_path, &path).map_err(|e| {
+        let _ = fs::remove_file(&tmp_path);
+        format!("Failed to finalize save: {e}")
+    })
 }
 
 fn validate_name(name: &str) -> Result<(), String> {
@@ -126,31 +174,49 @@ fn path_exists(path: String) -> Result<bool, String> {
 }
 
 #[tauri::command]
-fn create_file(parent_path: String, name: String) -> Result<String, String> {
+fn create_file(
+    state: State<'_, workspace::WorkspaceState>,
+    parent_path: String,
+    name: String,
+) -> Result<String, String> {
     validate_name(&name)?;
-    let parent = Path::new(&parent_path);
+    let parent = state.resolve_workspace_path(&parent_path)?;
     if !parent.is_dir() {
         return Err("Parent path is not a directory".to_string());
     }
 
     let file_path = parent.join(name.trim());
-    if file_path.exists() {
-        return Err("A file or folder with that name already exists".to_string());
-    }
+    state.resolve_workspace_path(&file_path.to_string_lossy())?;
 
-    fs::write(&file_path, "").map_err(|e| format!("Failed to create file: {e}"))?;
+    OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&file_path)
+        .map_err(|e| {
+            if e.kind() == ErrorKind::AlreadyExists {
+                "A file or folder with that name already exists".to_string()
+            } else {
+                format!("Failed to create file: {e}")
+            }
+        })?;
     Ok(file_path.to_string_lossy().to_string())
 }
 
 #[tauri::command]
-fn create_folder(parent_path: String, name: String) -> Result<String, String> {
+fn create_folder(
+    state: State<'_, workspace::WorkspaceState>,
+    parent_path: String,
+    name: String,
+) -> Result<String, String> {
     validate_name(&name)?;
-    let parent = Path::new(&parent_path);
+    let parent = state.resolve_workspace_path(&parent_path)?;
     if !parent.is_dir() {
         return Err("Parent path is not a directory".to_string());
     }
 
     let folder_path = parent.join(name.trim());
+    state.resolve_workspace_path(&folder_path.to_string_lossy())?;
+
     if folder_path.exists() {
         return Err("A file or folder with that name already exists".to_string());
     }
@@ -257,6 +323,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .manage(TerminalState::new())
+        .manage(workspace::WorkspaceState::new())
         .setup(|app| {
             if let Some(main) = app.get_webview_window("main") {
                 let _ = lock_wizard_window(&main);
@@ -284,7 +351,14 @@ pub fn run() {
             telemetry_clear,
             app_ready,
             prepare_wizard_window,
-            transition_to_workspace
+            transition_to_workspace,
+            workspace::workspace_open,
+            workspace::workspace_close,
+            workspace::workspace_get_info,
+            workspace::workspace_children,
+            workspace::workspace_refresh,
+            workspace::workspace_git_status,
+            workspace::workspace_search_fuzzy
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -182,7 +182,7 @@ export function searchResultDirLabel(filePath: string): string {
 export type SearchFileHit = { name: string; path: string };
 
 export function computeSearch<
-  TNode extends { path: string; name: string; is_dir: boolean },
+  TNode extends { path: string; name: string; isDir: boolean },
   TTab extends { path: string; name: string; content: string },
 >(
   query: string,
@@ -197,7 +197,7 @@ export function computeSearch<
   const files = nodes
     .filter(
       (n) =>
-        !n.is_dir &&
+        !n.isDir &&
         isText(n.name) &&
         !isSearchExcluded(n.path, settings) &&
         nameMatchesQuery(n.name, q, settings),
@@ -277,10 +277,7 @@ export function buildIdeLayoutClasses(settings: AppSettings): IdeLayoutClasses {
 
 export function buildExtraThemeVars(settings: AppSettings): string {
   const opacity = clamp(settings.windowTransparency, 0, 100) / 100;
-  const vars: string[] = [
-    `--ui-opacity:${opacity}`,
-    `--ruler-col:${clamp(settings.rulerColumn, 40, 200)}`,
-  ];
+  const vars: string[] = [`--ui-opacity:${opacity}`];
   if (settings.experimentalFeatures) {
     vars.push("--experimental:1");
   }
@@ -620,7 +617,7 @@ export function shouldExpandSymlinkDirectory(
   return settings.searchFollowSymlinks;
 }
 
-export type ExplorerDisplayRow<T extends { path: string; name: string; is_dir: boolean }> = {
+export type ExplorerDisplayRow<T extends { path: string; name: string; isDir: boolean }> = {
   node: T;
   depthOffset: number;
   isNestChild: boolean;
@@ -648,7 +645,7 @@ function findNestParentName(fileName: string, siblingNames: Set<string>): string
 }
 
 export function buildExplorerDisplayRows<
-  T extends { path: string; name: string; is_dir: boolean },
+  T extends { path: string; name: string; isDir: boolean },
 >(
   nodes: T[],
   settings: AppSettings,
@@ -665,7 +662,7 @@ export function buildExplorerDisplayRows<
 
   const filesByParent = new Map<string, T[]>();
   for (const node of nodes) {
-    if (node.is_dir) continue;
+    if (node.isDir) continue;
     const parent = parentDirectoryPath(node.path);
     const bucket = filesByParent.get(parent) ?? [];
     bucket.push(node);
@@ -809,7 +806,20 @@ export function parseSessionPayload(raw: string): ParsedSessionPayload | null {
   try {
     const parsed = JSON.parse(raw) as unknown;
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
-    return parsed as ParsedSessionPayload;
+    const payload = parsed as ParsedSessionPayload;
+    if (payload.tabs !== undefined && !Array.isArray(payload.tabs)) {
+      delete payload.tabs;
+    }
+    if (Array.isArray(payload.tabs)) {
+      payload.tabs = payload.tabs.filter(
+        (t): t is NonNullable<typeof t> =>
+          !!t &&
+          typeof t === "object" &&
+          typeof (t as { path?: unknown }).path === "string" &&
+          typeof (t as { name?: unknown }).name === "string",
+      );
+    }
+    return payload;
   } catch {
     return null;
   }
@@ -880,7 +890,6 @@ export function buildIdeLayoutClassesWithSecondary(
 
 export function buildEditorStyleVars(settings: AppSettings): string {
   return [
-    `--ruler-at:${clamp(settings.rulerColumn, 40, 200)}ch`,
     `--tab-space:${settings.insertSpaces ? clamp(settings.tabSize, 1, 8) : 4}`,
     `--key-repeat-delay:${settings.keyRepeatDelay}ms`,
     `--chord-timeout:${settings.chordTimeout}ms`,
@@ -889,7 +898,7 @@ export function buildEditorStyleVars(settings: AppSettings): string {
 
 export function buildEditorClasses(settings: AppSettings): string {
   const parts: string[] = [];
-  if (settings.minimap) parts.push("has-minimap");
+
   if (settings.bracketPairColorization) parts.push("bracket-colorize");
   if (settings.scrollBeyondLastLine) parts.push("scroll-beyond");
   if (settings.stickyScroll) parts.push("sticky-scroll");
@@ -912,19 +921,27 @@ export function buildEditorClasses(settings: AppSettings): string {
 // ── Whitespace & sticky scroll ───────────────────────────────────────────────
 
 export function renderWhitespaceVisual(content: string, mode: string): string {
-  if (mode === "none") return content;
+  if (mode === "none") return "";
   const showAll = mode === "all";
+  const markChar = (ch: string) => (ch === "\t" ? "→" : "·");
+
   return content
     .split("\n")
     .map((line) => {
       if (showAll) {
-        return line.replace(/\t/g, "→").replace(/ /g, "·");
+        return line
+          .split("")
+          .map((ch) => (ch === " " || ch === "\t" ? markChar(ch) : " "))
+          .join("");
       }
       const trail = line.match(/[ \t]+$/);
-      if (!trail) return line;
-      const visible = line.slice(0, -trail[0].length);
-      const marked = trail[0].replace(/\t/g, "→").replace(/ /g, "·");
-      return visible + marked;
+      if (!trail) return " ".repeat(line.length);
+      const visibleLen = line.length - trail[0].length;
+      const marked = trail[0]
+        .split("")
+        .map((ch) => markChar(ch))
+        .join("");
+      return " ".repeat(visibleLen) + marked;
     })
     .join("\n");
 }
@@ -1186,6 +1203,7 @@ export type KeybindingAction =
   | "openSettings"
   | "toggleZen"
   | "closeTab"
+  | "quickOpen"
   | "commandPalette";
 
 type KeySpec = { key: string; ctrl?: boolean; shift?: boolean; alt?: boolean };
@@ -1197,6 +1215,7 @@ const PRESET_BINDINGS: Record<string, Partial<Record<KeybindingAction, KeySpec>>
     toggleTerminal: { key: "`", ctrl: true },
     openSettings: { key: ",", ctrl: true },
     toggleZen: { key: "k", ctrl: true },
+    quickOpen: { key: "p", ctrl: true },
     commandPalette: { key: "p", ctrl: true, shift: true },
   },
   vscode: {
@@ -1206,6 +1225,7 @@ const PRESET_BINDINGS: Record<string, Partial<Record<KeybindingAction, KeySpec>>
     toggleTerminal: { key: "`", ctrl: true },
     openSettings: { key: ",", ctrl: true },
     closeTab: { key: "w", ctrl: true },
+    quickOpen: { key: "p", ctrl: true },
     commandPalette: { key: "p", ctrl: true, shift: true },
     toggleZen: { key: "k", ctrl: true },
   },
@@ -1214,6 +1234,7 @@ const PRESET_BINDINGS: Record<string, Partial<Record<KeybindingAction, KeySpec>>
     toggleSidebar: { key: "k", ctrl: true, shift: true },
     toggleTerminal: { key: "`", ctrl: true },
     openSettings: { key: ",", ctrl: true },
+    quickOpen: { key: "p", ctrl: true },
     commandPalette: { key: "p", ctrl: true, shift: true },
     closeTab: { key: "w", ctrl: true },
     toggleZen: { key: "k", ctrl: true },
@@ -1223,6 +1244,7 @@ const PRESET_BINDINGS: Record<string, Partial<Record<KeybindingAction, KeySpec>>
     toggleSidebar: { key: "b", ctrl: true },
     toggleTerminal: { key: "`", ctrl: true },
     openSettings: { key: ",", ctrl: true },
+    quickOpen: { key: "p", ctrl: true },
     commandPalette: { key: "p", ctrl: true, shift: true },
     toggleZen: { key: "k", ctrl: true },
   },

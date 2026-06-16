@@ -438,7 +438,7 @@
       return;
     }
 
-    void teardownSession();
+    void teardownSession(true);
   });
 
   $effect(() => {
@@ -589,7 +589,7 @@
 </script>
 
 <div class="terminal-wrap" class:compact>
-  <div class="terminal-host" class:has-helper={helperVisible && enableHelper} bind:this={hostEl}></div>
+  <div class="terminal-host" data-terminal-root class:has-helper={helperVisible && enableHelper} bind:this={hostEl}></div>
   {#if enableHelper}
     <TerminalHelper input={inputBuffer} {suggestions} onApply={(item) => void applySuggestion(item)} />
   {/if}

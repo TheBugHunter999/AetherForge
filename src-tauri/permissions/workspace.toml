@@ -1,0 +1,12 @@
+[[permission]]
+identifier = "allow-workspace"
+description = "Enables workspace indexing, git status, and quick-open search commands."
+commands.allow = [
+  "workspace_open",
+  "workspace_close",
+  "workspace_get_info",
+  "workspace_children",
+  "workspace_refresh",
+  "workspace_git_status",
+  "workspace_search_fuzzy",
+]
