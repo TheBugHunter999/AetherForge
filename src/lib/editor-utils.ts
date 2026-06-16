@@ -311,12 +311,27 @@ export const gitDiffModes = [
   { id: "side-by-side", label: "Side by Side" },
 ];
 
+/** Model IDs returned by `grok models` (Grok Build CLI). */
 export const grokModels = [
-  { id: "grok-3", label: "Grok 3" },
-  { id: "grok-3-mini", label: "Grok 3 Mini" },
-  { id: "grok-2", label: "Grok 2" },
-  { id: "grok-code", label: "Grok Code" },
+  { id: "grok-build", label: "Grok Build" },
+  { id: "grok-composer-2.5-fast", label: "Grok Composer 2.5 Fast" },
 ];
+
+const LEGACY_GROK_MODEL_IDS = new Set([
+  "grok-3",
+  "grok-3-mini",
+  "grok-2",
+  "grok-code",
+  "grok-code-fast",
+  "grok-4",
+  "grok-4.3",
+]);
+
+export function migrateGrokModel(model: string | undefined): string {
+  if (!model || LEGACY_GROK_MODEL_IDS.has(model)) return "grok-build";
+  if (grokModels.some((entry) => entry.id === model)) return model;
+  return "grok-build";
+}
 
 export const titleBarStyles = [
   { id: "native", label: "Native" },
@@ -429,7 +444,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   presenceIndicators: true,
   showCollaboratorCursors: true,
   shareOnOpen: false,
-  grokModel: "grok-3",
+  grokModel: "grok-build",
   aiContextWindow: 128000,
   aiInlineSuggestions: true,
   aiAgentModeDefault: false,
@@ -567,6 +582,7 @@ export function loadSettings(): AppSettings {
           parsed.accent = ACCENT_MIGRATION[parsed.accent] ?? "violet";
         }
         if (parsed.accent && !ACCENTS[parsed.accent]) parsed.accent = "violet";
+        if (parsed.grokModel) parsed.grokModel = migrateGrokModel(parsed.grokModel);
         return { ...DEFAULT_SETTINGS, ...parsed };
       }
     }

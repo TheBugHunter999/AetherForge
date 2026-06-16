@@ -537,7 +537,7 @@
     {/if}
 
     {#if !filter.trim() && section === "ai"}<div class="group-title">AI</div>{/if}
-    {#if showRow("ai", "Grok Model language model grok-3 mini code")}
+    {#if showRow("ai", "Grok Model language model grok-build composer")}
       <div class="row"><div class="meta"><div class="label">Grok Model</div><div class="desc">Default Grok model used for chat, completions and agent tasks.</div></div>
         <select class="select" bind:value={settings.grokModel}>
           {#each grokModels as model (model.id)}<option value={model.id}>{model.label}</option>{/each}

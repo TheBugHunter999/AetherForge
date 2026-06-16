@@ -1454,6 +1454,9 @@ export function buildDeveloperRuntimeConfig(settings: AppSettings): DeveloperRun
   };
 }
 
+/** Default Grok CLI agent profile when agent mode is enabled (`grok inspect` built-in). */
+export const GROK_CLI_DEFAULT_AGENT = "general-purpose";
+
 /** Terminal command injected when launching Grok CLI inside the integrated terminal. */
 export function buildGrokLaunchCommand(settings: AppSettings): string {
   const parts = ["grok"];
@@ -1461,7 +1464,7 @@ export function buildGrokLaunchCommand(settings: AppSettings): string {
     parts.push("--model", settings.grokModel);
   }
   if (settings.aiAgentModeDefault) {
-    parts.push("--agent");
+    parts.push("--agent", GROK_CLI_DEFAULT_AGENT);
   }
   return parts.join(" ");
 }

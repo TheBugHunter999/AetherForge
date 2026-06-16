@@ -163,6 +163,22 @@ fn center_window(main: &tauri::WebviewWindow) {
     let _ = main.center();
 }
 
+fn lock_wizard_window(main: &tauri::WebviewWindow) -> Result<(), String> {
+    let _ = main.set_maximizable(false);
+    let _ = main.set_resizable(false);
+    main
+        .set_size(LogicalSize::new(WIZARD_WIDTH, WIZARD_HEIGHT))
+        .map_err(|e| e.to_string())?;
+    center_window(main);
+    Ok(())
+}
+
+fn unlock_workspace_window(main: &tauri::WebviewWindow) -> Result<(), String> {
+    let _ = main.set_maximizable(true);
+    main.set_resizable(true).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 #[tauri::command]
 fn read_editor_settings(source: String) -> Result<EditorImportResult, String> {
     ide_import::read_editor_settings(source)
@@ -202,10 +218,10 @@ fn prepare_wizard_window(app: AppHandle) -> Result<(), String> {
     if main.is_maximized().unwrap_or(false) {
         let _ = main.unmaximize();
     }
-    main
-        .set_size(LogicalSize::new(WIZARD_WIDTH, WIZARD_HEIGHT))
-        .map_err(|e| e.to_string())?;
-    center_window(&main);
+    if main.is_fullscreen().unwrap_or(false) {
+        let _ = main.set_fullscreen(false);
+    }
+    lock_wizard_window(&main)?;
     let _ = main.show();
     let _ = main.set_focus();
     Ok(())
@@ -224,6 +240,7 @@ fn transition_to_workspace(app: AppHandle) -> Result<(), String> {
     if main.is_maximized().unwrap_or(false) {
         let _ = main.unmaximize();
     }
+    unlock_workspace_window(&main)?;
     main.maximize().map_err(|e| e.to_string())?;
     let _ = main.set_focus();
     Ok(())
@@ -242,8 +259,7 @@ pub fn run() {
         .manage(TerminalState::new())
         .setup(|app| {
             if let Some(main) = app.get_webview_window("main") {
-                let _ = main.set_size(LogicalSize::new(WIZARD_WIDTH, WIZARD_HEIGHT));
-                center_window(&main);
+                let _ = lock_wizard_window(&main);
                 let _ = main.show();
                 let _ = main.set_focus();
             }

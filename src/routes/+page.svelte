@@ -1226,10 +1226,12 @@
 {#key appPhase}
   {#if appPhase === "launch"}
     <div class="phase-shell" in:fade={{ duration: 200 }} out:fade={{ duration: 220 }}>
+      <WindowChrome locked />
       <LaunchSplash />
     </div>
   {:else if appPhase === "onboarding"}
     <div class="phase-shell" in:fade={{ duration: 280 }} out:fade={{ duration: 220 }}>
+      <WindowChrome locked />
       <Onboarding {settings} oncomplete={handleOnboardingComplete} />
     </div>
   {/if}
@@ -1664,6 +1666,7 @@
               cwd={folderPath}
               sessionActive={terminalOpen}
               visible={bottomPanelTab === "terminal"}
+              enableHelper={false}
               injectToken={grokInjectToken}
               injectCommand={grokInjectCommand}
               onSpawned={handleMainTerminalSpawned}
@@ -1816,6 +1819,16 @@ This is a very long debug log line that demonstrates whether the debug console w
     position: fixed;
     inset: 0;
     z-index: 15000;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--bg, #09090d);
+  }
+
+  :global(.phase-shell > :not(.window-chrome)) {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
   }
   .workspace-enter {
     animation: workspace-in 0.4s ease-out both;

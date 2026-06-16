@@ -114,7 +114,7 @@
       cursorBlink: true,
       convertEol: true,
       customGlyphs: settings.terminalGpuAcceleration,
-      scrollOnUserInput: true,
+      scrollOnUserInput: false,
     };
   }
 
@@ -269,11 +269,15 @@
   function handleTerminalData(data: string) {
     if (!terminalId) return;
 
-    const consumed = consumeTerminalInput(data, inputBuffer);
-    inputBuffer = consumed.buffer;
-    if (!consumed.forward) return;
+    let forward = data;
+    if (enableHelper) {
+      const consumed = consumeTerminalInput(data, inputBuffer);
+      inputBuffer = consumed.buffer;
+      forward = consumed.forward;
+    }
+    if (!forward) return;
 
-    writeTerminal({ id: terminalId, data: consumed.forward }).catch((error) => {
+    writeTerminal({ id: terminalId, data: forward }).catch((error) => {
       console.error("Terminal write failed:", error);
     });
   }
@@ -343,11 +347,6 @@
   $effect(() => {
     settings.terminalCopyOnSelect;
     syncCopyOnSelect();
-  });
-
-  $effect(() => {
-    helperVisible;
-    void fitAndResize();
   });
 
   $effect(() => {

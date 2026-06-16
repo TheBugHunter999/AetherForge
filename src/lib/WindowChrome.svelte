@@ -2,6 +2,13 @@
   import { onMount } from "svelte";
   import { getCurrentWindow } from "@tauri-apps/api/window";
 
+  let {
+    locked = false,
+  }: {
+    /** Setup wizard: centered, no drag, no maximize. */
+    locked?: boolean;
+  } = $props();
+
   let maximized = $state(false);
   let appWindow: ReturnType<typeof getCurrentWindow> | null = null;
 
@@ -26,6 +33,7 @@
   }
 
   function toggleMaximize() {
+    if (locked) return;
     void appWindow?.toggleMaximize();
   }
 
@@ -34,7 +42,7 @@
   }
 
   function onDragMouseDown(e: MouseEvent) {
-    if (!appWindow || e.button !== 0) return;
+    if (locked || !appWindow || e.button !== 0) return;
     const target = e.target as HTMLElement;
     if (target.closest("button, a, input, select, textarea")) return;
     if (e.detail === 2) {
@@ -45,17 +53,41 @@
   }
 </script>
 
-<div class="window-chrome" data-tauri-drag-region onmousedown={onDragMouseDown}>
-  <div class="chrome-drag" data-tauri-drag-region></div>
+<div
+  class="window-chrome"
+  class:locked
+  class:maximized
+  data-tauri-drag-region={locked ? undefined : true}
+  onmousedown={onDragMouseDown}
+>
+  <div class="chrome-drag" data-tauri-drag-region={locked ? undefined : true}></div>
   <div class="chrome-controls">
     <button type="button" class="chrome-btn" aria-label="Minimize" onclick={minimize}>
-      <span aria-hidden="true"></span>
+      <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M0 5h10" stroke="currentColor" stroke-width="1" /></svg>
     </button>
-    <button type="button" class="chrome-btn" aria-label={maximized ? "Restore" : "Maximize"} onclick={toggleMaximize}>
-      <span class:restore={maximized} aria-hidden="true"></span>
-    </button>
+    {#if !locked}
+      <button
+        type="button"
+        class="chrome-btn"
+        aria-label={maximized ? "Restore" : "Maximize"}
+        onclick={toggleMaximize}
+      >
+        {#if maximized}
+          <svg class="icon-restore" viewBox="0 0 10 10" aria-hidden="true">
+            <path d="M2 0h6v2H4v6H2V0z" fill="none" stroke="currentColor" stroke-width="1" />
+            <path d="M4 2h6v8H4V2z" fill="none" stroke="currentColor" stroke-width="1" />
+          </svg>
+        {:else}
+          <svg viewBox="0 0 10 10" aria-hidden="true">
+            <rect x="0.5" y="0.5" width="9" height="9" fill="none" stroke="currentColor" stroke-width="1" />
+          </svg>
+        {/if}
+      </button>
+    {/if}
     <button type="button" class="chrome-btn close" aria-label="Close" onclick={close}>
-      <span aria-hidden="true"></span>
+      <svg viewBox="0 0 10 10" aria-hidden="true">
+        <path d="M1 1l8 8M9 1L1 9" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" />
+      </svg>
     </button>
   </div>
 </div>
@@ -64,34 +96,61 @@
   .window-chrome {
     position: relative;
     display: flex;
-    align-items: stretch;
+    align-items: center;
     justify-content: flex-end;
     height: 32px;
+    min-height: 32px;
+    max-height: 32px;
     flex-shrink: 0;
     background: var(--panel-solid);
     border-bottom: 1px solid var(--border);
     user-select: none;
     -webkit-app-region: drag;
     app-region: drag;
+    z-index: 20;
   }
+
+  .window-chrome.locked {
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
+    cursor: default;
+  }
+
   .chrome-drag {
-    flex: 1;
+    flex: 1 1 auto;
     min-width: 0;
+    height: 100%;
     -webkit-app-region: drag;
     app-region: drag;
   }
-  .chrome-controls {
-    display: flex;
-    align-items: stretch;
+
+  .window-chrome.locked .chrome-drag {
     -webkit-app-region: no-drag;
     app-region: no-drag;
   }
-  .chrome-btn {
-    width: 46px;
+
+  .chrome-controls {
+    position: relative;
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
     height: 32px;
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
+  }
+
+  .chrome-btn {
+    flex: 0 0 46px;
+    width: 46px;
+    min-width: 46px;
+    max-width: 46px;
+    height: 32px;
+    min-height: 32px;
+    max-height: 32px;
     border: none;
     background: transparent;
     padding: 0;
+    margin: 0;
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -99,55 +158,31 @@
     color: var(--text-mute);
     transition: background 0.12s, color 0.12s;
   }
+
+  .chrome-btn svg {
+    width: 10px;
+    height: 10px;
+    display: block;
+    flex-shrink: 0;
+    pointer-events: none;
+  }
+
+  .chrome-btn .icon-restore {
+    width: 10px;
+    height: 10px;
+  }
+
   .chrome-btn:hover {
     background: var(--hover);
     color: var(--text);
   }
+
   .chrome-btn.close:hover {
     background: var(--danger);
     color: #fff;
   }
-  .chrome-btn span {
-    display: block;
-    width: 10px;
-    height: 1px;
-    background: currentColor;
-    position: relative;
+
+  .window-chrome.maximized .chrome-controls {
+    padding-right: env(titlebar-area-x, 0px);
   }
-  .chrome-btn:nth-child(2) span {
-    width: 9px;
-    height: 9px;
-    background: transparent;
-    border: 1px solid currentColor;
-    box-sizing: border-box;
-  }
-  .chrome-btn:nth-child(2) span.restore {
-    width: 8px;
-    height: 8px;
-    border: none;
-    background:
-      linear-gradient(currentColor, currentColor) 2px 0 / 6px 1px no-repeat,
-      linear-gradient(currentColor, currentColor) 0 2px / 1px 6px no-repeat,
-      linear-gradient(currentColor, currentColor) 0 0 / 8px 8px no-repeat;
-    background-color: transparent;
-    box-shadow: inset 0 0 0 1px currentColor;
-    transform: translate(2px, -2px);
-  }
-  .chrome-btn.close span {
-    width: 10px;
-    height: 10px;
-    background: none;
-  }
-  .chrome-btn.close span::before,
-  .chrome-btn.close span::after {
-    content: "";
-    position: absolute;
-    left: 0;
-    top: 4px;
-    width: 10px;
-    height: 1px;
-    background: currentColor;
-  }
-  .chrome-btn.close span::before { transform: rotate(45deg); }
-  .chrome-btn.close span::after { transform: rotate(-45deg); }
 </style>
