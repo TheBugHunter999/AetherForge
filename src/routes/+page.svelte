@@ -214,17 +214,9 @@
     measureWorkspaceBody();
     const ro = new ResizeObserver(() => {
       measureWorkspaceBody();
-      terminalHeight = clampTerminalSize(terminalHeight);
-      window.dispatchEvent(new Event("resize"));
     });
     ro.observe(el);
     return () => ro.disconnect();
-  });
-
-  $effect(() => {
-    terminalOpen;
-    effectiveTerminalHeight;
-    queueMicrotask(() => window.dispatchEvent(new Event("resize")));
   });
 
   $effect(() => {
@@ -1665,7 +1657,7 @@
               {settings}
               cwd={folderPath}
               sessionActive={terminalOpen}
-              visible={bottomPanelTab === "terminal"}
+              visible={terminalOpen && bottomPanelTab === "terminal"}
               enableHelper={false}
               injectToken={grokInjectToken}
               injectCommand={grokInjectCommand}
@@ -2823,24 +2815,30 @@ This is a very long debug log line that demonstrates whether the debug console w
   .terminal-body {
     flex: 1;
     min-height: 0;
-    display: flex;
-    flex-direction: column;
+    min-width: 0;
+    display: grid;
+    grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+    overflow: hidden;
     position: relative;
   }
   .terminal-pane {
-    flex: 1;
+    grid-area: 1 / 1;
     min-height: 0;
+    min-width: 0;
     display: flex;
     flex-direction: column;
     overflow: hidden;
   }
 
   .terminal-pane.terminal-pane-hidden {
-    position: absolute;
-    inset: 0;
     visibility: hidden;
     pointer-events: none;
+    z-index: 0;
     overflow: hidden;
+  }
+
+  .terminal-pane:not(.terminal-pane-hidden) {
+    z-index: 1;
   }
 
   .statusbar {
@@ -2914,6 +2912,7 @@ This is a very long debug log line that demonstrates whether the debug console w
     background: var(--panel);
     border-left: 1px solid var(--border);
     overflow: hidden;
+    contain: layout paint style;
   }
 
   .secondary-header {
@@ -3063,13 +3062,7 @@ This is a very long debug log line that demonstrates whether the debug console w
   }
 
   .terminal.panel-hidden {
-    height: auto !important;
-    min-height: 0;
-    flex-shrink: 0;
-  }
-  .terminal.panel-hidden .terminal-resize-handle,
-  .terminal.panel-hidden .terminal-body {
-    display: none;
+    display: none !important;
   }
 
   .zen-hidden { display: none !important; }

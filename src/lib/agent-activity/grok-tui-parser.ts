@@ -1,5 +1,6 @@
 import type { AgentStep, StepKind, ToolKind } from "$lib/agent-activity/types";
-import { stripAnsi } from "$lib/agent-activity/grok-ansi";
+import { AnsiStripper, sanitizeDisplayText } from "$lib/agent-activity/grok-ansi";
+import { shortPath } from "$lib/agent-activity/display-text";
 
 export type ParserEvent =
   | { type: "step_start"; title: string; kind: StepKind; toolKind?: ToolKind; files?: string[] }
@@ -12,72 +13,77 @@ const TOOL_PATTERNS: { re: RegExp; kind: ToolKind; label: (m: RegExpMatchArray) 
   { re: /edit(?:ing)?\s+[`'"]?([^\s`'"\\]+)/i, kind: "write", label: (m) => `Editing ${shortPath(m[1])}` },
   { re: /(?:run(?:ning)?|exec(?:ute)?)\s+[`'"]?([^\n`'"\\]{3,})/i, kind: "execute", label: (m) => `Running ${trimCmd(m[1])}` },
   { re: /grep(?:ping)?\s+[`'"]?([^\n`'"\\]{2,})/i, kind: "search", label: (m) => `Searching ${trimCmd(m[1])}` },
-  { re: /([A-Za-z]:\\[^\s`'"\\]+|\/[^\s`'"\\]+)/, kind: "read", label: (m) => `Working on ${shortPath(m[1])}` },
+  { re: /image-to-video\s+(.+)/i, kind: "execute", label: (m) => `Video: ${trimCmd(m[1])}` },
+  { re: /\/imagine(?:-video)?\s+(.+)/i, kind: "execute", label: (m) => `Imagine: ${trimCmd(m[1])}` },
 ];
 
-function shortPath(path: string): string {
-  const norm = path.replace(/\\/g, "/");
-  const parts = norm.split("/").filter(Boolean);
-  if (parts.length <= 2) return norm;
-  return `…/${parts.slice(-2).join("/")}`;
-}
-
 function trimCmd(cmd: string): string {
-  const t = cmd.trim();
-  return t.length > 48 ? `${t.slice(0, 45)}…` : t;
+  return sanitizeDisplayText(cmd, 48);
 }
 
 export class GrokTuiParser {
   private buffer = "";
   private lastTitle = "";
+  private ansi = new AnsiStripper();
 
   push(chunk: string): ParserEvent[] {
-    this.buffer += stripAnsi(chunk);
+    this.buffer += this.ansi.push(chunk);
     if (this.buffer.length > 8000) {
       this.buffer = this.buffer.slice(-4000);
     }
+    return this.parseCompleteLines();
+  }
 
-    const events: ParserEvent[] = [];
-    const lines = this.buffer.split("\n").slice(-12);
-    for (const raw of lines) {
-      const line = raw.trim();
-      if (line.length < 3) continue;
+  flush(): ParserEvent[] {
+    const tail = this.ansi.flush();
+    if (tail) this.buffer += tail;
+    return this.parseCompleteLines();
+  }
 
-      if (/think(?:ing)?/i.test(line)) {
-        const title = "Thinking…";
-        if (title !== this.lastTitle) {
-          this.lastTitle = title;
-          events.push({ type: "step_start", title, kind: "thought" });
-        }
-        continue;
-      }
+  private parseCompleteLines(): ParserEvent[] {
+    const parts = this.buffer.split("\n");
+    const completeLines = this.buffer.endsWith("\n") ? parts : parts.slice(0, -1);
+    const lines = completeLines.slice(-12);
 
-      if (/approv|confirm|permission|waiting for/i.test(line)) {
-        const title = "Waiting for your approval";
-        if (title !== this.lastTitle) {
-          this.lastTitle = title;
-          events.push({ type: "step_start", title, kind: "permission" });
-        }
-        continue;
-      }
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const event = this.matchLine(lines[i].trim());
+      if (!event) continue;
+      if (event.title === this.lastTitle) return [];
+      this.lastTitle = event.title;
+      return [event];
+    }
+    return [];
+  }
 
-      for (const pat of TOOL_PATTERNS) {
-        const m = line.match(pat.re);
-        if (!m) continue;
-        const title = pat.label(m);
-        if (title === this.lastTitle) break;
-        this.lastTitle = title;
-        events.push({
-          type: "step_start",
-          title,
-          kind: "tool_call",
-          toolKind: pat.kind,
-          files: m[1] ? [m[1]] : undefined,
-        });
-        break;
-      }
+  private matchLine(line: string): ParserEvent | null {
+    if (line.length < 3) return null;
+
+    if (/think(?:ing)?/i.test(line)) {
+      return { type: "step_start", title: "Thinking…", kind: "thought" };
     }
 
-    return events;
+    if (/approv|confirm|permission|waiting for/i.test(line)) {
+      return { type: "step_start", title: "Waiting for your approval", kind: "permission" };
+    }
+
+    if (/loading/i.test(line) && line.length < 40) {
+      return { type: "step_start", title: "Loading…", kind: "thought" };
+    }
+
+    for (const pat of TOOL_PATTERNS) {
+      const m = line.match(pat.re);
+      if (!m) continue;
+      const title = sanitizeDisplayText(pat.label(m));
+      if (!title) continue;
+      return {
+        type: "step_start",
+        title,
+        kind: "tool_call",
+        toolKind: pat.kind,
+        files: m[1] ? [m[1]] : undefined,
+      };
+    }
+
+    return null;
   }
 }

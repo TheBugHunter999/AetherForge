@@ -6,12 +6,21 @@ export function consumeTerminalInput(data: string, buffer: string): { forward: s
     const char = data[i];
     const code = char.charCodeAt(0);
 
-    if (char === "\x1b" && data[i + 1] === "[") {
-      let j = i + 2;
-      while (j < data.length && !/[A-Za-z]/.test(data[j])) j++;
-      forward += data.slice(i, j + 1);
-      i = j;
-      continue;
+    if (char === "\x1b" && i + 1 < data.length) {
+      const next = data[i + 1];
+      if (next === "[") {
+        let j = i + 2;
+        while (j < data.length && !/[A-Za-z~]/.test(data[j])) j++;
+        if (j < data.length) j++;
+        forward += data.slice(i, j);
+        i = j - 1;
+        continue;
+      }
+      if (next === "O" && i + 2 < data.length) {
+        forward += data.slice(i, i + 3);
+        i += 2;
+        continue;
+      }
     }
 
     if (char === "\r" || char === "\n") {
@@ -33,6 +42,7 @@ export function consumeTerminalInput(data: string, buffer: string): { forward: s
     }
 
     if (char === "\t") {
+      forward += char;
       continue;
     }
 

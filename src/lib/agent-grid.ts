@@ -79,6 +79,11 @@ export function computeAgentGridLayout(count: number): { cols: number; rows: num
   return { cols: 2, rows: 2 };
 }
 
+/** Third pane spans both columns so a 3-agent swarm does not leave an empty grid cell. */
+export function shouldSpanAgentCell(agentCount: number, index: number): boolean {
+  return clampAgentCount(agentCount) === 3 && index === 2;
+}
+
 export function getAssignedGoalIds(agents: ParallelAgent[]): Set<string> {
   const taken = new Set<string>();
   for (const agent of agents) {

@@ -1,4 +1,5 @@
 import type { AgentSession, AgentStep, AgentRunStatus } from "$lib/agent-activity/types";
+import { normalizeActivityTitle } from "$lib/agent-activity/display-text";
 
 let sessions = $state<Map<string, AgentSession>>(new Map());
 let activeSessionId = $state<string | null>(null);
@@ -76,13 +77,16 @@ export function pushActivityStep(
   const session = sessions.get(sessionId);
   if (!session) return;
 
+  const title = normalizeActivityTitle(partial.title);
+  if (!title) return;
+
   const closed = completeRunningStep(session);
   const step: AgentStep = {
     id: uid("step"),
     sessionId,
     kind: partial.kind,
     status: "running",
-    title: partial.title,
+    title,
     toolKind: partial.toolKind,
     files: partial.files,
     startedAt: now(),
@@ -98,7 +102,7 @@ export function pushActivityStep(
   sessions = new Map(sessions).set(sessionId, {
     ...closed,
     status,
-    currentTitle: partial.title,
+    currentTitle: title,
     updatedAt: now(),
     steps: [...closed.steps, step].slice(-40),
   });

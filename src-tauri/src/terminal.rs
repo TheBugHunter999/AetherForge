@@ -1,4 +1,3 @@
-use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use parking_lot::Mutex;
 use portable_pty::{
     native_pty_system, Child, ChildKiller, CommandBuilder, MasterPty, PtySize, SlavePty,
@@ -85,11 +84,65 @@ fn resolve_shell(shell: Option<String>) -> String {
         .unwrap_or_else(default_shell)
 }
 
-fn encode_output(bytes: &[u8]) -> String {
-    if std::str::from_utf8(bytes).is_ok() {
-        String::from_utf8_lossy(bytes).into_owned()
+struct Utf8StreamDecoder {
+    pending: Vec<u8>,
+}
+
+impl Utf8StreamDecoder {
+    fn new() -> Self {
+        Self { pending: Vec::new() }
+    }
+
+    fn push(&mut self, chunk: &[u8]) -> String {
+        self.pending.extend_from_slice(chunk);
+        let mut out = String::new();
+        let mut i = 0;
+
+        while i < self.pending.len() {
+            let b = self.pending[i];
+            let need = utf8_char_len(b);
+            if need == 0 {
+                out.push(char::REPLACEMENT_CHARACTER);
+                i += 1;
+                continue;
+            }
+            if i + need > self.pending.len() {
+                break;
+            }
+            match std::str::from_utf8(&self.pending[i..i + need]) {
+                Ok(s) => {
+                    out.push_str(s);
+                    i += need;
+                }
+                Err(_) => {
+                    out.push(char::REPLACEMENT_CHARACTER);
+                    i += 1;
+                }
+            }
+        }
+        self.pending.drain(..i);
+        out
+    }
+
+    fn flush(&mut self) -> String {
+        if self.pending.is_empty() {
+            return String::new();
+        }
+        String::from_utf8_lossy(&std::mem::take(&mut self.pending)).into_owned()
+    }
+}
+
+fn utf8_char_len(b: u8) -> usize {
+    if b < 0x80 {
+        1
+    } else if b & 0xE0 == 0xC0 {
+        2
+    } else if b & 0xF0 == 0xE0 {
+        3
+    } else if b & 0xF8 == 0xF0 {
+        4
     } else {
-        BASE64.encode(bytes)
+        0
     }
 }
 
@@ -150,17 +203,27 @@ fn spawn_reader_thread(
 ) {
     std::thread::spawn(move || {
         let mut buffer = [0u8; READ_BUFFER_SIZE];
+        let mut decoder = Utf8StreamDecoder::new();
 
         while alive.load(Ordering::Relaxed) {
             match reader.read(&mut buffer) {
                 Ok(0) => break,
                 Ok(count) => {
-                    let data = encode_output(&buffer[..count]);
-                    if let Some(on_output) = on_output.as_ref() {
-                        on_output(id, data);
+                    let data = decoder.push(&buffer[..count]);
+                    if !data.is_empty() {
+                        if let Some(on_output) = on_output.as_ref() {
+                            on_output(id, data);
+                        }
                     }
                 }
                 Err(_) => break,
+            }
+        }
+
+        let tail = decoder.flush();
+        if !tail.is_empty() {
+            if let Some(on_output) = on_output.as_ref() {
+                on_output(id, tail);
             }
         }
 
@@ -382,11 +445,14 @@ mod tests {
     }
 
     #[test]
-    fn encode_output_round_trips_utf8_and_base64() {
-        assert_eq!(encode_output(b"hello"), "hello");
-        let encoded = encode_output(&[0xff, 0xfe, 0xfd]);
-        assert_ne!(encoded, "");
-        assert!(BASE64.decode(encoded).is_ok());
+    fn utf8_decoder_handles_split_codepoints() {
+        let mut decoder = Utf8StreamDecoder::new();
+        let euro = "€";
+        let bytes = euro.as_bytes();
+        let first = decoder.push(&bytes[..1]);
+        assert_eq!(first, "");
+        let second = decoder.push(&bytes[1..]);
+        assert_eq!(second, "€");
     }
 
     #[test]

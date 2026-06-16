@@ -19,7 +19,9 @@
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    max-width: 140px;
+    max-width: min(140px, 100%);
+    min-width: 0;
+    flex: 1 1 0;
     font-size: 10px;
     color: var(--text-mute);
     overflow: hidden;
@@ -40,6 +42,8 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    min-width: 0;
+    flex: 1 1 auto;
   }
   @keyframes pulse {
     0%, 100% { opacity: 1; }

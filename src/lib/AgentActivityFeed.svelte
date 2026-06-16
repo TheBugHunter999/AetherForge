@@ -8,6 +8,7 @@
     isSessionLive,
   } from "$lib/agent-activity/activity-store";
   import type { AgentRunStatus, AgentStep } from "$lib/agent-activity/types";
+  import { formatStepFiles } from "$lib/agent-activity/display-text";
 
   const sessions = $derived(getActivitySessions());
   const active = $derived(getActiveActivitySession());
@@ -79,7 +80,7 @@
           </span>
         {/if}
         {#if active.currentTitle}
-          <span class="current-title">{active.currentTitle}</span>
+          <span class="current-title" title={active.currentTitle}>{active.currentTitle}</span>
         {/if}
       </div>
 
@@ -93,9 +94,11 @@
             <li class="step" class:running={step.status === "running"} class:done={step.status === "success"}>
               <span class="step-icon" class:permission={step.kind === "permission"}>{stepIcon(step)}</span>
               <div class="step-body">
-                <span class="step-title">{step.title}</span>
+                <span class="step-title" title={step.title}>{step.title}</span>
                 {#if step.files?.length}
-                  <span class="step-files">{step.files.map((f) => f.split(/[/\\]/).pop()).join(", ")}</span>
+                  <span class="step-files" title={step.files.join("\n")}>
+                    {formatStepFiles(step.files)}
+                  </span>
                 {/if}
               </div>
               <span class="step-time">{formatTime(step.startedAt)}</span>
@@ -113,9 +116,11 @@
     flex-direction: column;
     gap: 0;
     min-height: 0;
+    min-width: 0;
     flex: 1;
     overflow: hidden;
     padding-top: 10px;
+    contain: layout paint style;
   }
   .empty {
     padding: 24px 14px;
@@ -153,6 +158,7 @@
     cursor: pointer;
     font-family: inherit;
     max-width: 100%;
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -205,14 +211,24 @@
     font-size: 12px;
     color: var(--text-dim);
     line-height: 1.4;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    word-break: break-word;
+    overflow-wrap: anywhere;
   }
   .step-list {
     list-style: none;
     margin: 0;
     padding: 4px 8px 12px;
     overflow-y: auto;
+    overflow-x: hidden;
     flex: 1;
     min-height: 0;
+    min-width: 0;
+    scrollbar-gutter: stable;
   }
   .step-empty {
     padding: 12px;
@@ -227,6 +243,7 @@
     padding: 7px 6px;
     border-radius: 6px;
     transition: background 0.15s;
+    min-width: 0;
   }
   .step.running { background: var(--hover); }
   .step.done { opacity: 0.72; }
@@ -259,12 +276,20 @@
     font-size: 12px;
     color: var(--text-dim);
     line-height: 1.35;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
   }
   .step.running .step-title { color: var(--text); }
   .step-files {
     font-size: 10px;
     color: var(--text-mute);
     font-family: var(--code-font);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
   }
   .step-time {
     font-size: 9px;

@@ -4,6 +4,16 @@ import {
   searchCommandSuggestions,
   shouldShowSuggestions,
 } from "./terminal-commands";
+import {
+  clampDims,
+  debounce,
+  DEFAULT_RESIZE_DEBOUNCE_MS,
+  dimsChanged,
+  hostSizeChanged,
+  parseAltScreenActive,
+  shouldNotifyPtyResize,
+  type TermDims,
+} from "./terminal-xterm";
 
 type StressResult = { name: string; ok: boolean; detail?: string };
 
@@ -20,8 +30,11 @@ function stressTerminalInput(): StressResult[] {
   const enter = consumeTerminalInput("\r", "npm run");
   results.push(assert("enter clears buffer", enter.buffer === "" && enter.forward === "\r"));
 
-  const tabSwallowed = consumeTerminalInput("\t", "gi");
-  results.push(assert("tab not forwarded", tabSwallowed.forward === "" && tabSwallowed.buffer === "gi"));
+  const tabForwarded = consumeTerminalInput("\t", "gi");
+  results.push(assert("tab forwarded to pty", tabForwarded.forward === "\t" && tabForwarded.buffer === "gi"));
+
+  const ss3Arrow = consumeTerminalInput("\x1bOA", "git");
+  results.push(assert("ss3 arrow forwarded", ss3Arrow.forward === "\x1bOA" && ss3Arrow.buffer === "git"));
 
   const arrow = consumeTerminalInput("\x1b[A", "git");
   results.push(assert("csi forwarded", arrow.forward === "\x1b[A" && arrow.buffer === "git"));
@@ -73,8 +86,60 @@ function stressInjectLogic(): StressResult[] {
   return results;
 }
 
+function stressResizeDebouncing(): StressResult[] {
+  const results: StressResult[] = [];
+  let invocations = 0;
+  const debounced = debounce(() => {
+    invocations++;
+  }, DEFAULT_RESIZE_DEBOUNCE_MS);
+  debounced();
+  debounced();
+  debounced();
+  results.push(assert("resize debounce coalesces burst", invocations === 0));
+  return results;
+}
+
+function stressColsRowsCache(): StressResult[] {
+  const results: StressResult[] = [];
+  const cached: TermDims = { cols: 80, rows: 24 };
+  results.push(assert("cols/rows cache hit", !dimsChanged(cached, { cols: 80, rows: 24 })));
+  results.push(assert("cols change detected", dimsChanged(cached, { cols: 81, rows: 24 })));
+  results.push(assert("clamp rejects tiny dims", clampDims(1, 24) === null));
+  results.push(assert("shouldNotify skips identical", !shouldNotifyPtyResize(cached, { cols: 80, rows: 24 })));
+  return results;
+}
+
+function stressAltScreenStability(): StressResult[] {
+  const results: StressResult[] = [];
+  results.push(assert("1049h enters alt", parseAltScreenActive("\x1b[?1049h", false)));
+  results.push(assert("1049l leaves alt", !parseAltScreenActive("\x1b[?1049l", true)));
+  const cached: TermDims = { cols: 80, rows: 24 };
+  results.push(
+    assert(
+      "pty resize blocked during alt",
+      !shouldNotifyPtyResize(cached, { cols: 100, rows: 30 }, { altScreenActive: true }),
+    ),
+  );
+  return results;
+}
+
+function stressHostSizeThreshold(): StressResult[] {
+  const results: StressResult[] = [];
+  results.push(assert("host size unchanged", !hostSizeChanged(800, 400, 800.5, 400.5)));
+  results.push(assert("host width change", hostSizeChanged(800, 400, 802, 400)));
+  return results;
+}
+
 export function runTerminalStressTests(): StressResult[] {
-  return [...stressTerminalInput(), ...stressTerminalCommands(), ...stressInjectLogic()];
+  return [
+    ...stressTerminalInput(),
+    ...stressTerminalCommands(),
+    ...stressInjectLogic(),
+    ...stressResizeDebouncing(),
+    ...stressColsRowsCache(),
+    ...stressAltScreenStability(),
+    ...stressHostSizeThreshold(),
+  ];
 }
 
 export function formatStressReport(results: StressResult[]): string {

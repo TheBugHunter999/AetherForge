@@ -20,6 +20,15 @@
   } from "$lib/terminal-commands";
   import { appendToBuffer, consumeTerminalInput } from "$lib/terminal-input";
   import TerminalHelper from "$lib/TerminalHelper.svelte";
+  import {
+    clampDims,
+    debounce,
+    DEFAULT_RESIZE_DEBOUNCE_MS,
+    hostSizeChanged,
+    parseAltScreenActive,
+    shouldNotifyPtyResize,
+    type TermDims,
+  } from "$lib/terminal-xterm";
   let {
     settings,
     cwd = null,
@@ -55,6 +64,10 @@
   let spawnGeneration = 0;
   let mounted = false;
   let inputBuffer = $state("");
+  let lastPtyDims: TermDims | null = null;
+  let lastHostW = 0;
+  let lastHostH = 0;
+  let altScreenActive = false;
 
   let bellEnabled = false;
   let suggestions = $derived(
@@ -105,16 +118,24 @@
       : settings.terminalFontSize;
     return {
       fontSize,
-      lineHeight: 1.45,
-      letterSpacing: 0.2,
+      lineHeight: compact ? 1.05 : 1,
+      letterSpacing: 0,
       scrollback: settings.terminalScrollback,
       cursorStyle: xtermCursorStyle(settings.terminalCursorStyle),
       fontFamily: '"Cascadia Mono", "Cascadia Code", Consolas, monospace',
       theme: buildXtermTheme(el),
       cursorBlink: true,
-      convertEol: true,
-      customGlyphs: settings.terminalGpuAcceleration,
+      convertEol: false,
+      customGlyphs: true,
       scrollOnUserInput: false,
+      smoothScrollDuration: 0,
+      altClickMovesCursor: false,
+      windowsPty: { backend: "conpty" as const },
+      windowOptions: {
+        getWinSizeChars: true,
+        getCellSizePixels: true,
+        getWinSizePixels: true,
+      },
     };
   }
 
@@ -124,33 +145,54 @@
     term.options.fontSize = compact
       ? Math.max(10, settings.terminalFontSize - 2)
       : settings.terminalFontSize;
-    term.options.lineHeight = 1.45;
+    term.options.lineHeight = compact ? 1.05 : 1;
+    term.options.letterSpacing = 0;
     term.options.scrollback = settings.terminalScrollback;
     term.options.cursorStyle = xtermCursorStyle(settings.terminalCursorStyle);
     term.options.theme = buildXtermTheme(hostEl);
-    term.options.customGlyphs = settings.terminalGpuAcceleration;
+    term.options.customGlyphs = true;
   }
 
-  async function fitAndResize() {
+  async function fitAndResize(force = false) {
     if (!visible || !fitAddon || !term || !terminalId || !hostEl) return;
 
     const { clientWidth, clientHeight } = hostEl;
     if (clientWidth < 2 || clientHeight < 2) return;
 
+    if (
+      !force &&
+      !hostSizeChanged(lastHostW, lastHostH, clientWidth, clientHeight)
+    ) {
+      return;
+    }
+
+    lastHostW = clientWidth;
+    lastHostH = clientHeight;
+
     try {
       fitAddon.fit();
-      const dims = fitAddon.proposeDimensions();
-      if (dims?.cols && dims?.rows && dims.cols > 0 && dims.rows > 0) {
-        await resizeTerminal({
-          id: terminalId,
-          cols: dims.cols,
-          rows: dims.rows,
-        });
+      const raw = fitAddon.proposeDimensions();
+      const dims = clampDims(raw?.cols ?? 0, raw?.rows ?? 0);
+      if (!dims) return;
+      if (
+        !shouldNotifyPtyResize(lastPtyDims, dims, { altScreenActive }) &&
+        !force
+      ) {
+        return;
       }
+
+      lastPtyDims = dims;
+      await resizeTerminal({
+        id: terminalId,
+        cols: dims.cols,
+        rows: dims.rows,
+      });
     } catch (error) {
       console.error("Terminal resize failed:", error);
     }
   }
+
+  const scheduleFitAndResize = debounce(() => void fitAndResize(), DEFAULT_RESIZE_DEBOUNCE_MS);
 
   async function teardownSession(force = false) {
     if (!force && settings.terminalPersistSession) return;
@@ -222,14 +264,19 @@
       }
 
       terminalId = id;
+      lastPtyDims = null;
+      lastHostW = 0;
+      lastHostH = 0;
+      altScreenActive = false;
       unregisterOutput = registerTerminalOutput(id, (data) => {
         if (terminalId === id && term) {
+          altScreenActive = parseAltScreenActive(data, altScreenActive);
           term.write(data);
         }
       });
       onSpawned?.(id);
 
-      await fitAndResize();
+      await fitAndResize(true);
     } catch (error) {
       console.error("Terminal spawn failed:", error);
       term?.writeln("\r\n\x1b[31mFailed to spawn terminal.\x1b[0m");
@@ -241,6 +288,10 @@
     await teardownSession();
     term?.clear();
     inputBuffer = "";
+    lastPtyDims = null;
+    lastHostW = 0;
+    lastHostH = 0;
+    altScreenActive = false;
     await spawnSession();
   }
 
@@ -303,7 +354,14 @@
     syncCopyOnSelect();
 
     term.attachCustomKeyEventHandler((event) => {
-      if (event.key === "Tab" && !event.shiftKey && !event.ctrlKey && !event.altKey) {
+      if (
+        enableHelper &&
+        event.key === "Tab" &&
+        !event.shiftKey &&
+        !event.ctrlKey &&
+        !event.altKey &&
+        shouldShowSuggestions(inputBuffer)
+      ) {
         event.preventDefault();
         void handleTabComplete();
         return false;
@@ -311,13 +369,8 @@
       return true;
     });
 
-    const onWindowResize = () => {
-      void fitAndResize();
-    };
-
-    window.addEventListener("resize", onWindowResize);
     resizeObserver = new ResizeObserver(() => {
-      void fitAndResize();
+      scheduleFitAndResize();
     });
     resizeObserver.observe(hostEl);
 
@@ -326,7 +379,6 @@
     }
 
     return () => {
-      window.removeEventListener("resize", onWindowResize);
       resizeObserver?.disconnect();
       resizeObserver = null;
     };
@@ -341,7 +393,7 @@
     settings.theme;
     settings.accent;
     applyTerminalSettings();
-    void fitAndResize();
+    scheduleFitAndResize();
   });
 
   $effect(() => {
@@ -368,13 +420,10 @@
 
   $effect(() => {
     if (!mounted || !term || !visible || !terminalId) return;
-    void fitAndResize();
-    const t1 = setTimeout(() => void fitAndResize(), 50);
-    const t2 = setTimeout(() => void fitAndResize(), 200);
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-    };
+    const run = () => void fitAndResize(true);
+    requestAnimationFrame(() => requestAnimationFrame(run));
+    const t1 = setTimeout(() => scheduleFitAndResize(), 80);
+    return () => clearTimeout(t1);
   });
 
   let lastInjectToken = 0;
@@ -508,7 +557,7 @@
 </script>
 
 <div class="terminal-wrap" class:compact>
-  <div class="terminal-host" class:has-helper={helperVisible} bind:this={hostEl}></div>
+  <div class="terminal-host" class:has-helper={helperVisible && enableHelper} bind:this={hostEl}></div>
   {#if enableHelper}
     <TerminalHelper input={inputBuffer} {suggestions} onApply={(item) => void applySuggestion(item)} />
   {/if}
@@ -527,29 +576,32 @@
   .terminal-host {
     flex: 1;
     min-height: 0;
+    min-width: 0;
     overflow: hidden;
+    padding: 12px 16px 14px;
+    box-sizing: border-box;
+    scrollbar-gutter: stable;
+  }
+
+  .terminal-wrap.compact .terminal-host {
+    padding: 6px 8px 8px;
+  }
+
+  .terminal-host.has-helper {
+    padding-bottom: 100px;
   }
 
   .terminal-wrap.compact :global(.terminal-host .xterm) {
-    padding: 6px 8px 8px;
     font-size: 11px;
   }
 
   :global(.terminal-host .xterm) {
     height: 100%;
-    padding: 12px 16px 14px;
-    transition: padding-bottom 0.15s ease;
-  }
-
-  :global(.terminal-host .xterm-screen) {
-    padding-top: 2px;
-  }
-
-  :global(.terminal-host.has-helper .xterm) {
-    padding-bottom: 100px;
+    width: 100%;
+    padding: 0;
   }
 
   :global(.terminal-host .xterm-viewport) {
-    overflow-y: auto !important;
+    overflow-y: hidden !important;
   }
 </style>

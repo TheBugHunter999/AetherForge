@@ -12,6 +12,7 @@
     buildAgentGrokCommand,
     clampAgentCount,
     computeAgentGridLayout,
+    shouldSpanAgentCell,
     createAgentId,
     createEmptyAgents,
     createEmptyGoal,
@@ -50,7 +51,8 @@
   let agentTerminalIds = $state<Record<string, number>>({});
   let agentDetachFns = $state<Record<string, () => void>>({});
 
-  let gridLayout = $derived(computeAgentGridLayout(agents.length || agentCount));
+  let slotCount = $derived(agents.length || agentCount);
+  let gridLayout = $derived(computeAgentGridLayout(slotCount));
   let groupedGoals = $derived(groupGoalsByCategory(goals));
   let launchLabel = $derived(
     launching
@@ -136,7 +138,9 @@
     const count = clampAgentCount(agentCount);
     if (agents.length === 0) return;
     if (agents.length > count) {
+      for (const agent of agents.slice(count)) cleanupAgentActivity(agent.id);
       agents = agents.slice(0, count);
+      agentCount = count;
       return;
     }
     if (agents.length < count) {
@@ -256,7 +260,7 @@
     <section class="agent-grid" style="--grid-cols: {gridLayout.cols}; --grid-rows: {gridLayout.rows}">
       {#if agents.length === 0}
         {#each Array(clampAgentCount(agentCount)) as _, i (i)}
-          <div class="agent-cell empty-slot">
+          <div class="agent-cell empty-slot" class:span-cols={shouldSpanAgentCell(slotCount, i)}>
             <div class="cell-head">
               <span class="cell-index">{i + 1}</span>
               <span class="cell-title">Agent {i + 1}</span>
@@ -268,17 +272,21 @@
           </div>
         {/each}
       {:else}
-        {#each agents as agent (agent.id)}
-          <div class="agent-cell" class:active={agent.status === "running"}>
+        {#each agents as agent, i (agent.id)}
+          <div class="agent-cell" class:active={agent.status === "running"} class:span-cols={shouldSpanAgentCell(slotCount, i)}>
             <div class="cell-head">
               <span class="cell-pip" class:live={agent.status === "running" || agent.status === "launching"}></span>
-              <span class="cell-title">{agent.label}</span>
-              <AgentActivityCompact terminalId={agentTerminalIds[agent.id] ?? null} />
-              <span class="cell-status" class:running={agent.status === "running"}>
-                {statusLabel[agent.status]}
-              </span>
-              <button type="button" class="cell-relaunch" title="Relaunch terminal" onclick={() => relaunchAgent(agent.id)}>↻</button>
-              <button type="button" class="cell-close" title="Remove agent" onclick={() => removeAgent(agent.id)}>×</button>
+              <div class="cell-head-main">
+                <span class="cell-title" title={agent.label}>{agent.label}</span>
+                <AgentActivityCompact terminalId={agentTerminalIds[agent.id] ?? null} />
+              </div>
+              <div class="cell-head-actions">
+                <span class="cell-status" class:running={agent.status === "running"}>
+                  {statusLabel[agent.status]}
+                </span>
+                <button type="button" class="cell-relaunch" title="Relaunch terminal" onclick={() => relaunchAgent(agent.id)}>↻</button>
+                <button type="button" class="cell-close" title="Remove agent" onclick={() => removeAgent(agent.id)}>×</button>
+              </div>
             </div>
             <div class="cell-terminal">
               {#if agent.status !== "idle"}
@@ -503,18 +511,41 @@
     display: flex;
     flex-direction: column;
     min-height: 0;
+    min-width: 0;
     background: var(--bg);
     overflow: hidden;
+  }
+
+  .agent-cell.span-cols {
+    grid-column: 1 / -1;
   }
   .agent-cell.active { box-shadow: inset 0 0 0 1px var(--accent-mid); }
 
   .cell-head {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 6px 10px;
+    gap: 6px;
+    padding: 5px 8px;
     background: var(--panel-solid);
     border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .cell-head-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    overflow: hidden;
+  }
+
+  .cell-head-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
     flex-shrink: 0;
   }
 
@@ -541,13 +572,13 @@
     font-size: 11px;
     font-weight: 500;
     color: var(--text);
-    flex: 1;
+    flex: 1 1 0;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .cell-status { font-size: 9px; color: var(--text-mute); flex-shrink: 0; }
+  .cell-status { font-size: 9px; color: var(--text-mute); flex-shrink: 0; white-space: nowrap; }
   .cell-status.running { color: var(--success); }
   .cell-status.muted { opacity: 0.6; }
 
