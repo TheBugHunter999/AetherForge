@@ -1489,7 +1489,7 @@
     <div class="topbar-left" data-tauri-drag-region>
       <img class="logo-img" src="/favicon.png" alt="" width="22" height="22" />
       <span class="app-name">Grokden</span>
-      <span class="version-pill">v0.1.3</span>
+      <span class="version-pill">v0.1.4</span>
     </div>
 
     <div class="command-hint" data-tauri-drag-region>
@@ -2089,6 +2089,10 @@ This is a very long debug log line that demonstrates whether the debug console w
   :global(.phase-shell) {
     position: fixed;
     inset: 0;
+    width: var(--app-width, 100vw);
+    height: var(--app-height, 100dvh);
+    max-width: var(--app-width, 100vw);
+    max-height: var(--app-height, 100dvh);
     z-index: 15000;
     display: flex;
     flex-direction: column;
@@ -2113,8 +2117,10 @@ This is a very long debug log line that demonstrates whether the debug console w
     padding: 0;
     position: fixed;
     inset: 0;
-    width: 100%;
-    height: 100%;
+    width: var(--app-width, 100vw);
+    height: var(--app-height, 100dvh);
+    max-width: var(--app-width, 100vw);
+    max-height: var(--app-height, 100dvh);
     overflow: hidden;
     overscroll-behavior: none;
     font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
@@ -2124,16 +2130,20 @@ This is a very long debug log line that demonstrates whether the debug console w
   :global(#svelte) {
     position: fixed;
     inset: 0;
-    width: 100%;
-    height: 100%;
+    width: var(--app-width, 100vw);
+    height: var(--app-height, 100dvh);
+    max-width: var(--app-width, 100vw);
+    max-height: var(--app-height, 100dvh);
     overflow: hidden;
   }
 
   .ide {
     position: fixed;
     inset: 0;
-    width: 100%;
-    height: 100%;
+    width: var(--app-width, 100vw);
+    height: var(--app-height, 100dvh);
+    max-width: var(--app-width, 100vw);
+    max-height: var(--app-height, 100dvh);
     display: flex;
     flex-direction: column;
     background: var(--bg);

@@ -5,26 +5,14 @@ export const VIEWPORT_SYNC_EVENT = "grokden:viewport-sync";
 let rafPending = false;
 let burstTimer: ReturnType<typeof setTimeout> | undefined;
 
-/** Read the live webview client box (more reliable than stale innerHeight after fullscreen). */
+/** Prefer visualViewport / inner* — client* can mirror a stale fixed shell after fullscreen. */
 export function readViewportSize(): { width: number; height: number } {
   if (typeof document === "undefined") {
     return { width: 0, height: 0 };
   }
-  const root = document.documentElement;
-  const body = document.body;
   const vv = window.visualViewport;
-  const width = Math.max(
-    root.clientWidth,
-    body?.clientWidth ?? 0,
-    vv?.width ?? 0,
-    window.innerWidth,
-  );
-  const height = Math.max(
-    root.clientHeight,
-    body?.clientHeight ?? 0,
-    vv?.height ?? 0,
-    window.innerHeight,
-  );
+  const width = vv?.width ?? window.innerWidth;
+  const height = vv?.height ?? window.innerHeight;
   return { width, height };
 }
 
@@ -51,7 +39,7 @@ export function scheduleViewportSync(): void {
 /** WebView2 can report the old height for several frames after maximize/fullscreen. */
 export function scheduleViewportSyncBurst(): void {
   if (burstTimer) clearTimeout(burstTimer);
-  const delays = [0, 48, 120, 280];
+  const delays = [0, 48, 120, 280, 500];
   let i = 0;
   const tick = () => {
     scheduleViewportSync();
