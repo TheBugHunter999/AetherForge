@@ -1,0 +1,66 @@
+/*
+  Final sidebar readability pass.
+  The Explorer/Search/SCM area should be frosted enough to read and navigate.
+  Keep real glass in the app, but stop the background art from bleeding through
+  the empty Explorer/status column as a distracting vertical stripe.
+*/
+
+.ide.glass-window .sidebar {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.018) 34%, rgba(0, 0, 0, 0.06)),
+    rgba(17, 18, 27, 0.88) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.105) !important;
+  box-shadow:
+    inset -1px 0 0 rgba(255, 255, 255, 0.05),
+    1px 0 0 rgba(0, 0, 0, 0.28) !important;
+  backdrop-filter: blur(34px) saturate(1.24) contrast(1.04) brightness(0.98) !important;
+  -webkit-backdrop-filter: blur(34px) saturate(1.24) contrast(1.04) brightness(0.98) !important;
+}
+
+.ide.glass-window .workspace-panels.sidebar-right .sidebar {
+  border-left: 1px solid rgba(255, 255, 255, 0.105) !important;
+  border-right: 0 !important;
+  box-shadow:
+    inset 1px 0 0 rgba(255, 255, 255, 0.05),
+    -1px 0 0 rgba(0, 0, 0, 0.28) !important;
+}
+
+.ide.glass-window .sidebar > *,
+.ide.glass-window .sidebar :where(.explorer-panel, .explorer-root, .panel-body, .sidebar-header, .explorer-toolbar, .folder-path, .file-tree) {
+  background-color: transparent !important;
+}
+
+.ide.glass-window .file-tree,
+.ide.glass-window .sidebar :where(ul, ol) {
+  background:
+    linear-gradient(90deg, rgba(0, 0, 0, 0.08), rgba(255, 255, 255, 0.018) 56%, rgba(0, 0, 0, 0.045)) !important;
+}
+
+.ide.glass-window .tree-item,
+.ide.glass-window .sidebar button,
+.ide.glass-window .sidebar .tree-label,
+.ide.glass-window .folder-path,
+.ide.glass-window .sidebar-header span {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45) !important;
+}
+
+.ide.glass-window .tree-item:hover,
+.ide.glass-window .tree-item.folder:hover,
+.ide.glass-window .tree-item.clickable:hover {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.095), rgba(255, 255, 255, 0.032)),
+    rgba(255, 255, 255, 0.045) !important;
+}
+
+.ide.glass-window .tree-item.active,
+.ide.glass-window .tree-item.folder.selected {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.045)),
+    rgba(125, 95, 220, 0.18) !important;
+}
+
+/* Git status markers should not create a visual column by themselves. */
+.ide.glass-window .sidebar :where(.git-status, .tree-status, .status, .file-status) {
+  opacity: 0.78;
+  text-shadow: none !important;
+}
