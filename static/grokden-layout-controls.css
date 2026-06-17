@@ -1,0 +1,69 @@
+.grokden-layout-controls {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 32px;
+  margin: 0 8px 0 6px;
+  padding: 0 2px;
+  user-select: none;
+}
+
+.grokden-layout-btn {
+  width: 24px;
+  height: 22px;
+  min-width: 24px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: color-mix(in srgb, var(--text-dim, #c8c8d8) 78%, transparent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: default;
+  transition: color 120ms ease, background 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.grokden-layout-btn svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.45;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+.grokden-layout-btn:hover {
+  color: var(--text, #f4f4f7);
+  background: color-mix(in srgb, var(--text, #fff) 9%, transparent);
+  border-color: color-mix(in srgb, var(--border-strong, rgba(255,255,255,0.18)) 80%, transparent);
+}
+
+.grokden-layout-btn.active {
+  color: color-mix(in srgb, var(--accent, #8b5cf6) 78%, white 22%);
+  background: color-mix(in srgb, var(--accent, #8b5cf6) 20%, transparent);
+  border-color: color-mix(in srgb, var(--accent, #8b5cf6) 48%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.13);
+}
+
+.ide.glass-window .grokden-layout-btn:hover {
+  background: rgba(255,255,255,0.055);
+  border-color: rgba(255,255,255,0.12);
+}
+
+.ide.glass-window .grokden-layout-btn.active {
+  color: color-mix(in srgb, var(--accent, #8b5cf6) 72%, white 28%);
+  background: color-mix(in srgb, var(--accent, #8b5cf6) 28%, transparent);
+  border-color: color-mix(in srgb, var(--accent, #8b5cf6) 52%, rgba(255,255,255,0.12));
+}
+
+@media (max-width: 720px) {
+  .grokden-layout-btn-settings,
+  .grokden-layout-btn-secondary {
+    display: none;
+  }
+}
