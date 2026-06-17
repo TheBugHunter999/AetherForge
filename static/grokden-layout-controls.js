@@ -8,6 +8,11 @@
     return (value || "").replace(/\s+/g, " ").trim().toLowerCase();
   }
 
+  function markNoDrag(element) {
+    element.style.webkitAppRegion = "no-drag";
+    element.style.appRegion = "no-drag";
+  }
+
   function dispatchShortcut(key, options = {}) {
     const event = new KeyboardEvent("keydown", {
       key,
@@ -64,6 +69,7 @@
     button.setAttribute("aria-label", label);
     button.title = shortcut ? `${label} (${shortcut})` : label;
     button.innerHTML = icon(type);
+    markNoDrag(button);
     button.addEventListener("click", (event) => {
       event.preventDefault();
       event.stopPropagation();
@@ -79,6 +85,7 @@
     controls.className = ROOT_CLASS;
     controls.setAttribute("role", "toolbar");
     controls.setAttribute("aria-label", "Layout controls");
+    markNoDrag(controls);
 
     controls.append(
       makeButton({
