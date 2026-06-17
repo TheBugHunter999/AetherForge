@@ -1,0 +1,334 @@
+/* Premium Grok theme. Loaded last, so it can override the older patch stack cleanly. */
+
+.ide.grokden-premium-theme {
+  --grokden-shell: #000000 !important;
+  --grokden-shell-2: #050505 !important;
+  --grokden-panel: #0d0d0d !important;
+  --grokden-panel-2: #141414 !important;
+  --grokden-border: rgba(255, 255, 255, 0.10) !important;
+  --grokden-border-strong: rgba(255, 255, 255, 0.22) !important;
+  --grokden-accent: #ffffff !important;
+  --grokden-text: #f7f7f7 !important;
+  --grokden-muted: #8f8f8f !important;
+
+  --bg: #000000 !important;
+  --panel: #050505 !important;
+  --panel-solid: #080808 !important;
+  --editor-bg: #000000 !important;
+  --surface-raised: #151515 !important;
+  --surface-overlay: rgba(16, 16, 16, 0.96) !important;
+  --surface-inset: #090909 !important;
+  --border: rgba(255, 255, 255, 0.10) !important;
+  --border-strong: rgba(255, 255, 255, 0.20) !important;
+  --border-muted: rgba(255, 255, 255, 0.055) !important;
+  --text: #f5f5f5 !important;
+  --text-dim: #c9c9c9 !important;
+  --text-mute: #858585 !important;
+  --text-disabled: rgba(245, 245, 245, 0.32) !important;
+  --hover: rgba(255, 255, 255, 0.065) !important;
+  --hover-strong: rgba(255, 255, 255, 0.115) !important;
+  --active: rgba(255, 255, 255, 0.135) !important;
+  --danger: #ff6b6b !important;
+  --warn: #ff7a1a !important;
+  --success: #55e08f !important;
+  --info: #b7cdfd !important;
+  --chip-bg: rgba(255, 255, 255, 0.075) !important;
+  --scrollbar: rgba(255, 255, 255, 0.20) !important;
+  --scrollbar-hover: rgba(255, 255, 255, 0.36) !important;
+  --selection: rgba(255, 255, 255, 0.18) !important;
+  --accent: #ffffff !important;
+  --accent2: #d7d7d7 !important;
+  --accent-muted: #a8a8a8 !important;
+  --accent-subtle: #1e1e1e !important;
+  --accent-soft: rgba(255, 255, 255, 0.13) !important;
+  --accent-mid: rgba(255, 255, 255, 0.28) !important;
+  --accent-strong: rgba(255, 255, 255, 0.42) !important;
+  --accent-grad: linear-gradient(135deg, #ffffff, #bdbdbd) !important;
+  --focus-ring: #ffffff !important;
+  --on-accent: #000000 !important;
+}
+
+.ide.grokden-premium-theme,
+.ide.grokden-premium-theme.glass-window {
+  background:
+    radial-gradient(circle at 50% 4%, rgba(255, 255, 255, 0.055), transparent 30%),
+    radial-gradient(circle at 78% 0%, rgba(255, 122, 26, 0.045), transparent 20%),
+    #000000 !important;
+  color: #f5f5f5 !important;
+}
+
+.ide.grokden-premium-theme .window-chrome,
+.ide.grokden-premium-theme .topbar,
+.ide.grokden-premium-theme .statusbar,
+.ide.grokden-premium-theme .tab-bar {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.008)),
+    rgba(0, 0, 0, 0.94) !important;
+  border-color: rgba(255, 255, 255, 0.09) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.055) !important;
+  backdrop-filter: blur(22px) saturate(1.22) !important;
+  -webkit-backdrop-filter: blur(22px) saturate(1.22) !important;
+}
+
+.ide.grokden-premium-theme .activity-rail,
+.ide.grokden-premium-theme.glass-window .activity-rail {
+  background: #030303 !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.025) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.ide.grokden-premium-theme .codex-nav-item,
+.ide.grokden-premium-theme .codex-list-row,
+.ide.grokden-premium-theme .codex-project-row {
+  border-radius: 11px !important;
+  color: #d9d9d9 !important;
+}
+
+.ide.grokden-premium-theme .codex-nav-item:hover,
+.ide.grokden-premium-theme .codex-list-row:hover,
+.ide.grokden-premium-theme .codex-project-row:hover {
+  background: rgba(255, 255, 255, 0.065) !important;
+  color: #ffffff !important;
+}
+
+.ide.grokden-premium-theme .codex-nav-item.active,
+.ide.grokden-premium-theme .codex-list-row.active,
+.ide.grokden-premium-theme .codex-project-row.active {
+  background: #181818 !important;
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.09) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045) !important;
+}
+
+.ide.grokden-premium-theme .codex-section-title,
+.ide.grokden-premium-theme .codex-list-time,
+.ide.grokden-premium-theme .codex-project-meta {
+  color: #7d7d7d !important;
+}
+
+.ide.grokden-premium-theme .editor-area,
+.ide.grokden-premium-theme .editor-content,
+.ide.grokden-premium-theme .view-pane,
+.ide.grokden-premium-theme .editor-placeholder,
+.ide.grokden-premium-theme .editor,
+.ide.grokden-premium-theme .editor-scroll,
+.ide.grokden-premium-theme .editor-surface,
+.ide.grokden-premium-theme .code-textarea {
+  background: transparent !important;
+}
+
+.ide.grokden-premium-theme .tab,
+.ide.grokden-premium-theme.glass-window .tab {
+  color: #8f8f8f !important;
+  border-color: transparent !important;
+  background: transparent !important;
+}
+
+.ide.grokden-premium-theme .tab:hover,
+.ide.grokden-premium-theme.glass-window .tab:hover {
+  color: #eeeeee !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.ide.grokden-premium-theme .tab.active,
+.ide.grokden-premium-theme .tab.muted.active,
+.ide.grokden-premium-theme.glass-window .tab.active,
+.ide.grokden-premium-theme.glass-window .tab.muted.active {
+  color: #ffffff !important;
+  background: #151515 !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+}
+
+.ide.grokden-premium-theme .tab.active::after,
+.ide.grokden-premium-theme.glass-window .tab.active::after,
+.ide.grokden-premium-theme .terminal-tab.active::after,
+.ide.grokden-premium-theme.glass-window .terminal-tab.active::after {
+  background: linear-gradient(90deg, transparent, #ffffff, transparent) !important;
+}
+
+.ide.grokden-premium-theme .welcome-title {
+  color: #ffffff !important;
+  font-size: clamp(30px, 4vw, 56px) !important;
+  font-weight: 650 !important;
+  letter-spacing: -0.055em !important;
+  text-shadow: 0 0 48px rgba(255, 255, 255, 0.08) !important;
+}
+
+.ide.grokden-premium-theme .welcome-composer,
+.ide.grokden-premium-theme.glass-window .welcome-composer,
+.ide.grokden-premium-theme .welcome-card,
+.ide.grokden-premium-theme.glass-window .welcome-card,
+.ide.grokden-premium-theme .command-hint,
+.ide.grokden-premium-theme.glass-window .command-hint {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.016)),
+    #151515 !important;
+  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+  box-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.055) !important;
+  backdrop-filter: blur(18px) saturate(1.15) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(1.15) !important;
+}
+
+.ide.grokden-premium-theme .composer-chip,
+.ide.grokden-premium-theme .composer-icon-btn,
+.ide.grokden-premium-theme .composer-send,
+.ide.grokden-premium-theme.glass-window .composer-chip,
+.ide.grokden-premium-theme.glass-window .composer-icon-btn,
+.ide.grokden-premium-theme.glass-window .composer-send {
+  background: #202020 !important;
+  border-color: rgba(255, 255, 255, 0.09) !important;
+  color: #d8d8d8 !important;
+}
+
+.ide.grokden-premium-theme .composer-chip:hover,
+.ide.grokden-premium-theme .composer-icon-btn:hover,
+.ide.grokden-premium-theme.glass-window .composer-chip:hover,
+.ide.grokden-premium-theme.glass-window .composer-icon-btn:hover {
+  background: #2a2a2a !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+  color: #ffffff !important;
+  box-shadow: 0 12px 36px rgba(255, 255, 255, 0.045) !important;
+}
+
+.ide.grokden-premium-theme .composer-send,
+.ide.grokden-premium-theme.glass-window .composer-send {
+  color: #000000 !important;
+  background: linear-gradient(180deg, #ffffff, #d7d7d7) !important;
+  border-color: rgba(255, 255, 255, 0.42) !important;
+}
+
+.ide.grokden-premium-theme .welcome-card:hover,
+.ide.grokden-premium-theme.glass-window .welcome-card:hover {
+  background:
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.08), transparent 46%),
+    #1d1d1d !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+  box-shadow:
+    0 26px 80px rgba(0, 0, 0, 0.48),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07) !important;
+}
+
+.ide.grokden-premium-theme .welcome-card-icon {
+  background: rgba(255, 255, 255, 0.085) !important;
+  color: #ffffff !important;
+}
+
+.ide.grokden-premium-theme .terminal,
+.ide.grokden-premium-theme.glass-window .terminal {
+  background: #050505 !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.10) !important;
+  box-shadow: 0 -24px 80px rgba(0, 0, 0, 0.52) !important;
+}
+
+.ide.grokden-premium-theme .terminal-header,
+.ide.grokden-premium-theme.glass-window .terminal-header {
+  background: #0b0b0b !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+.ide.grokden-premium-theme .terminal-tab,
+.ide.grokden-premium-theme.glass-window .terminal-tab {
+  color: #8a8a8a !important;
+}
+
+.ide.grokden-premium-theme .terminal-tab:hover,
+.ide.grokden-premium-theme.glass-window .terminal-tab:hover,
+.ide.grokden-premium-theme .terminal-tab.active,
+.ide.grokden-premium-theme.glass-window .terminal-tab.active {
+  color: #ffffff !important;
+  background: #181818 !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+.ide.grokden-premium-theme .terminal-body,
+.ide.grokden-premium-theme.glass-window .terminal-body,
+.ide.grokden-premium-theme .terminal-host,
+.ide.grokden-premium-theme.glass-window .terminal-host {
+  background: #000000 !important;
+}
+
+.ide.grokden-premium-theme .terminal-close,
+.ide.grokden-premium-theme .secondary-close,
+.ide.grokden-premium-theme.glass-window .terminal-close,
+.ide.grokden-premium-theme.glass-window .secondary-close {
+  color: #a8a8a8 !important;
+  background: #191919 !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+}
+
+.ide.grokden-premium-theme .terminal-close:hover,
+.ide.grokden-premium-theme .secondary-close:hover,
+.ide.grokden-premium-theme.glass-window .terminal-close:hover,
+.ide.grokden-premium-theme.glass-window .secondary-close:hover {
+  color: #ffffff !important;
+  background: #242424 !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+}
+
+.ide.grokden-premium-theme .sidebar,
+.ide.grokden-premium-theme.glass-window .sidebar,
+.ide.grokden-premium-theme .secondary-sidebar,
+.ide.grokden-premium-theme.glass-window .secondary-sidebar,
+.ide.grokden-premium-theme .explorer-panel,
+.ide.grokden-premium-theme .source-control-panel,
+.ide.grokden-premium-theme .search-panel,
+.ide.grokden-premium-theme .file-tree,
+.ide.grokden-premium-theme .virtual-viewport,
+.ide.grokden-premium-theme .virtual-window,
+.ide.grokden-premium-theme .virtual-spacer {
+  background: #050505 !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  box-shadow: none !important;
+}
+
+.ide.grokden-premium-theme .tree-item:hover,
+.ide.grokden-premium-theme .tree-item.folder:hover,
+.ide.grokden-premium-theme .tree-item.clickable:hover,
+.ide.grokden-premium-theme .tree-item.active {
+  background: #181818 !important;
+  color: #ffffff !important;
+}
+
+.ide.grokden-premium-theme .status-chip.accent,
+.ide.grokden-premium-theme .command-badge.settings-notice {
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+}
+
+.ide.grokden-premium-theme .status-chip.warn,
+.ide.grokden-premium-theme .tab-count {
+  color: #ff7a1a !important;
+  background: rgba(255, 122, 26, 0.12) !important;
+}
+
+/* Injected settings card. */
+.grok-premium-theme-card .theme-prev {
+  position: relative !important;
+  background:
+    radial-gradient(circle at 72% 20%, rgba(255, 122, 26, 0.34), transparent 28%),
+    radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.18), transparent 35%),
+    #000000 !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+}
+
+.grok-premium-theme-card .theme-name::after {
+  content: "Premium";
+  margin-left: 7px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  color: #ff8a2a;
+  border: 1px solid rgba(255, 122, 26, 0.24);
+  background: rgba(255, 122, 26, 0.09);
+  font-size: 9px;
+  vertical-align: 1px;
+}
+
+.grok-premium-theme-card.active {
+  border-color: rgba(255, 255, 255, 0.28) !important;
+  background: rgba(255, 255, 255, 0.075) !important;
+}
