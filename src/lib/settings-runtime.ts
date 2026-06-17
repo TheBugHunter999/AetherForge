@@ -294,15 +294,44 @@ export function buildIdeLayoutClasses(settings: AppSettings): IdeLayoutClasses {
   return classes;
 }
 
+/** Maps slider 50 (max glass) … 100 (opaque) to surface alphas and blur. */
+export function glassSurfaceMix(percent: number): {
+  strength: number;
+  panelAlpha: number;
+  editorAlpha: number;
+  blurPx: number;
+} {
+  const pct = clamp(percent, 50, 100);
+  const strength = (100 - pct) / 50;
+  return {
+    strength,
+    panelAlpha: 0.4 - strength * 0.28,
+    editorAlpha: 0.3 - strength * 0.2,
+    blurPx: Math.round(18 + strength * 22),
+  };
+}
+
 export function buildExtraThemeVars(settings: AppSettings): string {
-  const alpha = clamp(settings.windowTransparency, 0, 100) / 100;
   const theme = THEMES[settings.theme] ?? THEMES["grokden-dark"];
-  const vars: string[] = [
-    `--ui-opacity:${alpha}`,
-    `--bg-glass:${hexToRgba(theme.bg, alpha)}`,
-    `--panel-glass:${hexToRgba(theme.panelSolid, alpha)}`,
-    `--editor-glass:${hexToRgba(theme.editorBg, alpha)}`,
-  ];
+  const vars: string[] = [];
+
+  if (settings.windowTransparency < 100) {
+    const { strength, panelAlpha, editorAlpha, blurPx } = glassSurfaceMix(
+      settings.windowTransparency,
+    );
+    vars.push(
+      `--glass-strength:${strength}`,
+      `--glass-blur:${blurPx}px`,
+      `--bg:transparent`,
+      `--panel:${hexToRgba(theme.panel, panelAlpha)}`,
+      `--panel-solid:${hexToRgba(theme.panelSolid, panelAlpha)}`,
+      `--editor-bg:${hexToRgba(theme.editorBg, editorAlpha)}`,
+      `--border:${hexToRgba(theme.border, 0.22 + (1 - strength) * 0.35)}`,
+      `--hover:${hexToRgba(theme.hover, panelAlpha + 0.08)}`,
+      `--chip-bg:${hexToRgba(theme.chipBg, panelAlpha + 0.04)}`,
+    );
+  }
+
   if (settings.experimentalFeatures) {
     vars.push("--experimental:1");
   }

@@ -107,6 +107,7 @@
   import UpdateOverlay from "$lib/UpdateOverlay.svelte";
   import {
     updater as updateState,
+    type UpdateIndicatorState,
     openOverlay as openUpdateOverlay,
     dismissOverlay as dismissUpdateOverlay,
     check as checkForAppUpdate,
@@ -159,14 +160,18 @@
   let settings = $state(initialSettings);
   let appPhase = $state<"launch" | "onboarding" | "workspace">("launch");
   let workspaceVisible = $state(false);
-  let appVersion = $state("0.1.7");
-  let updateIndicatorState = $derived(
-    updateState.phase === "available"
-      ? "available"
-      : updateState.phase === "downloading" || updateState.phase === "installing" || updateState.phase === "ready"
-        ? "active"
-        : "hidden",
-  );
+  let appVersion = $state("0.1.8");
+  let updateIndicatorState = $derived.by((): UpdateIndicatorState => {
+    if (updateState.phase === "available") return "available";
+    if (
+      updateState.phase === "downloading" ||
+      updateState.phase === "installing" ||
+      updateState.phase === "ready"
+    ) {
+      return "active";
+    }
+    return "hidden";
+  });
 
   $effect(() => {
     if (!settings.onboardingCompleted && appPhase !== "workspace") return;
@@ -2217,6 +2222,10 @@ This is a very long debug log line that demonstrates whether the debug console w
     background: transparent !important;
   }
 
+  :global(html.glass-window #svelte) {
+    background: transparent !important;
+  }
+
   :global(#svelte) {
     position: fixed;
     inset: 0;
@@ -2243,23 +2252,33 @@ This is a very long debug log line that demonstrates whether the debug console w
   }
 
   .ide.glass-window {
-    background: var(--bg-glass);
+    background: transparent;
   }
 
   .ide.glass-window .topbar,
-  .ide.glass-window :global(.window-chrome) {
-    background: var(--panel-glass);
-  }
-
+  .ide.glass-window :global(.window-chrome),
   .ide.glass-window .activity-rail,
   .ide.glass-window .sidebar,
+  .ide.glass-window .secondary-sidebar,
   .ide.glass-window .statusbar,
-  .ide.glass-window .tab-bar {
-    background: var(--panel-glass);
+  .ide.glass-window .tab-bar,
+  .ide.glass-window .editor-area,
+  .ide.glass-window .editor,
+  .ide.glass-window .editor-surface,
+  .ide.glass-window .terminal,
+  .ide.glass-window .terminal-header,
+  .ide.glass-window .terminal-body,
+  .ide.glass-window .workspace-body,
+  .ide.glass-window .view-pane {
+    backdrop-filter: blur(var(--glass-blur, 24px)) saturate(1.45);
+    -webkit-backdrop-filter: blur(var(--glass-blur, 24px)) saturate(1.45);
   }
 
-  .ide.glass-window .editor {
-    background: var(--editor-glass);
+  .ide.glass-window .editor-input-wrap,
+  .ide.glass-window .gutter,
+  .ide.glass-window :global(.terminal-host .xterm-screen),
+  .ide.glass-window :global(.terminal-host .xterm-viewport) {
+    background: transparent !important;
   }
 
   .topbar {

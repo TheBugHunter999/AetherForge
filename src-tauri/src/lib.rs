@@ -314,28 +314,40 @@ fn set_window_transparency(app: AppHandle, percent: u8) -> Result<(), String> {
     };
 
     let percent = percent.clamp(50, 100);
+    let opaque_bg = Color::from((9_u8, 9, 13, 255));
+    let transparent_bg = Color::from((0_u8, 0, 0, 0));
 
-    let bg = if percent >= 100 {
-        Color::from((9_u8, 9, 13, 255))
-    } else {
-        Color::from((0_u8, 0, 0, 0))
-    };
+    if percent >= 100 {
+        window
+            .set_background_color(Some(opaque_bg))
+            .map_err(|e| e.to_string())?;
+        #[cfg(target_os = "windows")]
+        {
+            use window_vibrancy::{clear_acrylic, clear_mica};
+            let _ = clear_mica(&window);
+            let _ = clear_acrylic(&window);
+        }
+        return Ok(());
+    }
+
     window
-        .set_background_color(Some(bg))
+        .set_background_color(Some(transparent_bg))
         .map_err(|e| e.to_string())?;
 
     #[cfg(target_os = "windows")]
     {
-        use window_vibrancy::apply_acrylic;
+        use window_vibrancy::{apply_acrylic, apply_mica, clear_acrylic, clear_mica};
 
-        if percent < 100 {
-            let alpha = ((percent as f32 / 100.0) * 200.0).round() as u8;
-            apply_acrylic(&window, Some((18, 18, 24, alpha)))
+        let _ = clear_acrylic(&window);
+        let _ = clear_mica(&window);
+
+        // strength 0 at 100% slider, 1 at 50% — more strength = more see-through
+        let strength = (100.0 - percent as f32) / 50.0;
+        let tint_alpha = (55.0 + (1.0 - strength) * 90.0).round().clamp(30.0, 160.0) as u8;
+
+        if apply_mica(&window, Some(true)).is_err() {
+            apply_acrylic(&window, Some((14, 14, 20, tint_alpha)))
                 .map_err(|e| format!("apply_acrylic failed: {e}"))?;
-        } else {
-            window
-                .set_background_color(Some(Color::from((9_u8, 9, 13, 255))))
-                .map_err(|e| e.to_string())?;
         }
     }
 

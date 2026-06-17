@@ -79,8 +79,8 @@ Grokden $version - Windows desktop workspace for Grok CLI.
 
 ## What's new
 
+- True frosted glass window transparency (see-through desktop with blur)
 - In-app auto-updater with download indicator in the title bar
-- Native window transparency (acrylic glass effect on Windows)
 - Workspace path sandbox and index improvements
 
 ## Requirements
