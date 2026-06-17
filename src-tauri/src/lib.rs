@@ -10,7 +10,7 @@ use std::fs;
 use std::fs::OpenOptions;
 use std::io::ErrorKind;
 use std::path::Path;
-use tauri::{AppHandle, LogicalSize, Manager, State};
+use tauri::{AppHandle, LogicalSize, Manager, State, window::Color};
 use terminal::TerminalState;
 
 const WIZARD_WIDTH: u32 = 1080;
@@ -307,16 +307,54 @@ fn app_ready(app: AppHandle) -> Result<(), String> {
     transition_to_workspace(app)
 }
 
+#[tauri::command]
+fn set_window_transparency(app: AppHandle, percent: u8) -> Result<(), String> {
+    let Some(window) = app.get_webview_window("main") else {
+        return Ok(());
+    };
+
+    let percent = percent.clamp(50, 100);
+
+    let bg = if percent >= 100 {
+        Color::from((9_u8, 9, 13, 255))
+    } else {
+        Color::from((0_u8, 0, 0, 0))
+    };
+    window
+        .set_background_color(Some(bg))
+        .map_err(|e| e.to_string())?;
+
+    #[cfg(target_os = "windows")]
+    {
+        use window_vibrancy::apply_acrylic;
+
+        if percent < 100 {
+            let alpha = ((percent as f32 / 100.0) * 200.0).round() as u8;
+            apply_acrylic(&window, Some((18, 18, 24, alpha)))
+                .map_err(|e| format!("apply_acrylic failed: {e}"))?;
+        } else {
+            window
+                .set_background_color(Some(Color::from((9_u8, 9, 13, 255))))
+                .map_err(|e| e.to_string())?;
+        }
+    }
+
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(TerminalState::new())
         .manage(workspace::WorkspaceState::new())
         .setup(|app| {
             if let Some(main) = app.get_webview_window("main") {
                 let _ = lock_wizard_window(&main);
+                let _ = main.set_background_color(Some(Color::from((9_u8, 9, 13, 255))));
                 let _ = main.show();
                 let _ = main.set_focus();
             }
@@ -342,6 +380,7 @@ pub fn run() {
             app_ready,
             prepare_wizard_window,
             transition_to_workspace,
+            set_window_transparency,
             workspace::workspace_open,
             workspace::workspace_close,
             workspace::workspace_get_info,

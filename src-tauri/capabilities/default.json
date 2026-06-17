@@ -47,6 +47,10 @@
     "core:window:allow-set-focus",
     "core:window:allow-unminimize",
     "core:window:allow-is-fullscreen",
-    "core:window:allow-set-fullscreen"
+    "core:window:allow-set-fullscreen",
+    "core:window:allow-set-background-color",
+    "allow-set-window-transparency",
+    "updater:default",
+    "process:allow-restart"
   ]
 }

@@ -1,4 +1,11 @@
-import { isTextFile, type AppSettings, type PanelLocation, type SearchMatch } from "$lib/editor-utils";
+import {
+  hexToRgba,
+  isTextFile,
+  THEMES,
+  type AppSettings,
+  type PanelLocation,
+  type SearchMatch,
+} from "$lib/editor-utils";
 
 export {
   PANEL_MIN_SIZE,
@@ -288,8 +295,14 @@ export function buildIdeLayoutClasses(settings: AppSettings): IdeLayoutClasses {
 }
 
 export function buildExtraThemeVars(settings: AppSettings): string {
-  const opacity = clamp(settings.windowTransparency, 0, 100) / 100;
-  const vars: string[] = [`--ui-opacity:${opacity}`];
+  const alpha = clamp(settings.windowTransparency, 0, 100) / 100;
+  const theme = THEMES[settings.theme] ?? THEMES["grokden-dark"];
+  const vars: string[] = [
+    `--ui-opacity:${alpha}`,
+    `--bg-glass:${hexToRgba(theme.bg, alpha)}`,
+    `--panel-glass:${hexToRgba(theme.panelSolid, alpha)}`,
+    `--editor-glass:${hexToRgba(theme.editorBg, alpha)}`,
+  ];
   if (settings.experimentalFeatures) {
     vars.push("--experimental:1");
   }

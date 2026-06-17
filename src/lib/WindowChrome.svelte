@@ -10,9 +10,11 @@
 
   let {
     locked = false,
+    utilities,
   }: {
     /** Setup wizard: centered, no drag, no maximize. */
     locked?: boolean;
+    utilities?: import("svelte").Snippet;
   } = $props();
 
   let maximized = $state(false);
@@ -110,6 +112,11 @@
   onmousedown={onDragMouseDown}
 >
   <div class="chrome-drag" data-tauri-drag-region={locked ? undefined : true}></div>
+  {#if utilities}
+    <div class="chrome-utilities">
+      {@render utilities()}
+    </div>
+  {/if}
   <div class="chrome-controls">
     <button type="button" class="chrome-btn" aria-label="Minimize" onclick={minimize}>
       <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M0 5h10" stroke="currentColor" stroke-width="1" /></svg>
@@ -174,6 +181,15 @@
   }
 
   .window-chrome.locked .chrome-drag {
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
+  }
+
+  .chrome-utilities {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    height: 32px;
     -webkit-app-region: no-drag;
     app-region: no-drag;
   }

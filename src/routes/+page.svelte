@@ -1,5 +1,6 @@
 <script lang="ts">
   import { invoke } from "@tauri-apps/api/core";
+  import { getVersion } from "@tauri-apps/api/app";
   import { open } from "@tauri-apps/plugin-dialog";
   import { onDestroy, onMount, tick } from "svelte";
   import { fade, slide } from "svelte/transition";
@@ -102,6 +103,18 @@
   import ParallelAgents from "$lib/ParallelAgents.svelte";
   import AgentActivityFeed from "$lib/AgentActivityFeed.svelte";
   import WindowChrome from "$lib/WindowChrome.svelte";
+  import UpdateIndicator from "$lib/UpdateIndicator.svelte";
+  import UpdateOverlay from "$lib/UpdateOverlay.svelte";
+  import {
+    updater as updateState,
+    openOverlay as openUpdateOverlay,
+    dismissOverlay as dismissUpdateOverlay,
+    check as checkForAppUpdate,
+    startDownload as startAppUpdate,
+    retry as retryAppUpdate,
+    restart as restartAppUpdate,
+  } from "$lib/updater/updater-store.svelte";
+  import { applyWindowTransparency } from "$lib/window-transparency";
   import { bindViewportSync } from "$lib/viewport-sync";
   import FolderTrustDialog from "$lib/FolderTrustDialog.svelte";
   import ExplorerPanel from "$lib/explorer/ExplorerPanel.svelte";
@@ -146,6 +159,14 @@
   let settings = $state(initialSettings);
   let appPhase = $state<"launch" | "onboarding" | "workspace">("launch");
   let workspaceVisible = $state(false);
+  let appVersion = $state("0.1.7");
+  let updateIndicatorState = $derived(
+    updateState.phase === "available"
+      ? "available"
+      : updateState.phase === "downloading" || updateState.phase === "installing" || updateState.phase === "ready"
+        ? "active"
+        : "hidden",
+  );
 
   $effect(() => {
     if (!settings.onboardingCompleted && appPhase !== "workspace") return;
@@ -156,6 +177,21 @@
     } catch (error) {
       console.error("Failed to save settings:", error);
     }
+  });
+
+  $effect(() => {
+    const pct = settings.windowTransparency;
+    void applyWindowTransparency(pct);
+    const glass = pct < 100;
+    if (typeof document !== "undefined") {
+      document.documentElement.classList.toggle("glass-window", glass);
+      document.body.classList.toggle("glass-window", glass);
+    }
+  });
+
+  $effect(() => {
+    if (!workspaceVisible || !settings.autoCheckUpdates) return;
+    void checkForAppUpdate(settings.allowPrereleaseUpdates);
   });
 
   let folderPath = $state<string | null>(null);
@@ -1304,6 +1340,11 @@
   let unbindViewportSync: (() => void) | undefined;
 
   onMount(() => {
+    void getVersion().then((v) => {
+      appVersion = v;
+    }).catch(() => {
+      /* browser dev */
+    });
     void bindViewportSync(() => {
       measureWorkspaceBody();
       runLayoutReconcile();
@@ -1498,16 +1539,26 @@
 {#if workspaceVisible}
 <div
   class="ide{layoutClasses.ide} workspace-enter"
+  class:glass-window={settings.windowTransparency < 100}
   style="{rootStyle};{layoutStyle}"
   data-ui-lang={settings.uiLanguage}
   data-theme={settings.theme}
 >
-  <WindowChrome />
+  <WindowChrome>
+    {#snippet utilities()}
+      <UpdateIndicator
+        state={updateIndicatorState}
+        version={updateState.version}
+        disabled={updateState.phase === "downloading" || updateState.phase === "installing"}
+        onclick={() => openUpdateOverlay()}
+      />
+    {/snippet}
+  </WindowChrome>
   <header class="topbar" data-tauri-drag-region>
     <div class="topbar-left" data-tauri-drag-region>
       <img class="logo-img" src="/favicon.png" alt="" width="22" height="22" />
       <span class="app-name">Grokden</span>
-      <span class="version-pill">v0.1.6</span>
+      <span class="version-pill">v{appVersion}</span>
     </div>
 
     <div class="command-hint" data-tauri-drag-region>
@@ -2103,6 +2154,22 @@ This is a very long debug log line that demonstrates whether the debug console w
 </div>
 {/if}
 
+{#if updateState.overlayOpen}
+  <UpdateOverlay
+    phase={updateState.phase}
+    version={updateState.version}
+    currentVersion={appVersion}
+    notes={updateState.notes}
+    progress={updateState.progress}
+    error={updateState.error}
+    dismissible={updateState.phase !== "downloading" && updateState.phase !== "installing"}
+    ondownload={() => void startAppUpdate()}
+    onrestart={() => void restartAppUpdate()}
+    onretry={() => void retryAppUpdate()}
+    ondismiss={() => dismissUpdateOverlay()}
+  />
+{/if}
+
 <style>
   :global(.phase-shell) {
     position: fixed;
@@ -2145,6 +2212,11 @@ This is a very long debug log line that demonstrates whether the debug console w
     background: var(--bg, #09090d);
   }
 
+  :global(html.glass-window),
+  :global(body.glass-window) {
+    background: transparent !important;
+  }
+
   :global(#svelte) {
     position: fixed;
     inset: 0;
@@ -2168,6 +2240,26 @@ This is a very long debug log line that demonstrates whether the debug console w
     color: var(--text-dim);
     overflow: hidden;
     transition: background 0.2s ease, color 0.2s ease;
+  }
+
+  .ide.glass-window {
+    background: var(--bg-glass);
+  }
+
+  .ide.glass-window .topbar,
+  .ide.glass-window :global(.window-chrome) {
+    background: var(--panel-glass);
+  }
+
+  .ide.glass-window .activity-rail,
+  .ide.glass-window .sidebar,
+  .ide.glass-window .statusbar,
+  .ide.glass-window .tab-bar {
+    background: var(--panel-glass);
+  }
+
+  .ide.glass-window .editor {
+    background: var(--editor-glass);
   }
 
   .topbar {
@@ -3357,7 +3449,7 @@ This is a very long debug log line that demonstrates whether the debug console w
   .status-chip.muted { color: var(--text-mute); background: var(--chip-bg); font-size: 10px; }
   .command-badge.settings-notice { color: var(--accent); border-color: var(--accent-mid); }
 
-  .ide { opacity: var(--ui-opacity, 1); }
+
   .ide.no-animations :global(*) { transition: none !important; animation: none !important; }
   .ide.titlebar-hidden .topbar { display: none; }
   .ide.titlebar-native .topbar {

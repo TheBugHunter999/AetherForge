@@ -1,6 +1,6 @@
 [package]
 name = "grokden"
-version = "0.1.6"
+version = "0.1.7"
 description = "Grokden desktop workspace for Grok CLI"
 authors = ["Grokden Contributors"]
 edition = "2021"
@@ -24,3 +24,6 @@ parking_lot = "0.12"
 dirs = "6"
 git2 = "0.19"
 ignore = "0.4"
+tauri-plugin-process = "2.3.1"
+tauri-plugin-updater = "2"
+window-vibrancy = "0.7.1"

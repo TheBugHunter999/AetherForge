@@ -7,21 +7,22 @@
   Requires GitHub CLI (gh) and an authenticated session:
     gh auth login
 
-  Run after a successful release build:
+  Run after a successful signed release build:
+    $env:TAURI_SIGNING_PRIVATE_KEY = Get-Content "$env:USERPROFILE\.tauri\grokden.key" -Raw
     npm run tauri build
     .\scripts\verify-release.ps1
     .\scripts\publish-release.ps1
 
   Optional parameters:
-    -Tag v0.1.0
-    -Title "Grokden 0.1.0"
+    -Tag v0.1.7
+    -Title "Grokden 0.1.7"
     -Draft
     -Prerelease
 #>
 [CmdletBinding()]
 param(
-    [string]$Tag = "v0.1.0",
-    [string]$Title = "Grokden 0.1.0",
+    [string]$Tag,
+    [string]$Title,
     [switch]$Draft,
     [switch]$Prerelease
 )
@@ -30,8 +31,17 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $RepoRoot = Resolve-Path (Join-Path $PSScriptRoot '..')
-$Nsis = Join-Path $RepoRoot 'src-tauri\target\release\bundle\nsis\Grokden_0.1.0_x64-setup.exe'
-$Msi = Join-Path $RepoRoot 'src-tauri\target\release\bundle\msi\Grokden_0.1.0_x64_en-US.msi'
+$ConfPath = Join-Path $RepoRoot 'src-tauri\tauri.conf.json'
+$Conf = Get-Content -LiteralPath $ConfPath -Raw | ConvertFrom-Json
+$version = $Conf.version
+
+if (-not $Tag) { $Tag = "v$version" }
+if (-not $Title) { $Title = "Grokden $version" }
+
+$Nsis = Join-Path $RepoRoot "src-tauri\target\release\bundle\nsis\Grokden_${version}_x64-setup.exe"
+$NsisSig = "$Nsis.sig"
+$Msi = Join-Path $RepoRoot "src-tauri\target\release\bundle\msi\Grokden_${version}_x64_en-US.msi"
+$MsiSig = "$Msi.sig"
 
 function Require-File {
     param([string]$Path, [string]$Hint)
@@ -42,6 +52,7 @@ function Require-File {
 
 Require-File -Path $Nsis -Hint 'Run: npm run tauri build'
 Require-File -Path $Msi -Hint 'Run: npm run tauri build'
+Require-File -Path $NsisSig -Hint 'Set TAURI_SIGNING_PRIVATE_KEY and rebuild for updater signatures'
 
 if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
     throw 'GitHub CLI (gh) is not installed. Install with: winget install GitHub.cli'
@@ -63,8 +74,14 @@ function Get-Sha256([string]$Path) {
 $nsisHash = Get-Sha256 $Nsis
 $msiHash = Get-Sha256 $Msi
 
-$notes = @"
-Grokden 0.1.0 — Windows desktop workspace for Grok CLI.
+$releaseNotes = @"
+Grokden $version — Windows desktop workspace for Grok CLI.
+
+## What's new
+
+- In-app auto-updater with download indicator in the title bar
+- Native window transparency (acrylic glass effect on Windows)
+- Workspace path sandbox and index improvements
 
 ## Requirements
 
@@ -86,8 +103,8 @@ Grokden also needs the Microsoft Edge WebView2 runtime. The installers below ins
 
 | File | Use |
 |------|-----|
-| Grokden_0.1.0_x64-setup.exe | Recommended for most users (NSIS setup wizard) |
-| Grokden_0.1.0_x64_en-US.msi | For IT / enterprise deployment (Windows Installer) |
+| Grokden_${version}_x64-setup.exe | Recommended for most users (NSIS setup wizard + auto-update) |
+| Grokden_${version}_x64_en-US.msi | For IT / enterprise deployment (Windows Installer) |
 
 ## SHA-256 checksums
 
@@ -101,22 +118,53 @@ Grokden also needs the Microsoft Edge WebView2 runtime. The installers below ins
 3. Use **Launch Grok CLI** or **Parallel Agents** from the top bar.
 "@
 
-$args = @(
+$latestJson = @{
+    version = $version
+    notes = "- In-app auto-updater with title bar download indicator`n- Native window transparency on Windows`n- Workspace path sandbox and index improvements"
+    pub_date = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ss.fffZ')
+    platforms = @{
+        'windows-x86_64' = @{
+            signature = (Get-Content -LiteralPath $NsisSig -Raw).Trim()
+            url = "https://github.com/TheBugHunter999/Grokden/releases/download/$Tag/Grokden_${version}_x64-setup.exe"
+        }
+    }
+} | ConvertTo-Json -Depth 5
+
+$latestPath = Join-Path $env:TEMP "grokden-latest.json"
+[System.IO.File]::WriteAllText($latestPath, $latestJson)
+
+$ghArgs = @(
     'release', 'create', $Tag,
     $Nsis,
+    $NsisSig,
     $Msi,
+    $latestPath,
     '--title', $Title,
-    '--notes', $notes
+    '--notes', $releaseNotes
 )
 
-if ($Draft) { $args += '--draft' }
-if ($Prerelease) { $args += '--prerelease' }
+if (Test-Path -LiteralPath $MsiSig) {
+    $ghArgs = @(
+        'release', 'create', $Tag,
+        $Nsis,
+        $NsisSig,
+        $Msi,
+        $MsiSig,
+        $latestPath,
+        '--title', $Title,
+        '--notes', $releaseNotes
+    )
+}
+
+if ($Draft) { $ghArgs += '--draft' }
+if ($Prerelease) { $ghArgs += '--prerelease' }
 
 Write-Host "Publishing $Tag to GitHub Releases..." -ForegroundColor Cyan
-& gh @args
+& gh @ghArgs
 if ($LASTEXITCODE -ne 0) {
     throw "gh release create failed with exit code $LASTEXITCODE"
 }
 
 Write-Host ''
-Write-Host "Release published: https://github.com/TheBugHunter999/AetherForge/releases/tag/$Tag" -ForegroundColor Green
+Write-Host "Release published: https://github.com/TheBugHunter999/Grokden/releases/tag/$Tag" -ForegroundColor Green
+Write-Host "Updater manifest: https://github.com/TheBugHunter999/Grokden/releases/latest/download/latest.json" -ForegroundColor Green

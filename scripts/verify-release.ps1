@@ -109,6 +109,15 @@ else {
         Write-Check -Label "NSIS installer ($($file.Name))" -Passed $true -Detail (
             "Size: $(Format-FileSize $file.Length)  SHA256: $hash"
         )
+        $sigPath = "$($file.FullName).sig"
+        if (Test-Path -LiteralPath $sigPath) {
+            Write-Check -Label "NSIS signature ($($file.Name).sig)" -Passed $true
+        }
+        else {
+            Write-Check -Label "NSIS signature ($($file.Name).sig)" -Passed $false -Detail (
+                'Set TAURI_SIGNING_PRIVATE_KEY and rebuild for updater support.'
+            )
+        }
     }
 }
 

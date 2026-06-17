@@ -14,6 +14,7 @@
     WINDOWS_POWERSHELL_PATH,
     type AppSettings,
   } from "$lib/editor-utils";
+  import { updater as updateState, check as checkForAppUpdate, openOverlay as openUpdateOverlay } from "$lib/updater/updater-store.svelte";
 
   let { settings = $bindable() }: { settings: AppSettings } = $props();
 
@@ -98,6 +99,19 @@
     {#if showRow("general", "Allow Prerelease Updates beta early access")}
       <div class="row"><div class="meta"><div class="label">Allow Prerelease Updates</div><div class="desc">Include beta and preview builds when checking for updates.</div></div>
         <button type="button" class="toggle" class:on={settings.allowPrereleaseUpdates} role="switch" aria-checked={settings.allowPrereleaseUpdates} aria-label="Allow Prerelease Updates" onclick={() => (settings.allowPrereleaseUpdates = !settings.allowPrereleaseUpdates)}><span class="knob"></span></button></div>
+    {/if}
+    {#if showRow("general", "Check for Updates download install release")}
+      <div class="row"><div class="meta"><div class="label">Check for Updates</div><div class="desc">Look for a new Grokden release on GitHub.</div></div>
+        <button
+          type="button"
+          class="action-btn"
+          disabled={updateState.phase === "checking" || updateState.phase === "downloading"}
+          onclick={() => {
+            void checkForAppUpdate(settings.allowPrereleaseUpdates).then(() => {
+              if (updateState.phase === "available") openUpdateOverlay();
+            });
+          }}
+        >{updateState.phase === "checking" ? "Checking…" : "Check now"}</button></div>
     {/if}
     {#if showRow("general", "Telemetry usage analytics privacy data")}
       <div class="row"><div class="meta"><div class="label">Telemetry</div><div class="desc">Store anonymous usage events locally on this PC (no cloud upload). Saved under %LOCALAPPDATA%\com.grokden.desktop\telemetry.</div></div>
@@ -776,6 +790,22 @@
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
   }
   .toggle.on .knob { transform: translateX(16px); }
+
+  .action-btn {
+    flex-shrink: 0;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 500;
+    font-family: inherit;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--chip-bg);
+    color: var(--text);
+    cursor: pointer;
+    transition: background 0.12s, border-color 0.12s;
+  }
+  .action-btn:hover:not(:disabled) { background: var(--hover); }
+  .action-btn:disabled { opacity: 0.45; cursor: default; }
 
   .select {
     flex-shrink: 0;

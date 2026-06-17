@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-set-window-transparency"
+description = "Applies native window transparency and acrylic on Windows."
+commands.allow = ["set_window_transparency"]
