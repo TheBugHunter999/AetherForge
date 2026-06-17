@@ -427,10 +427,12 @@
 
 <style>
   .swarm {
-    flex: 1;
+    flex: 1 1 0;
     display: flex;
     flex-direction: column;
     min-height: 0;
+    height: 100%;
+    width: 100%;
     background: var(--editor-bg);
     overflow: hidden;
   }
@@ -521,14 +523,23 @@
   .swarm-btn.primary:hover:not(:disabled) { background: var(--accent-mid); }
   .swarm-btn.busy { opacity: 0.6; cursor: wait; }
 
-  .swarm-body { flex: 1; display: flex; min-height: 0; overflow: hidden; }
+  .swarm-body {
+    flex: 1 1 0;
+    display: flex;
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
+    align-items: stretch;
+  }
 
   .agent-grid {
-    flex: 1;
+    flex: 1 1 0;
     display: grid;
     gap: 1px;
     min-width: 0;
     min-height: 0;
+    height: 100%;
+    align-content: stretch;
     background: var(--border);
     overflow-x: auto;
     overflow-y: hidden;

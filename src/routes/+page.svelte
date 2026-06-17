@@ -1282,7 +1282,17 @@
     void setTelemetryEnabled(updated.telemetryEnabled);
   }
 
+  function syncViewportSize() {
+    if (typeof document === "undefined") return;
+    const h = window.innerHeight;
+    const w = window.innerWidth;
+    document.documentElement.style.setProperty("--app-height", `${h}px`);
+    document.documentElement.style.setProperty("--app-width", `${w}px`);
+  }
+
   onMount(() => {
+    syncViewportSize();
+    window.addEventListener("resize", syncViewportSize);
     if (settings.startupBehavior === "empty" || settings.startupBehavior === "welcome") {
       tabs = [];
       activeTabPath = null;
@@ -1310,6 +1320,7 @@
   });
 
   onDestroy(() => {
+    window.removeEventListener("resize", syncViewportSize);
     clearTimeout(autoSaveTimer);
     clearTimeout(sessionPersistTimer);
     if (gitFetchTimer) clearInterval(gitFetchTimer);
@@ -1479,7 +1490,7 @@
     <div class="topbar-left" data-tauri-drag-region>
       <img class="logo-img" src="/favicon.png" alt="" width="22" height="22" />
       <span class="app-name">Grokden</span>
-      <span class="version-pill">v0.1.1</span>
+      <span class="version-pill">v0.1.2</span>
     </div>
 
     <div class="command-hint" data-tauri-drag-region>
@@ -2103,8 +2114,10 @@ This is a very long debug log line that demonstrates whether the debug console w
     padding: 0;
     position: fixed;
     inset: 0;
-    width: 100%;
-    height: 100%;
+    width: var(--app-width, 100%);
+    height: var(--app-height, 100%);
+    max-width: var(--app-width, 100%);
+    max-height: var(--app-height, 100%);
     overflow: hidden;
     overscroll-behavior: none;
     font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
@@ -2114,21 +2127,28 @@ This is a very long debug log line that demonstrates whether the debug console w
   :global(#svelte) {
     position: fixed;
     inset: 0;
+    width: 100%;
+    height: 100%;
     overflow: hidden;
   }
 
   .ide {
-    /* Pin to the webview box — do not use 100dvh/height:100% (WebView2 on Windows
-       can size those slightly short of the client area and expose body #09090d). */
+    /* --app-height is synced from window.innerHeight (WebView2 can otherwise leave
+       a #09090d strip below the shell). */
     position: fixed;
-    inset: 0;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: var(--app-height, 100%);
+    max-height: var(--app-height, 100%);
     display: flex;
     flex-direction: column;
     background: var(--bg);
     color: var(--text-dim);
     overflow: hidden;
     transition: background 0.2s ease, color 0.2s ease;
-    contain: layout paint;
   }
 
   .topbar {
@@ -2244,11 +2264,18 @@ This is a very long debug log line that demonstrates whether the debug console w
     background: var(--text-dim);
   }
 
-  .workspace { display: flex; flex: 1; min-height: 0; min-width: 0; overflow: hidden; }
+  .workspace {
+    display: flex;
+    flex: 1 1 0;
+    min-height: 0;
+    min-width: 0;
+    overflow: hidden;
+    align-self: stretch;
+  }
 
   .workspace-body {
     position: relative;
-    flex: 1;
+    flex: 1 1 0;
     display: grid;
     grid-template-rows: minmax(0, 1fr);
     grid-template-columns: minmax(0, 1fr);
@@ -2278,7 +2305,18 @@ This is a very long debug log line that demonstrates whether the debug console w
     display: flex;
     min-height: 0;
     min-width: 0;
+    height: 100%;
     overflow: hidden;
+    align-self: stretch;
+  }
+
+  .workspace-body:not(.terminal-docked-bottom):not(.terminal-docked-side) > .terminal.panel-hidden {
+    position: absolute;
+    width: 0;
+    height: 0;
+    overflow: hidden;
+    visibility: hidden;
+    pointer-events: none;
   }
 
   .workspace-panels.sidebar-right {
@@ -2508,41 +2546,45 @@ This is a very long debug log line that demonstrates whether the debug console w
   .tree-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
   .editor-area {
-    flex: 1;
+    flex: 1 1 0;
     display: flex;
     flex-direction: column;
     min-width: 0;
     width: 100%;
     min-height: 0;
+    height: 100%;
     overflow: hidden;
     background: var(--editor-bg);
     isolation: isolate;
-    contain: layout paint;
   }
 
   .editor-content {
-    flex: 1;
+    flex: 1 1 0;
     display: flex;
     flex-direction: column;
     min-height: 0;
     min-width: 0;
     width: 100%;
+    height: 100%;
     overflow: hidden;
   }
 
   .view-pane {
-    flex: 1;
+    flex: 1 1 0;
     display: flex;
     flex-direction: column;
     min-height: 0;
     min-width: 0;
+    height: 100%;
     overflow: hidden;
   }
 
+  .editor-content > .view-pane,
   .editor-content > :global(.settings-view),
-  .editor-content > :global(.swarm) {
-    flex: 1;
+  .editor-content :global(.swarm) {
+    flex: 1 1 0;
     min-height: 0;
+    height: 100%;
     overflow: hidden;
   }
 
@@ -3252,7 +3294,8 @@ This is a very long debug log line that demonstrates whether the debug console w
     justify-content: space-between;
     height: 24px;
     padding: 0 12px;
-    flex-shrink: 0;
+    flex: 0 0 auto;
+    margin-top: auto;
     background: var(--panel-solid);
     border-top: 1px solid var(--border);
     font-size: 11px;
