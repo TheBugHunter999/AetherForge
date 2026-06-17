@@ -1,5 +1,8 @@
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
+import { getVersion } from "@tauri-apps/api/app";
+
+const CHECK_TIMEOUT_MS = 30_000;
 
 export function parseReleaseNotes(body: string | undefined): string[] {
   if (!body?.trim()) return [];
@@ -9,8 +12,33 @@ export function parseReleaseNotes(body: string | undefined): string[] {
     .filter(Boolean);
 }
 
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`${label} timed out after ${Math.round(ms / 1000)}s`));
+    }, ms);
+    promise
+      .then((value) => {
+        clearTimeout(timer);
+        resolve(value);
+      })
+      .catch((err) => {
+        clearTimeout(timer);
+        reject(err);
+      });
+  });
+}
+
+export async function getInstalledVersion(): Promise<string> {
+  try {
+    return await getVersion();
+  } catch {
+    return "unknown";
+  }
+}
+
 export async function checkForUpdate(): Promise<Update | null> {
-  return check();
+  return withTimeout(check(), CHECK_TIMEOUT_MS, "Update check");
 }
 
 export async function downloadUpdate(

@@ -160,7 +160,7 @@
   let settings = $state(initialSettings);
   let appPhase = $state<"launch" | "onboarding" | "workspace">("launch");
   let workspaceVisible = $state(false);
-  let appVersion = $state("0.1.8");
+  let appVersion = $state("0.1.9");
   let updateIndicatorState = $derived.by((): UpdateIndicatorState => {
     if (updateState.phase === "available") return "available";
     if (
@@ -194,9 +194,14 @@
     }
   });
 
+  let updateCheckStarted = $state(false);
   $effect(() => {
-    if (!workspaceVisible || !settings.autoCheckUpdates) return;
-    void checkForAppUpdate(settings.allowPrereleaseUpdates);
+    if (!workspaceVisible || !settings.autoCheckUpdates || updateCheckStarted) return;
+    updateCheckStarted = true;
+    void (async () => {
+      await delay(2500);
+      await checkForAppUpdate(settings.allowPrereleaseUpdates);
+    })();
   });
 
   let folderPath = $state<string | null>(null);

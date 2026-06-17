@@ -1,6 +1,7 @@
 import {
   checkForUpdate,
   downloadUpdate,
+  getInstalledVersion,
   parseReleaseNotes,
   restartApp,
 } from "$lib/updater/updater-bridge";
@@ -26,6 +27,9 @@ export const updater = $state({
   progress: null as number | null,
   error: "",
   overlayOpen: false,
+  lastCheckAt: 0,
+  lastCheckMessage: "",
+  installedVersion: "",
 });
 
 export function getIndicatorState(): UpdateIndicatorState {
@@ -49,33 +53,50 @@ export function dismissOverlay(): void {
   }
 }
 
-export async function check(allowPrerelease = false): Promise<void> {
+export async function check(allowPrerelease = false, options: { manual?: boolean } = {}): Promise<void> {
   if (updater.phase === "checking" || updater.phase === "downloading" || updater.phase === "installing") {
     return;
   }
   updater.phase = "checking";
   updater.error = "";
+  updater.lastCheckMessage = "Checking for updates…";
+
   try {
+    const installed = await getInstalledVersion();
+    updater.installedVersion = installed;
     const update = await checkForUpdate();
+    updater.lastCheckAt = Date.now();
+
     if (!update) {
       updater.phase = "idle";
       pendingUpdate = null;
       updater.version = "";
       updater.notes = [];
+      updater.lastCheckMessage = `You're on the latest version (v${installed}).`;
       return;
     }
+
     pendingUpdate = update;
     updater.version = update.version;
     updater.notes = parseReleaseNotes(update.body);
     updater.phase = "available";
+    updater.lastCheckMessage = `Update available: v${installed} → v${update.version}`;
     if (allowPrerelease && import.meta.env.DEV) {
       console.info("[Grokden] Update available:", update.version);
     }
+    if (options.manual) {
+      openOverlay();
+    }
   } catch (err) {
+    updater.lastCheckAt = Date.now();
     updater.phase = "error";
     updater.error = err instanceof Error ? err.message : String(err);
+    updater.lastCheckMessage = `Update check failed: ${updater.error}`;
     if (import.meta.env.DEV) {
       console.warn("[Grokden] Update check failed:", updater.error);
+    }
+    if (options.manual) {
+      openOverlay();
     }
   }
 }
@@ -99,6 +120,7 @@ export async function startDownload(): Promise<void> {
     updater.phase = "error";
     updater.error = err instanceof Error ? err.message : String(err);
     updater.progress = null;
+    updater.lastCheckMessage = `Update failed: ${updater.error}`;
   }
 }
 

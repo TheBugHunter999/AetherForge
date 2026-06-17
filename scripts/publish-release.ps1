@@ -79,9 +79,9 @@ Grokden $version - Windows desktop workspace for Grok CLI.
 
 ## What's new
 
+- Fix in-app updater (latest.json manifest + clearer check status)
 - True frosted glass window transparency (see-through desktop with blur)
 - In-app auto-updater with download indicator in the title bar
-- Workspace path sandbox and index improvements
 
 ## Requirements
 
@@ -130,7 +130,8 @@ $latestJson = @{
     }
 } | ConvertTo-Json -Depth 5
 
-$latestPath = Join-Path $env:TEMP "grokden-latest.json"
+# Tauri expects this exact asset name for releases/latest/download/latest.json
+$latestPath = Join-Path $env:TEMP "latest.json"
 $notesPath = Join-Path $env:TEMP "grokden-release-notes.md"
 $utf8NoBom = New-Object System.Text.UTF8Encoding $false
 [System.IO.File]::WriteAllText($latestPath, $latestJson, $utf8NoBom)

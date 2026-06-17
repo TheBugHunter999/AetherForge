@@ -101,17 +101,19 @@
         <button type="button" class="toggle" class:on={settings.allowPrereleaseUpdates} role="switch" aria-checked={settings.allowPrereleaseUpdates} aria-label="Allow Prerelease Updates" onclick={() => (settings.allowPrereleaseUpdates = !settings.allowPrereleaseUpdates)}><span class="knob"></span></button></div>
     {/if}
     {#if showRow("general", "Check for Updates download install release")}
-      <div class="row"><div class="meta"><div class="label">Check for Updates</div><div class="desc">Look for a new Grokden release on GitHub.</div></div>
+      <div class="row col"><div class="meta"><div class="label">Check for Updates</div><div class="desc">Look for a new Grokden release on GitHub.</div>
+        {#if updateState.lastCheckMessage}
+          <div class="desc update-status" class:error={updateState.phase === "error"} class:ok={updateState.phase === "idle" && updateState.lastCheckAt > 0}>{updateState.lastCheckMessage}</div>
+        {/if}
+      </div>
         <button
           type="button"
           class="action-btn"
           disabled={updateState.phase === "checking" || updateState.phase === "downloading"}
           onclick={() => {
-            void checkForAppUpdate(settings.allowPrereleaseUpdates).then(() => {
-              if (updateState.phase === "available") openUpdateOverlay();
-            });
+            void checkForAppUpdate(settings.allowPrereleaseUpdates, { manual: true });
           }}
-        >{updateState.phase === "checking" ? "Checking…" : "Check now"}</button></div>
+        >{updateState.phase === "checking" ? "Checking…" : updateState.phase === "available" ? "Update available" : "Check now"}</button></div>
     {/if}
     {#if showRow("general", "Telemetry usage analytics privacy data")}
       <div class="row"><div class="meta"><div class="label">Telemetry</div><div class="desc">Store anonymous usage events locally on this PC (no cloud upload). Saved under %LOCALAPPDATA%\com.grokden.desktop\telemetry.</div></div>
@@ -806,6 +808,9 @@
   }
   .action-btn:hover:not(:disabled) { background: var(--hover); }
   .action-btn:disabled { opacity: 0.45; cursor: default; }
+
+  .update-status.ok { color: var(--success); }
+  .update-status.error { color: var(--danger); }
 
   .select {
     flex-shrink: 0;
