@@ -1,0 +1,23 @@
+/* Hide native scrollbars on chrome-like tab strips. The content still scrolls horizontally with wheel/trackpad. */
+.ide .tab-bar,
+.ide.glass-window .tab-bar,
+.ide .terminal-header,
+.ide.glass-window .terminal-header {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.ide .tab-bar::-webkit-scrollbar,
+.ide.glass-window .tab-bar::-webkit-scrollbar,
+.ide .terminal-header::-webkit-scrollbar,
+.ide.glass-window .terminal-header::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
+}
+
+.ide .terminal-close,
+.ide.glass-window .terminal-close {
+  flex: 0 0 auto !important;
+  white-space: nowrap !important;
+}
