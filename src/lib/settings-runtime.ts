@@ -308,31 +308,42 @@ function lerpGlassKeyframes(pct: number, keyframes: readonly [number, number][])
   return keyframes[keyframes.length - 1][1];
 }
 
-/** Maps slider 50 (strongest glass) … 100 (solid) to single-layer surface alphas. */
-export function glassSurfaceMix(percent: number): {
+/** Surface alphas from the transparency slider — used by glass CSS and debug HUD. */
+export type GlassSurfaceMix = {
   strength: number;
-  panelAlpha: number;
   editorAlpha: number;
-  railAlpha: number;
+  panelAlpha: number;
+  chromeAlpha: number;
   borderAlpha: number;
-} {
+};
+
+/** Maps slider 50 (strongest glass) … 100 (solid) to single-layer surface alphas. */
+export function glassSurfaceMix(percent: number): GlassSurfaceMix {
   const pct = clamp(percent, 50, 100);
   const strength = (100 - pct) / 50;
 
   const editorAlpha = lerpGlassKeyframes(pct, [
-    [50, 0.11],
-    [65, 0.22],
-    [80, 0.42],
-    [95, 0.78],
+    [50, 0.0],
+    [65, 0.08],
+    [80, 0.28],
+    [95, 0.65],
     [100, 0.94],
   ]);
 
   const panelAlpha = lerpGlassKeyframes(pct, [
-    [50, 0.24],
-    [65, 0.38],
-    [80, 0.58],
-    [95, 0.86],
+    [50, 0.14],
+    [65, 0.22],
+    [80, 0.42],
+    [95, 0.75],
     [100, 0.97],
+  ]);
+
+  const chromeAlpha = lerpGlassKeyframes(pct, [
+    [50, 0.18],
+    [65, 0.26],
+    [80, 0.48],
+    [95, 0.82],
+    [100, 0.95],
   ]);
 
   const borderAlpha = lerpGlassKeyframes(pct, [
@@ -345,16 +356,28 @@ export function glassSurfaceMix(percent: number): {
 
   return {
     strength,
-    panelAlpha,
     editorAlpha,
-    railAlpha: lerpGlassKeyframes(pct, [
-      [50, 0.22],
-      [65, 0.36],
-      [80, 0.54],
-      [95, 0.82],
-      [100, 0.95],
-    ]),
+    panelAlpha,
+    chromeAlpha,
     borderAlpha,
+  };
+}
+
+/** Decorative glass material tokens — scale with strength (1 at 50%, 0 at 100%). */
+function glassMaterialVars(strength: number): {
+  highlight: string;
+  edge: string;
+  shadow: string;
+  shine: string;
+} {
+  const s = strength;
+  const blur = Math.round(6 + 18 * s);
+  const y = Math.round(2 + 6 * s);
+  return {
+    highlight: hexToRgba("#ffffff", 0.16 * s),
+    edge: hexToRgba("#ffffff", 0.08 * s),
+    shadow: `0 ${y}px ${blur}px rgba(0,0,0,${(0.22 * s).toFixed(3)})`,
+    shine: `linear-gradient(180deg,${hexToRgba("#ffffff", 0.12 * s)} 0%,transparent 48%)`,
   };
 }
 
@@ -363,16 +386,22 @@ export function buildGlassThemeVars(settings: AppSettings): string {
   if (settings.windowTransparency >= 100) return "";
 
   const theme = THEMES[settings.theme] ?? THEMES["grokden-dark"];
-  const { strength, panelAlpha, editorAlpha, railAlpha, borderAlpha } = glassSurfaceMix(
+  const { strength, chromeAlpha, panelAlpha, editorAlpha, borderAlpha } = glassSurfaceMix(
     settings.windowTransparency,
   );
+  const material = glassMaterialVars(strength);
 
   return [
     `--glass-strength:${strength}`,
+    `--glass-chrome-bg:${hexToRgba(theme.panelSolid, chromeAlpha)}`,
     `--glass-panel-bg:${hexToRgba(theme.panelSolid, panelAlpha)}`,
     `--glass-editor-bg:${hexToRgba(theme.editorBg, editorAlpha)}`,
-    `--glass-rail-bg:${hexToRgba(theme.panel, railAlpha)}`,
+    `--glass-rail-bg:${hexToRgba(theme.panel, panelAlpha)}`,
     `--glass-border:${hexToRgba(theme.panelSolid, borderAlpha)}`,
+    `--glass-highlight:${material.highlight}`,
+    `--glass-edge:${material.edge}`,
+    `--glass-shadow:${material.shadow}`,
+    `--glass-shine:${material.shine}`,
   ].join(";");
 }
 

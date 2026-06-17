@@ -308,21 +308,28 @@ fn app_ready(app: AppHandle) -> Result<(), String> {
     transition_to_workspace(app)
 }
 
-static LAST_WINDOW_TRANSPARENCY: Mutex<Option<u8>> = Mutex::new(None);
+#[derive(Serialize, Clone, Debug, PartialEq, Eq)]
+struct WindowTransparencyResult {
+    effect: String,
+    tint_alpha: u8,
+    percent: u8,
+}
+
+static LAST_WINDOW_TRANSPARENCY: Mutex<Option<WindowTransparencyResult>> = Mutex::new(None);
 
 #[cfg(target_os = "windows")]
 fn acrylic_tint_alpha(percent: u8) -> u8 {
     let p = percent as f32;
     let alpha = if p <= 65.0 {
-        lerp_f32(50.0, 8.0, 65.0, 28.0, p)
+        lerp_f32(50.0, 0.0, 65.0, 12.0, p)
     } else if p <= 80.0 {
-        lerp_f32(65.0, 28.0, 80.0, 55.0, p)
+        lerp_f32(65.0, 12.0, 80.0, 32.0, p)
     } else if p <= 95.0 {
-        lerp_f32(80.0, 55.0, 95.0, 130.0, p)
+        lerp_f32(80.0, 32.0, 95.0, 100.0, p)
     } else {
-        lerp_f32(95.0, 130.0, 99.0, 165.0, p)
+        lerp_f32(95.0, 100.0, 99.0, 120.0, p)
     };
-    alpha.round().clamp(0.0, 175.0) as u8
+    alpha.round().clamp(0.0, 255.0) as u8
 }
 
 fn lerp_f32(a: f32, va: f32, b: f32, vb: f32, x: f32) -> f32 {
@@ -333,18 +340,43 @@ fn lerp_f32(a: f32, va: f32, b: f32, vb: f32, x: f32) -> f32 {
 }
 
 #[tauri::command]
-fn set_window_transparency(app: AppHandle, percent: u8) -> Result<(), String> {
-    let Some(window) = app.get_webview_window("main") else {
-        return Ok(());
-    };
-
+fn set_window_transparency(
+    app: AppHandle,
+    percent: u8,
+) -> Result<WindowTransparencyResult, String> {
     let percent = percent.clamp(50, 100);
-    if let Ok(mut last) = LAST_WINDOW_TRANSPARENCY.lock() {
-        if *last == Some(percent) {
-            return Ok(());
+
+    if let Ok(last) = LAST_WINDOW_TRANSPARENCY.lock() {
+        if let Some(cached) = last.as_ref() {
+            if cached.percent == percent {
+                return Ok(cached.clone());
+            }
         }
-        *last = Some(percent);
     }
+
+    let Some(window) = app.get_webview_window("main") else {
+        let result = WindowTransparencyResult {
+            effect: if percent >= 100 {
+                "opaque".to_string()
+            } else {
+                "acrylic".to_string()
+            },
+            tint_alpha: if percent >= 100 {
+                255
+            } else {
+                #[cfg(target_os = "windows")]
+                {
+                    acrylic_tint_alpha(percent)
+                }
+                #[cfg(not(target_os = "windows"))]
+                {
+                    0
+                }
+            },
+            percent,
+        };
+        return Ok(result);
+    };
 
     let opaque_bg = Color::from((9_u8, 9, 13, 255));
     let transparent_bg = Color::from((0_u8, 0, 0, 0));
@@ -360,30 +392,67 @@ fn set_window_transparency(app: AppHandle, percent: u8) -> Result<(), String> {
             let _ = clear_acrylic(&window);
             let _ = clear_mica(&window);
         }
-        return Ok(());
+        let result = WindowTransparencyResult {
+            effect: "opaque".to_string(),
+            tint_alpha: 255,
+            percent,
+        };
+        if let Ok(mut last) = LAST_WINDOW_TRANSPARENCY.lock() {
+            *last = Some(result.clone());
+        }
+        return Ok(result);
     }
 
     window
         .set_background_color(Some(transparent_bg))
         .map_err(|e| e.to_string())?;
 
-    #[cfg(target_os = "windows")]
-    {
-        use window_vibrancy::{apply_acrylic, apply_mica, clear_acrylic, clear_mica};
+    let result = {
+        #[cfg(target_os = "windows")]
+        {
+            use window_vibrancy::{apply_acrylic, apply_mica, clear_acrylic, clear_mica};
 
-        let _ = clear_acrylic(&window);
-        let _ = clear_mica(&window);
+            let _ = clear_acrylic(&window);
+            let _ = clear_mica(&window);
 
-        let tint_alpha = acrylic_tint_alpha(percent);
+            let tint_alpha = acrylic_tint_alpha(percent);
 
-        // Acrylic blurs live desktop content; Mica only tints wallpaper.
-        if apply_acrylic(&window, Some((9_u8, 9, 13, tint_alpha))).is_err() {
-            apply_mica(&window, Some(false))
-                .map_err(|e| format!("apply_mica failed: {e}"))?;
+            // Acrylic blurs live desktop content; Mica only tints wallpaper.
+            if apply_acrylic(&window, Some((9_u8, 9, 13, tint_alpha))).is_ok() {
+                WindowTransparencyResult {
+                    effect: "acrylic".to_string(),
+                    tint_alpha,
+                    percent,
+                }
+            } else {
+                eprintln!(
+                    "WARNING: Acrylic unavailable at {percent}% transparency — falling back to Mica. \
+                     Mica only tints the desktop wallpaper and will NOT match the requested see-through level."
+                );
+                apply_mica(&window, Some(false))
+                    .map_err(|e| format!("apply_mica failed: {e}"))?;
+                WindowTransparencyResult {
+                    effect: "mica".to_string(),
+                    tint_alpha,
+                    percent,
+                }
+            }
         }
+        #[cfg(not(target_os = "windows"))]
+        {
+            WindowTransparencyResult {
+                effect: "opaque".to_string(),
+                tint_alpha: 0,
+                percent,
+            }
+        }
+    };
+
+    if let Ok(mut last) = LAST_WINDOW_TRANSPARENCY.lock() {
+        *last = Some(result.clone());
     }
 
-    Ok(())
+    Ok(result)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

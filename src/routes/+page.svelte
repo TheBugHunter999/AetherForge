@@ -116,7 +116,7 @@
     retry as retryAppUpdate,
     restart as restartAppUpdate,
   } from "$lib/updater/updater-store.svelte";
-  import { syncWindowGlass } from "$lib/window-transparency";
+  import { getGlassDebugState, syncWindowGlass } from "$lib/window-transparency";
   import { bindViewportSync } from "$lib/viewport-sync";
   import FolderTrustDialog from "$lib/FolderTrustDialog.svelte";
   import ExplorerPanel from "$lib/explorer/ExplorerPanel.svelte";
@@ -161,7 +161,7 @@
   let settings = $state(initialSettings);
   let appPhase = $state<"launch" | "onboarding" | "workspace">("launch");
   let workspaceVisible = $state(false);
-  let appVersion = $state("0.1.14");
+  let appVersion = $state("0.1.15");
   let updateIndicatorState = $derived.by((): UpdateIndicatorState => {
     if (updateState.phase === "available") return "available";
     if (
@@ -185,9 +185,13 @@
     }
   });
 
+  let glassDebug = $state(getGlassDebugState());
+
   $effect(() => {
     const pct = settings.windowTransparency;
-    void syncWindowGlass(pct, buildGlassThemeVars(settings));
+    void syncWindowGlass(pct, buildGlassThemeVars(settings)).then(() => {
+      glassDebug = getGlassDebugState();
+    });
   });
 
   let updateCheckStarted = $state(false);
@@ -1529,6 +1533,15 @@
 
 <svelte:window onkeydown={handleKeydown} onbeforeunload={handleBeforeUnload} />
 
+{#if settings.devTools && settings.windowTransparency < 100}
+  <div class="glass-debug-pill" aria-label="Glass debug" title="Native glass effect and CSS surface alphas">
+    {glassDebug.percent}% · {glassDebug.nativeEffect} · tint α{glassDebug.nativeTint.a}
+    {#if glassDebug.cssAlphas}
+      · panel {glassDebug.cssAlphas.panelAlpha.toFixed(2)} · editor {glassDebug.cssAlphas.editorAlpha.toFixed(2)} · chrome {glassDebug.cssAlphas.chromeAlpha.toFixed(2)}
+    {/if}
+  </div>
+{/if}
+
 {#key appPhase}
   {#if appPhase === "launch"}
     <div class="phase-shell" in:fade={{ duration: 200 }} out:fade={{ duration: 220 }}>
@@ -2261,11 +2274,53 @@ This is a very long debug log line that demonstrates whether the debug console w
 
   .ide.glass-window {
     background: transparent;
+    isolation: isolate;
+  }
+
+  .ide.glass-window > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .ide.glass-window::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    border-radius: inherit;
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 255, 255, calc(var(--glass-strength, 0) * 0.14)),
+      inset 0 1px 1px rgba(255, 255, 255, calc(var(--glass-strength, 0) * 0.08)),
+      0 10px 36px rgba(0, 0, 0, calc(var(--glass-strength, 0) * 0.16));
+  }
+
+  .ide.glass-window::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background:
+      repeating-linear-gradient(
+        90deg,
+        transparent 0,
+        transparent 1px,
+        rgba(255, 255, 255, calc(var(--glass-strength, 0) * 0.018)) 1px,
+        transparent 2px
+      ),
+      radial-gradient(
+        ellipse 110% 42% at 50% 0%,
+        rgba(255, 255, 255, calc(var(--glass-strength, 0) * 0.07)),
+        transparent 68%
+      );
   }
 
   .ide.glass-window .topbar,
+  .ide.glass-window .statusbar,
+  .ide.glass-window .tab-bar,
   .ide.glass-window :global(.window-chrome) {
-    background: var(--glass-panel-bg);
+    background: var(--glass-chrome-bg);
     border-color: var(--glass-border);
   }
 
@@ -2275,9 +2330,7 @@ This is a very long debug log line that demonstrates whether the debug console w
   }
 
   .ide.glass-window .sidebar,
-  .ide.glass-window .secondary-sidebar,
-  .ide.glass-window .statusbar,
-  .ide.glass-window .tab-bar {
+  .ide.glass-window .secondary-sidebar {
     background: var(--glass-panel-bg);
     border-color: var(--glass-border);
   }
@@ -2352,6 +2405,28 @@ This is a very long debug log line that demonstrates whether the debug console w
     border-radius: 4px;
     background: var(--chip-bg);
     border: 1px solid var(--border);
+  }
+
+  .glass-debug-pill {
+    position: fixed;
+    bottom: 10px;
+    left: 10px;
+    z-index: 20000;
+    max-width: min(92vw, 520px);
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: color-mix(in srgb, var(--chip-bg) 88%, transparent);
+    color: var(--text-mute);
+    font-size: 10px;
+    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    line-height: 1.35;
+    pointer-events: none;
+    backdrop-filter: blur(10px);
+    opacity: 0.9;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .command-hint {

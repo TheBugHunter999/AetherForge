@@ -1,32 +1,88 @@
 import { invoke } from "@tauri-apps/api/core";
+import { glassSurfaceMix, type GlassSurfaceMix } from "./settings-runtime";
 
 const GLASS_VAR_KEYS = [
   "--glass-strength",
+  "--glass-chrome-bg",
   "--glass-panel-bg",
   "--glass-editor-bg",
   "--glass-rail-bg",
   "--glass-border",
+  "--glass-highlight",
+  "--glass-edge",
+  "--glass-shadow",
+  "--glass-shine",
 ] as const;
+
+const NATIVE_TINT_RGB = { r: 9, g: 9, b: 13 } as const;
+
+export type GlassDebugState = {
+  percent: number;
+  cssAlphas: GlassSurfaceMix | null;
+  nativeEffect: string;
+  nativeTint: { r: number; g: number; b: number; a: number };
+};
+
+type NativeTransparencyResult = {
+  effect: string;
+  tint_alpha: number;
+  percent: number;
+};
+
+const DEFAULT_DEBUG: GlassDebugState = {
+  percent: 100,
+  cssAlphas: null,
+  nativeEffect: "opaque",
+  nativeTint: { ...NATIVE_TINT_RGB, a: 255 },
+};
 
 let chain: Promise<void> = Promise.resolve();
 let latestPercent = 100;
+let glassDebugState: GlassDebugState = { ...DEFAULT_DEBUG };
 
-async function invokeTransparency(percent: number): Promise<void> {
-  await invoke("set_window_transparency", { percent });
+export function getGlassDebugState(): Readonly<GlassDebugState> {
+  return glassDebugState;
+}
+
+function nativeTintFromResult(native: NativeTransparencyResult | null, percent: number) {
+  if (!native) {
+    return { ...NATIVE_TINT_RGB, a: percent >= 100 ? 255 : 0 };
+  }
+  return { ...NATIVE_TINT_RGB, a: native.tint_alpha };
+}
+
+function setGlassDebugState(
+  percent: number,
+  cssAlphas: GlassSurfaceMix | null,
+  native: NativeTransparencyResult | null,
+): void {
+  glassDebugState = {
+    percent,
+    cssAlphas,
+    nativeEffect: native?.effect ?? (percent >= 100 ? "opaque" : "unknown"),
+    nativeTint: nativeTintFromResult(native, percent),
+  };
+}
+
+async function invokeTransparency(percent: number): Promise<NativeTransparencyResult | null> {
+  try {
+    return await invoke<NativeTransparencyResult>("set_window_transparency", { percent });
+  } catch {
+    return null;
+  }
 }
 
 /** Serialized native transparency updates — latest value always wins. */
-export function applyWindowTransparency(percent: number): Promise<void> {
+export function applyWindowTransparency(
+  percent: number,
+): Promise<NativeTransparencyResult | null> {
   latestPercent = percent;
-  chain = chain.then(async () => {
+  const pending = chain.then(async (): Promise<NativeTransparencyResult | null> => {
     const target = latestPercent;
-    try {
-      await invokeTransparency(target);
-    } catch {
-      /* browser dev */
-    }
+    return invokeTransparency(target);
   });
-  return chain;
+  chain = pending.then(() => {});
+  return pending;
 }
 
 function applyGlassVarsToRoot(glassStyle: string): void {
@@ -71,11 +127,15 @@ function applyGlassDom(glass: boolean, glassStyle: string): void {
  */
 export async function syncWindowGlass(percent: number, glassStyle: string): Promise<void> {
   const glass = percent < 100;
+  const cssAlphas = glass ? glassSurfaceMix(percent) : null;
+
   if (!glass) {
-    await applyWindowTransparency(percent);
+    const native = await applyWindowTransparency(percent);
     applyGlassDom(false, glassStyle);
+    setGlassDebugState(percent, null, native);
   } else {
     applyGlassDom(true, glassStyle);
-    await applyWindowTransparency(percent);
+    const native = await applyWindowTransparency(percent);
+    setGlassDebugState(percent, cssAlphas, native);
   }
 }
