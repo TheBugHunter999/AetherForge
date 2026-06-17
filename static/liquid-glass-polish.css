@@ -1,0 +1,297 @@
+/*
+  Grokden Liquid Glass polish layer
+  ---------------------------------
+  Additive CSS loaded from src/app.html so the main Svelte page stays untouched.
+  Goal: Apple-like frosted depth without sacrificing IDE readability.
+*/
+
+:root {
+  --liquid-motion: 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  --liquid-fast: 140ms cubic-bezier(0.16, 1, 0.3, 1);
+  --liquid-radius-xl: 24px;
+  --liquid-radius-lg: 18px;
+  --liquid-radius-md: 13px;
+  --liquid-shadow-soft: 0 22px 80px rgba(0, 0, 0, 0.28);
+  --liquid-shadow-tight: 0 10px 34px rgba(0, 0, 0, 0.22);
+  --liquid-hairline: rgba(255, 255, 255, 0.16);
+  --liquid-inner-dark: rgba(0, 0, 0, 0.22);
+}
+
+/* Real glass reads best when the app has layers, not one flat transparent sheet. */
+.ide.glass-window {
+  background: transparent !important;
+}
+
+.ide.glass-window::before {
+  background:
+    radial-gradient(circle at 18% 0%, rgba(255, 255, 255, 0.13), transparent 28%),
+    radial-gradient(circle at 78% 10%, rgba(160, 190, 255, 0.11), transparent 30%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.055), transparent 38%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.028), transparent 35%, rgba(0, 0, 0, 0.16));
+  opacity: calc(0.44 + var(--glass-strength, 0.5) * 0.24) !important;
+  filter: saturate(1.08);
+}
+
+.ide.glass-window .topbar,
+.ide.glass-window :global(.window-chrome),
+.ide.glass-window .statusbar,
+.ide.glass-window .tab-bar {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.105), rgba(255, 255, 255, 0.025) 44%, rgba(0, 0, 0, 0.055)),
+    color-mix(in srgb, var(--glass-chrome-bg, var(--panel-solid)) 92%, rgba(14, 16, 22, 0.32)) !important;
+  border-color: color-mix(in srgb, var(--glass-border, var(--border)) 88%, transparent) !important;
+  backdrop-filter: blur(calc(28px + 34px * var(--glass-strength, 0.5))) saturate(1.55) contrast(1.045) brightness(1.035) !important;
+  -webkit-backdrop-filter: blur(calc(28px + 34px * var(--glass-strength, 0.5))) saturate(1.55) contrast(1.045) brightness(1.035) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.16),
+    0 1px 0 rgba(255, 255, 255, 0.03) !important;
+}
+
+.ide.glass-window .activity-rail,
+.ide.glass-window .sidebar,
+.ide.glass-window .secondary-sidebar,
+.ide.glass-window .terminal-header,
+.ide.glass-window .terminal-body,
+.ide.glass-window .command-hint,
+.ide.glass-window .welcome-composer,
+.ide.glass-window .welcome-card,
+.ide.glass-window .welcome-grok-alert,
+.ide.glass-window .context-menu {
+  position: relative;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.11), rgba(255, 255, 255, 0.025) 46%, rgba(0, 0, 0, 0.065)),
+    color-mix(in srgb, var(--glass-panel-bg, var(--panel-solid)) 90%, rgba(8, 10, 16, 0.32)) !important;
+  border-color: color-mix(in srgb, var(--glass-border, var(--border)) 92%, transparent) !important;
+  backdrop-filter: blur(calc(32px + 42px * var(--glass-strength, 0.5))) saturate(1.62) contrast(1.055) brightness(1.035) !important;
+  -webkit-backdrop-filter: blur(calc(32px + 42px * var(--glass-strength, 0.5))) saturate(1.62) contrast(1.055) brightness(1.035) !important;
+  box-shadow:
+    var(--liquid-shadow-tight),
+    inset 0 1px 0 rgba(255, 255, 255, 0.19),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.20),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.045) !important;
+}
+
+.ide.glass-window .activity-rail,
+.ide.glass-window .sidebar,
+.ide.glass-window .secondary-sidebar {
+  margin: 8px 0 8px 8px;
+  border-radius: var(--liquid-radius-xl);
+  border: 1px solid var(--glass-border, var(--border));
+  overflow: hidden;
+}
+
+.ide.glass-window .workspace-panels.sidebar-right .activity-rail,
+.ide.glass-window .workspace-panels.sidebar-right .sidebar,
+.ide.glass-window .workspace-panels.sidebar-right .secondary-sidebar,
+.ide.glass-window .workspace.sidebar-right .activity-rail {
+  margin: 8px 8px 8px 0;
+}
+
+.ide.glass-window .secondary-sidebar {
+  margin-right: 8px;
+}
+
+.ide.glass-window .editor-area {
+  margin: 8px;
+  border-radius: var(--liquid-radius-xl);
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--glass-border, var(--border)) 86%, transparent);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.05), transparent 34%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent 34%),
+    color-mix(in srgb, var(--glass-editor-bg, var(--editor-bg)) 90%, rgba(7, 9, 14, 0.38)) !important;
+  backdrop-filter: blur(calc(20px + 28px * var(--glass-strength, 0.5))) saturate(1.34) contrast(1.035) !important;
+  -webkit-backdrop-filter: blur(calc(20px + 28px * var(--glass-strength, 0.5))) saturate(1.34) contrast(1.035) !important;
+  box-shadow:
+    var(--liquid-shadow-soft),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.035);
+}
+
+.ide.glass-window .editor-content,
+.ide.glass-window .view-pane,
+.ide.glass-window .editor,
+.ide.glass-window .editor-scroll,
+.ide.glass-window .editor-surface,
+.ide.glass-window .editor-input-wrap,
+.ide.glass-window .line-numbers,
+.ide.glass-window .code-textarea {
+  background: transparent !important;
+}
+
+.ide.glass-window .editor {
+  background:
+    linear-gradient(90deg, rgba(0, 0, 0, 0.10), transparent 22%),
+    rgba(0, 0, 0, calc(0.045 + var(--glass-strength, 0.5) * 0.055)) !important;
+}
+
+.ide.glass-window .line-numbers {
+  border-right-color: rgba(255, 255, 255, 0.075) !important;
+  background: rgba(0, 0, 0, calc(0.05 + var(--glass-strength, 0.5) * 0.05)) !important;
+}
+
+.ide.glass-window .code-textarea,
+.ide.glass-window .tab-name,
+.ide.glass-window .codex-list-row,
+.ide.glass-window .codex-project-row,
+.ide.glass-window .command-text {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.34);
+}
+
+.ide[data-theme="frost"].glass-window .code-textarea,
+.ide[data-theme="frost"].glass-window .tab-name,
+.ide[data-theme="frost"].glass-window .codex-list-row,
+.ide[data-theme="frost"].glass-window .codex-project-row,
+.ide[data-theme="frost"].glass-window .command-text {
+  text-shadow: none;
+}
+
+/* Softer iOS-like pills. Hard squares are what made the old glass feel fake. */
+.ide.glass-window .rail-btn,
+.ide.glass-window .codex-list-row,
+.ide.glass-window .codex-project-row,
+.ide.glass-window .save-btn,
+.ide.glass-window .launch-btn,
+.ide.glass-window .composer-chip,
+.ide.glass-window .composer-icon-btn,
+.ide.glass-window .composer-send,
+.ide.glass-window .welcome-card,
+.ide.glass-window .tab,
+.ide.glass-window .secondary-tab,
+.ide.glass-window .restricted-trust-btn,
+.ide.glass-window .welcome-grok-recheck {
+  border-radius: var(--liquid-radius-md) !important;
+  transition:
+    transform var(--liquid-fast),
+    background var(--liquid-fast),
+    border-color var(--liquid-fast),
+    color var(--liquid-fast),
+    box-shadow var(--liquid-fast),
+    opacity var(--liquid-fast) !important;
+}
+
+.ide.glass-window .composer-icon-btn,
+.ide.glass-window .composer-send {
+  border-radius: 999px !important;
+}
+
+.ide.glass-window .rail-btn:hover:not(:disabled),
+.ide.glass-window .codex-list-row:hover:not(:disabled),
+.ide.glass-window .codex-project-row:hover:not(:disabled),
+.ide.glass-window .save-btn:hover:not(:disabled),
+.ide.glass-window .launch-btn:hover:not(:disabled),
+.ide.glass-window .composer-chip:hover,
+.ide.glass-window .composer-icon-btn:hover,
+.ide.glass-window .welcome-card:hover {
+  transform: translateY(-1px);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.035)),
+    color-mix(in srgb, var(--hover-strong) 82%, rgba(255, 255, 255, 0.06)) !important;
+  box-shadow:
+    0 10px 26px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18) !important;
+}
+
+.ide.glass-window .rail-btn:active:not(:disabled),
+.ide.glass-window .codex-list-row:active:not(:disabled),
+.ide.glass-window .codex-project-row:active:not(:disabled),
+.ide.glass-window .save-btn:active:not(:disabled),
+.ide.glass-window .launch-btn:active:not(:disabled),
+.ide.glass-window .composer-chip:active,
+.ide.glass-window .composer-icon-btn:active,
+.ide.glass-window .welcome-card:active {
+  transform: translateY(0) scale(0.985);
+}
+
+.ide.glass-window .rail-btn.active,
+.ide.glass-window .codex-list-row.active,
+.ide.glass-window .codex-project-row.active,
+.ide.glass-window .secondary-tab.active,
+.ide.glass-window .tab.active {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.045)),
+    color-mix(in srgb, var(--active) 76%, var(--accent) 24%) !important;
+  color: var(--text) !important;
+  box-shadow:
+    0 12px 34px rgba(0, 0, 0, 0.20),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08) !important;
+}
+
+.ide.glass-window .codex-section-title,
+.ide.glass-window .codex-list-time,
+.ide.glass-window .line-num,
+.ide.glass-window .welcome-card-sub {
+  color: color-mix(in srgb, var(--text-mute) 78%, var(--text) 22%) !important;
+}
+
+.ide.glass-window .command-hint {
+  border-radius: 999px !important;
+  min-height: 28px;
+}
+
+.ide.glass-window .version-pill,
+.ide.glass-window .command-badge,
+.ide.glass-window .status-chip,
+.ide.glass-window .tab-badge,
+.ide.glass-window .rail-badge {
+  border-radius: 999px !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+.ide.glass-window .terminal {
+  margin: 0 8px 8px;
+  border-radius: var(--liquid-radius-xl);
+  overflow: hidden;
+  border-color: var(--glass-border, var(--border)) !important;
+  box-shadow: var(--liquid-shadow-soft), inset 0 1px 0 rgba(255, 255, 255, 0.11);
+}
+
+.ide.glass-window .terminal.panel-side {
+  margin: 8px 8px 8px 0;
+}
+
+/* Click-again-to-close visual state, powered by liquid-glass-navigation.js. */
+.ide.liquid-sidebar-force-closed .sidebar {
+  display: none !important;
+}
+
+.ide.liquid-terminal-force-closed .terminal {
+  display: none !important;
+}
+
+.ide.liquid-sidebar-force-closed .codex-list-row.active,
+.ide.liquid-sidebar-force-closed .codex-project-row.active,
+.ide.liquid-terminal-force-closed .rail-btn.active[aria-label="Terminal"] {
+  background: transparent !important;
+  color: var(--text-dim) !important;
+  box-shadow: none !important;
+}
+
+.ide.liquid-sidebar-force-closed .codex-list-row.active::after,
+.ide.liquid-sidebar-force-closed .codex-project-row.active::after,
+.ide.liquid-terminal-force-closed .rail-btn.active[aria-label="Terminal"]::after {
+  content: "closed";
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-mute);
+  opacity: 0.72;
+}
+
+/* Keep accessibility strong. Premium glass still needs obvious focus. */
+.ide.glass-window button:focus-visible,
+.ide.glass-window textarea:focus-visible,
+.ide.glass-window input:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 84%, white 16%) !important;
+  outline-offset: 2px !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ide.glass-window *,
+  .ide.glass-window *::before,
+  .ide.glass-window *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
