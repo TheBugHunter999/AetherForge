@@ -1,0 +1,102 @@
+/* Professional editor pass, closer to VS Code: solid read surface, clean gutter, calmer minimap area. */
+
+.ide .editor-area,
+.ide.glass-window .editor-area {
+  background: #1b1f24 !important;
+  border-color: rgba(255,255,255,0.08) !important;
+}
+
+.ide .editor-content,
+.ide .view-pane.editor-view-pane,
+.ide .editor,
+.ide .editor-scroll,
+.ide .editor-surface,
+.ide .editor-input-wrap,
+.ide .code-textarea {
+  background: #1b1f24 !important;
+}
+
+.ide .tab-bar,
+.ide.glass-window .tab-bar {
+  background: #181c21 !important;
+  border-bottom-color: rgba(255,255,255,0.075) !important;
+}
+
+.ide .tab,
+.ide.glass-window .tab {
+  border-radius: 0 !important;
+  border-right: 1px solid rgba(255,255,255,0.06) !important;
+  background: transparent !important;
+  color: #9ca6b3 !important;
+  box-shadow: none !important;
+}
+
+.ide .tab:hover,
+.ide.glass-window .tab:hover {
+  background: #20262d !important;
+  color: #d3d9e3 !important;
+}
+
+.ide .tab.active,
+.ide.glass-window .tab.active {
+  background: #1b1f24 !important;
+  color: #f2f5f8 !important;
+  border-bottom: 2px solid #5cc9c7 !important;
+}
+
+.ide .breadcrumbs {
+  background: #1b1f24 !important;
+  border-bottom: 1px solid rgba(255,255,255,0.055) !important;
+}
+
+.ide .line-numbers,
+.ide.glass-window .line-numbers {
+  min-width: 52px !important;
+  padding-top: 12px !important;
+  padding-right: 10px !important;
+  background: #1b1f24 !important;
+  border-right: 1px solid rgba(255,255,255,0.055) !important;
+}
+
+.ide .line-num,
+.ide.glass-window .line-num {
+  color: #7b8492 !important;
+  font-weight: 400 !important;
+  opacity: 1 !important;
+}
+
+.ide .line-num.active,
+.ide.glass-window .line-num.active {
+  color: #c9d1db !important;
+}
+
+.ide .code-textarea,
+.ide.glass-window .code-textarea {
+  color: #e6edf3 !important;
+  caret-color: #5cc9c7 !important;
+  padding-left: 14px !important;
+  text-shadow: none !important;
+  letter-spacing: 0 !important;
+}
+
+.ide .editor-scroll::-webkit-scrollbar,
+.ide .code-textarea::-webkit-scrollbar {
+  width: 12px !important;
+  height: 12px !important;
+}
+
+.ide .editor-scroll::-webkit-scrollbar-thumb,
+.ide .code-textarea::-webkit-scrollbar-thumb {
+  background: rgba(121, 130, 145, 0.42) !important;
+  border: 3px solid #1b1f24 !important;
+  border-radius: 999px !important;
+}
+
+.ide .editor-scroll::-webkit-scrollbar-thumb:hover,
+.ide .code-textarea::-webkit-scrollbar-thumb:hover {
+  background: rgba(150, 160, 176, 0.58) !important;
+}
+
+.ide .editor.ai-inline-suggestions .editor-input-wrap {
+  box-shadow: none !important;
+}
