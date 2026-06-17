@@ -160,7 +160,7 @@
   let settings = $state(initialSettings);
   let appPhase = $state<"launch" | "onboarding" | "workspace">("launch");
   let workspaceVisible = $state(false);
-  let appVersion = $state("0.1.9");
+  let appVersion = $state("0.1.10");
   let updateIndicatorState = $derived.by((): UpdateIndicatorState => {
     if (updateState.phase === "available") return "available";
     if (
@@ -2166,6 +2166,7 @@ This is a very long debug log line that demonstrates whether the debug console w
 
 {#if updateState.overlayOpen}
   <UpdateOverlay
+    style={rootStyle}
     phase={updateState.phase}
     version={updateState.version}
     currentVersion={appVersion}

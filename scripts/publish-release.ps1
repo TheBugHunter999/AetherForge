@@ -79,9 +79,9 @@ Grokden $version - Windows desktop workspace for Grok CLI.
 
 ## What's new
 
+- Redesigned update screen (centered hero, release notes, progress)
 - Fix in-app updater (latest.json manifest + clearer check status)
 - True frosted glass window transparency (see-through desktop with blur)
-- In-app auto-updater with download indicator in the title bar
 
 ## Requirements
 
@@ -120,7 +120,7 @@ Grokden also needs the Microsoft Edge WebView2 runtime. The installers below ins
 
 $latestJson = @{
     version = $version
-    notes = "- Fix in-app updater manifest and check status`n- Frosted glass window transparency`n- In-app auto-updater with title bar download indicator"
+    notes = "- Redesigned update screen with centered hero and release notes`n- Fix in-app updater manifest and check status`n- Frosted glass window transparency"
     pub_date = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ss.fffZ')
     platforms = @{
         'windows-x86_64' = @{
