@@ -120,7 +120,7 @@ Grokden also needs the Microsoft Edge WebView2 runtime. The installers below ins
 
 $latestJson = @{
     version = $version
-    notes = "- In-app auto-updater with title bar download indicator`n- Native window transparency on Windows`n- Workspace path sandbox and index improvements"
+    notes = "- Fix in-app updater manifest and check status`n- Frosted glass window transparency`n- In-app auto-updater with title bar download indicator"
     pub_date = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ss.fffZ')
     platforms = @{
         'windows-x86_64' = @{
@@ -130,8 +130,10 @@ $latestJson = @{
     }
 } | ConvertTo-Json -Depth 5
 
-# Tauri expects this exact asset name for releases/latest/download/latest.json
-$latestPath = Join-Path $env:TEMP "latest.json"
+# Tauri expects asset named exactly latest.json (releases/latest/download/latest.json)
+$latestDir = Join-Path $RepoRoot 'scripts\tmp-release'
+New-Item -ItemType Directory -Force -Path $latestDir | Out-Null
+$latestPath = Join-Path $latestDir 'latest.json'
 $notesPath = Join-Path $env:TEMP "grokden-release-notes.md"
 $utf8NoBom = New-Object System.Text.UTF8Encoding $false
 [System.IO.File]::WriteAllText($latestPath, $latestJson, $utf8NoBom)
