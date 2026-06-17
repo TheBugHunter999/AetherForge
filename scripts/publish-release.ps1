@@ -75,7 +75,7 @@ $nsisHash = Get-Sha256 $Nsis
 $msiHash = Get-Sha256 $Msi
 
 $releaseNotes = @"
-Grokden $version — Windows desktop workspace for Grok CLI.
+Grokden $version - Windows desktop workspace for Grok CLI.
 
 ## What's new
 
@@ -131,30 +131,22 @@ $latestJson = @{
 } | ConvertTo-Json -Depth 5
 
 $latestPath = Join-Path $env:TEMP "grokden-latest.json"
-[System.IO.File]::WriteAllText($latestPath, $latestJson)
+$notesPath = Join-Path $env:TEMP "grokden-release-notes.md"
+$utf8NoBom = New-Object System.Text.UTF8Encoding $false
+[System.IO.File]::WriteAllText($latestPath, $latestJson, $utf8NoBom)
+[System.IO.File]::WriteAllText($notesPath, $releaseNotes, $utf8NoBom)
+
+$assets = @($Nsis, $NsisSig, $Msi, $latestPath)
+if (Test-Path -LiteralPath $MsiSig) {
+    $assets = @($Nsis, $NsisSig, $Msi, $MsiSig, $latestPath)
+}
 
 $ghArgs = @(
     'release', 'create', $Tag,
-    $Nsis,
-    $NsisSig,
-    $Msi,
-    $latestPath,
+    @assets,
     '--title', $Title,
-    '--notes', $releaseNotes
+    '--notes-file', $notesPath
 )
-
-if (Test-Path -LiteralPath $MsiSig) {
-    $ghArgs = @(
-        'release', 'create', $Tag,
-        $Nsis,
-        $NsisSig,
-        $Msi,
-        $MsiSig,
-        $latestPath,
-        '--title', $Title,
-        '--notes', $releaseNotes
-    )
-}
 
 if ($Draft) { $ghArgs += '--draft' }
 if ($Prerelease) { $ghArgs += '--prerelease' }
