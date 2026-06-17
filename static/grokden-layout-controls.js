@@ -4,7 +4,6 @@
   const MENU_BAR_CLASS = "grokden-menu-bar";
   const MENU_OPEN_CLASS = "grokden-menu-open";
   const ACTIVITY_HIDDEN_CLASS = "grokden-activity-rail-hidden";
-  const TERMINAL_FORCE_CLASS = "liquid-terminal-force-closed";
   const SIDEBAR_FORCE_CLASS = "liquid-sidebar-force-closed";
   const isMac = /Mac|iPhone|iPad|iPod/i.test(navigator.platform || "");
   const modLabel = isMac ? "Cmd" : "Ctrl";
@@ -105,33 +104,43 @@
     ide.classList.toggle(ACTIVITY_HIDDEN_CLASS);
   }
 
+  function getLayoutBridge() {
+    return window.__grokdenLayout;
+  }
+
   function isTerminalVisible() {
-    const ide = getIde();
+    const bridge = getLayoutBridge();
+    if (bridge?.isTerminalOpen) return bridge.isTerminalOpen();
     const terminal = document.querySelector(".terminal");
-    if (ide?.classList.contains(TERMINAL_FORCE_CLASS)) return false;
     if (!(terminal instanceof HTMLElement)) return false;
     if (terminal.classList.contains("panel-hidden")) return false;
     const style = getComputedStyle(terminal);
     return style.display !== "none" && style.visibility !== "hidden" && terminal.offsetParent !== null;
   }
 
+  let terminalToggleBusy = false;
+
   function openTerminalPanel() {
-    const ide = getIde();
-    ide?.classList.remove(TERMINAL_FORCE_CLASS);
-    if (clickButtonByExactText("Workspace terminal")) return;
-    if (clickRailButton("Terminal")) return;
-    dispatchShortcut("j");
+    const bridge = getLayoutBridge();
+    if (bridge?.openTerminal) {
+      bridge.openTerminal();
+      return;
+    }
+    dispatchShortcut("`");
   }
 
   function toggleTerminalPanel() {
-    const ide = getIde();
-    if (!ide) return;
-    if (isTerminalVisible()) {
-      ide.classList.add(TERMINAL_FORCE_CLASS);
-      return;
+    if (terminalToggleBusy) return;
+    terminalToggleBusy = true;
+    const bridge = getLayoutBridge();
+    if (bridge?.toggleTerminal) {
+      bridge.toggleTerminal();
+    } else {
+      dispatchShortcut("`");
     }
-    ide.classList.remove(TERMINAL_FORCE_CLASS);
-    openTerminalPanel();
+    window.setTimeout(() => {
+      terminalToggleBusy = false;
+    }, 350);
   }
 
   function isSidebarVisible() {
@@ -234,7 +243,7 @@
       makeButton({
         type: "panel",
         label: "Toggle Panel",
-        shortcut: `${modLabel}+J`,
+        shortcut: `${modLabel}+\``,
         onClick: toggleTerminalPanel,
       }),
       makeButton({
@@ -287,7 +296,7 @@
       items: [
         ["Toggle Activity Bar", toggleActivityRail],
         ["Toggle Explorer Side Bar", toggleExplorerSidebar, `${modLabel}+B`],
-        ["Toggle Panel", toggleTerminalPanel, `${modLabel}+J`],
+        ["Toggle Panel", toggleTerminalPanel, `${modLabel}+\``],
         ["Toggle Secondary Side Bar", toggleSecondarySidebar],
         ["Search", () => clickRailButton("Search")],
         ["Source Control", () => clickButtonByText("Source Control")],
@@ -312,7 +321,7 @@
     {
       label: "Terminal",
       items: [
-        ["Toggle Terminal", toggleTerminalPanel, `${modLabel}+J`],
+        ["Toggle Terminal", toggleTerminalPanel, `${modLabel}+\``],
         ["Open Workspace Terminal", openTerminalPanel],
         ["Launch Grok CLI", () => clickButtonByText("Launch Grok") || clickButtonByText("Grok CLI")],
       ],

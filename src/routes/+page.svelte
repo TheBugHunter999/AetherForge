@@ -118,6 +118,7 @@
   } from "$lib/updater/updater-store.svelte";
   import { getGlassDebugState, syncWindowGlass } from "$lib/window-transparency";
   import { bindViewportSync } from "$lib/viewport-sync";
+  import { clearLayoutBridge, installLayoutBridge } from "$lib/layout-bridge";
   import FolderTrustDialog from "$lib/FolderTrustDialog.svelte";
   import ExplorerPanel from "$lib/explorer/ExplorerPanel.svelte";
   import QuickOpen from "$lib/explorer/QuickOpen.svelte";
@@ -1425,6 +1426,13 @@
   let unbindViewportSync: (() => void) | undefined;
 
   onMount(() => {
+    installLayoutBridge({
+      toggleTerminal: () => toggleTerminalPanel(),
+      openTerminal: () => openTerminalPanel(),
+      closeTerminal: () => setUserTerminalOpen(false),
+      isTerminalOpen: () => userTerminalOpen,
+    });
+
     void getVersion().then((v) => {
       appVersion = v;
     }).catch(() => {
@@ -1463,6 +1471,7 @@
   });
 
   onDestroy(() => {
+    clearLayoutBridge();
     unbindViewportSync?.();
     clearTimeout(autoSaveTimer);
     clearTimeout(sessionPersistTimer);
@@ -1707,7 +1716,7 @@
   <div class="workspace{layoutClasses.workspace}">
     <nav class="activity-rail codex-sidebar" aria-label="Workspace navigation" class:zen-hidden={settings.zenMode}>
       <div class="codex-primary-actions">
-        <button type="button" class="rail-btn codex-nav-item primary" class:active={userTerminalOpen && view !== "agents"} aria-label="Terminal" onclick={openTerminalPanel}>
+        <button type="button" class="rail-btn codex-nav-item primary" class:active={userTerminalOpen && view !== "agents"} aria-label="Terminal" onclick={toggleTerminalPanel}>
           <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true"><rect x="2.5" y="3.5" width="11" height="9" rx="1" fill="none" stroke="currentColor" stroke-width="1.25"/><path d="M5 7l2 1.5L5 10M8.5 10.5h3" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>
           <span class="codex-nav-text">Terminal</span>
         </button>

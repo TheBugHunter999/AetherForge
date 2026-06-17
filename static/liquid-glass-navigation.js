@@ -1,6 +1,5 @@
 (() => {
   const SIDEBAR_FORCE_CLASS = "liquid-sidebar-force-closed";
-  const TERMINAL_FORCE_CLASS = "liquid-terminal-force-closed";
   const SIDEBAR_KEY_ATTR = "data-liquid-sidebar-force";
 
   const normalize = (value) => (value || "").replace(/\s+/g, " ").trim().toLowerCase();
@@ -37,12 +36,6 @@
     return null;
   }
 
-  function isTerminalButton(button) {
-    const aria = normalize(button.getAttribute("aria-label"));
-    const text = buttonText(button);
-    return aria === "terminal" || text === "workspace terminal" || text.startsWith("workspace terminal ");
-  }
-
   function clearSidebarForce(ide) {
     ide.classList.remove(SIDEBAR_FORCE_CLASS);
     ide.removeAttribute(SIDEBAR_KEY_ATTR);
@@ -74,25 +67,6 @@
     return false;
   }
 
-  function handleTerminalToggle(event, ide, button) {
-    const forcedClosed = ide.classList.contains(TERMINAL_FORCE_CLASS);
-
-    if (forcedClosed) {
-      stop(event);
-      ide.classList.remove(TERMINAL_FORCE_CLASS);
-      return true;
-    }
-
-    if (isButtonActive(button)) {
-      stop(event);
-      ide.classList.add(TERMINAL_FORCE_CLASS);
-      return true;
-    }
-
-    ide.classList.remove(TERMINAL_FORCE_CLASS);
-    return false;
-  }
-
   document.addEventListener(
     "click",
     (event) => {
@@ -111,7 +85,7 @@
       const key = sidebarKeyFor(button);
       if (key && handleSidebarToggle(event, ide, button, key)) return;
 
-      if (isTerminalButton(button) && handleTerminalToggle(event, ide, button)) return;
+      // Terminal toggle is owned by Svelte (+page.svelte) via layout bridge — do not intercept here.
 
       // Moving to other rail destinations should not leave a fake hidden state behind.
       if (!key) clearSidebarForce(ide);
@@ -129,9 +103,6 @@
       clearSidebarForce(ide);
     }
 
-    if (ide.classList.contains(TERMINAL_FORCE_CLASS) && !ide.querySelector(".terminal")) {
-      ide.classList.remove(TERMINAL_FORCE_CLASS);
-    }
   });
 
   observer.observe(document.documentElement, { childList: true, subtree: true });
