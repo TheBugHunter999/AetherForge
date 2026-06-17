@@ -1,0 +1,73 @@
+/*
+  Fix the cut-off Welcome tab in the glass editor shell.
+  The tab bar needs breathing room because the editor area has rounded clipped corners.
+*/
+
+.ide.glass-window .tab-bar {
+  height: 36px !important;
+  align-items: flex-end !important;
+  gap: 4px !important;
+  padding: 5px 10px 0 12px !important;
+  box-sizing: border-box !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--glass-border, var(--border)) 78%, transparent) !important;
+}
+
+.ide.glass-window .tab {
+  height: 30px !important;
+  min-width: 0 !important;
+  padding: 0 13px !important;
+  margin: 0 !important;
+  border: 1px solid transparent !important;
+  border-bottom: 0 !important;
+  border-radius: 14px 14px 0 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  transform: none !important;
+  overflow: hidden !important;
+}
+
+.ide.glass-window .tab:first-child {
+  margin-left: 2px !important;
+}
+
+.ide.glass-window .tab:hover {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.035)),
+    color-mix(in srgb, var(--hover) 84%, transparent) !important;
+  border-color: color-mix(in srgb, var(--glass-border, var(--border)) 62%, transparent) !important;
+  transform: none !important;
+}
+
+.ide.glass-window .tab.active {
+  color: var(--text) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.055) 52%, rgba(0, 0, 0, 0.055)),
+    color-mix(in srgb, var(--glass-panel-bg, var(--panel-solid)) 82%, var(--accent) 18%) !important;
+  border-color: color-mix(in srgb, var(--glass-border, var(--border)) 86%, var(--accent) 14%) !important;
+  box-shadow:
+    0 -1px 0 rgba(255, 255, 255, 0.10),
+    inset 0 1px 0 rgba(255, 255, 255, 0.20),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.045) !important;
+}
+
+.ide.glass-window .tab.active::after {
+  content: "";
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 0;
+  height: 2px;
+  border-radius: 999px 999px 0 0;
+  background: color-mix(in srgb, var(--accent) 78%, white 22%);
+  opacity: 0.85;
+}
+
+.ide.glass-window .tab.muted {
+  cursor: default !important;
+}
+
+.ide.glass-window .tab-name {
+  max-width: 170px !important;
+}
