@@ -12,3 +12,5 @@ terminals/
 .vscode/
 .idea/
 mcps/
+scripts/tmp-release/
+agent-tools/

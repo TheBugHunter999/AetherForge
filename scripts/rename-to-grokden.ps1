@@ -7,11 +7,16 @@
   Close Cursor and any terminals using this repo before running.
   Run from any location: powershell -File scripts\rename-to-grokden.ps1
 #>
+param(
+    [string]$Source = (Join-Path $env:USERPROFILE 'AetherForge'),
+    [string]$Target = (Join-Path (Split-Path $Source -Parent) 'Grokden')
+)
+
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$source = 'C:\AetherForge'
-$target = 'C:\Grokden'
+$source = $Source
+$target = $Target
 
 if (Test-Path -LiteralPath $target) {
     Write-Error "Target already exists: $target"
