@@ -294,44 +294,47 @@ export function buildIdeLayoutClasses(settings: AppSettings): IdeLayoutClasses {
   return classes;
 }
 
-/** Maps slider 50 (max glass) … 100 (opaque) to surface alphas and blur. */
+/** Maps slider 50 (max glass) … 100 (opaque) to controlled surface alphas. */
 export function glassSurfaceMix(percent: number): {
   strength: number;
   panelAlpha: number;
   editorAlpha: number;
-  blurPx: number;
+  railAlpha: number;
+  borderAlpha: number;
 } {
   const pct = clamp(percent, 50, 100);
   const strength = (100 - pct) / 50;
   return {
     strength,
-    panelAlpha: 0.06 + (1 - strength) * 0.34,
-    editorAlpha: 0.04 + (1 - strength) * 0.26,
-    blurPx: Math.round(4 + (1 - strength) * 14),
+    panelAlpha: 0.86 - strength * 0.26,
+    editorAlpha: 0.78 - strength * 0.32,
+    railAlpha: 0.84 - strength * 0.24,
+    borderAlpha: 0.28 + (1 - strength) * 0.22,
   };
 }
 
-export function buildExtraThemeVars(settings: AppSettings): string {
+/** Glass-only CSS variables — core theme vars (--bg, --text, etc.) stay opaque/readable. */
+export function buildGlassThemeVars(settings: AppSettings): string {
+  if (settings.windowTransparency >= 100) return "";
+
   const theme = THEMES[settings.theme] ?? THEMES["grokden-dark"];
+  const { strength, panelAlpha, editorAlpha, railAlpha, borderAlpha } = glassSurfaceMix(
+    settings.windowTransparency,
+  );
+
+  return [
+    `--glass-strength:${strength}`,
+    `--glass-panel-bg:${hexToRgba(theme.panelSolid, panelAlpha)}`,
+    `--glass-editor-bg:${hexToRgba(theme.editorBg, editorAlpha)}`,
+    `--glass-rail-bg:${hexToRgba(theme.panel, railAlpha)}`,
+    `--glass-border:${hexToRgba(theme.panelSolid, borderAlpha)}`,
+  ].join(";");
+}
+
+export function buildExtraThemeVars(settings: AppSettings): string {
   const vars: string[] = [];
-
-  if (settings.windowTransparency < 100) {
-    const { strength, panelAlpha, editorAlpha, blurPx } = glassSurfaceMix(
-      settings.windowTransparency,
-    );
-    vars.push(
-      `--glass-strength:${strength}`,
-      `--glass-blur:${blurPx}px`,
-      `--bg:transparent`,
-      `--panel:${hexToRgba(theme.panel, panelAlpha)}`,
-      `--panel-solid:${hexToRgba(theme.panelSolid, panelAlpha)}`,
-      `--editor-bg:${hexToRgba(theme.editorBg, editorAlpha)}`,
-      `--border:${hexToRgba(theme.border, 0.22 + (1 - strength) * 0.35)}`,
-      `--hover:${hexToRgba(theme.hover, panelAlpha + 0.08)}`,
-      `--chip-bg:${hexToRgba(theme.chipBg, panelAlpha + 0.04)}`,
-    );
-  }
-
+  const glass = buildGlassThemeVars(settings);
+  if (glass) vars.push(glass);
   if (settings.experimentalFeatures) {
     vars.push("--experimental:1");
   }

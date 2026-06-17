@@ -91,6 +91,8 @@
   }
 
   function terminalSurfaceBg(el: HTMLElement): string {
+    const glass = cssVar(el, "--glass-editor-bg", "");
+    if (glass) return glass;
     return cssVar(el, "--editor-bg", cssVar(el, "--bg", "#09090d"));
   }
 

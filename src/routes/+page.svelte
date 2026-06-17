@@ -24,6 +24,7 @@
     buildEditorStyleVars,
     computeSearch,
     buildExtraThemeVars,
+    buildGlassThemeVars,
     buildGrokLaunchCommand,
     buildOutputPanelLines,
     buildStatusChips,
@@ -160,7 +161,7 @@
   let settings = $state(initialSettings);
   let appPhase = $state<"launch" | "onboarding" | "workspace">("launch");
   let workspaceVisible = $state(false);
-  let appVersion = $state("0.1.11");
+  let appVersion = $state("0.1.12");
   let updateIndicatorState = $derived.by((): UpdateIndicatorState => {
     if (updateState.phase === "available") return "available";
     if (
@@ -186,8 +187,7 @@
 
   $effect(() => {
     const pct = settings.windowTransparency;
-    const themeStyle = `${buildThemeStyle(settings)};${buildExtraThemeVars(settings)}`;
-    void syncWindowGlass(pct, themeStyle);
+    void syncWindowGlass(pct, buildGlassThemeVars(settings));
   });
 
   let updateCheckStarted = $state(false);
@@ -2264,31 +2264,40 @@ This is a very long debug log line that demonstrates whether the debug console w
   }
 
   .ide.glass-window .topbar,
-  .ide.glass-window :global(.window-chrome),
-  .ide.glass-window .activity-rail,
+  .ide.glass-window :global(.window-chrome) {
+    background: var(--glass-panel-bg);
+    border-color: var(--glass-border);
+  }
+
+  .ide.glass-window .activity-rail {
+    background: var(--glass-rail-bg);
+    border-color: var(--glass-border);
+  }
+
   .ide.glass-window .sidebar,
   .ide.glass-window .secondary-sidebar,
   .ide.glass-window .statusbar,
-  .ide.glass-window .tab-bar,
+  .ide.glass-window .tab-bar {
+    background: var(--glass-panel-bg);
+    border-color: var(--glass-border);
+  }
+
   .ide.glass-window .editor-area,
   .ide.glass-window .editor,
   .ide.glass-window .editor-surface,
-  .ide.glass-window .terminal,
-  .ide.glass-window .terminal-header,
-  .ide.glass-window .terminal-body,
-  .ide.glass-window .workspace-body,
-  .ide.glass-window .view-pane {
-    backdrop-filter: blur(var(--glass-blur, 12px)) saturate(1.2);
-    -webkit-backdrop-filter: blur(var(--glass-blur, 12px)) saturate(1.2);
-  }
-
-  .ide.glass-window .editor-input-wrap,
   .ide.glass-window .editor-scroll,
+  .ide.glass-window .editor-input-wrap,
   .ide.glass-window .line-numbers,
   .ide.glass-window .code-textarea,
-  .ide.glass-window :global(.terminal-host .xterm-screen),
-  .ide.glass-window :global(.terminal-host .xterm-viewport) {
-    background: transparent !important;
+  .ide.glass-window .workspace-body,
+  .ide.glass-window .view-pane {
+    background: var(--glass-editor-bg);
+  }
+
+  .ide.glass-window .terminal,
+  .ide.glass-window .terminal-header,
+  .ide.glass-window .terminal-body {
+    background: var(--glass-editor-bg);
   }
 
   .topbar {

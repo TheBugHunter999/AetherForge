@@ -1,5 +1,13 @@
 import { invoke } from "@tauri-apps/api/core";
 
+const GLASS_VAR_KEYS = [
+  "--glass-strength",
+  "--glass-panel-bg",
+  "--glass-editor-bg",
+  "--glass-rail-bg",
+  "--glass-border",
+] as const;
+
 let chain: Promise<void> = Promise.resolve();
 let latestPercent = 100;
 
@@ -21,20 +29,27 @@ export function applyWindowTransparency(percent: number): Promise<void> {
   return chain;
 }
 
-function applyThemeVarsToRoot(themeStyle: string): void {
+function applyGlassVarsToRoot(glassStyle: string): void {
   const el = document.documentElement;
-  for (const chunk of themeStyle.split(";")) {
+  for (const chunk of glassStyle.split(";")) {
     const colon = chunk.indexOf(":");
     if (colon <= 0) continue;
     const key = chunk.slice(0, colon).trim();
     const value = chunk.slice(colon + 1).trim();
-    if (key.startsWith("--")) {
+    if (key.startsWith("--glass-")) {
       el.style.setProperty(key, value);
     }
   }
 }
 
-function applyGlassDom(glass: boolean, themeStyle: string): void {
+function clearGlassVarsFromRoot(): void {
+  const el = document.documentElement;
+  for (const key of GLASS_VAR_KEYS) {
+    el.style.removeProperty(key);
+  }
+}
+
+function applyGlassDom(glass: boolean, glassStyle: string): void {
   if (typeof document === "undefined") return;
   const html = document.documentElement;
   const body = document.body;
@@ -42,21 +57,25 @@ function applyGlassDom(glass: boolean, themeStyle: string): void {
   html.classList.toggle("opaque-window", !glass);
   body.classList.toggle("glass-window", glass);
   body.classList.toggle("opaque-window", !glass);
-  applyThemeVarsToRoot(themeStyle);
+  if (glass && glassStyle) {
+    applyGlassVarsToRoot(glassStyle);
+  } else {
+    clearGlassVarsFromRoot();
+  }
 }
 
 /**
  * Keep native and DOM glass state in sync without flicker.
  * Opaque (100%): native layer commits before CSS removes glass.
- * Glass (<100%): CSS prepares transparent roots before native acrylic applies.
+ * Glass (<100%): DOM glass classes/vars first, then native acrylic.
  */
-export async function syncWindowGlass(percent: number, themeStyle: string): Promise<void> {
+export async function syncWindowGlass(percent: number, glassStyle: string): Promise<void> {
   const glass = percent < 100;
   if (!glass) {
     await applyWindowTransparency(percent);
-    applyGlassDom(false, themeStyle);
+    applyGlassDom(false, glassStyle);
   } else {
-    applyGlassDom(true, themeStyle);
+    applyGlassDom(true, glassStyle);
     await applyWindowTransparency(percent);
   }
 }
