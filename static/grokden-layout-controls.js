@@ -214,8 +214,7 @@
       event.preventDefault();
       event.stopPropagation();
       onClick();
-      queueMicrotask(updateState);
-      setTimeout(updateState, 80);
+      scheduleUpdateState();
     });
     return button;
   }
@@ -373,7 +372,7 @@
           event.stopPropagation();
           closeMenus();
           action();
-          setTimeout(updateState, 80);
+          scheduleUpdateState();
         });
         list.append(menuButton);
       }
@@ -393,6 +392,15 @@
     return bar;
   }
 
+  let updateRaf = 0;
+  function scheduleUpdateState() {
+    if (updateRaf) return;
+    updateRaf = requestAnimationFrame(() => {
+      updateRaf = 0;
+      updateState();
+    });
+  }
+
   function updateState() {
     const controls = document.querySelector(`.${ROOT_CLASS}`);
     if (!controls) return;
@@ -406,7 +414,7 @@
 
   function mount() {
     const chrome = document.querySelector(".ide .window-chrome");
-    if (!chrome) return;
+    if (!chrome) return false;
 
     if (!chrome.querySelector(`.${MENU_BAR_CLASS}`)) {
       const drag = chrome.querySelector(".chrome-drag");
@@ -419,30 +427,37 @@
       chrome.insertBefore(controls, chromeControls || null);
     }
 
-    updateState();
+    scheduleUpdateState();
+    return true;
   }
 
-  const observer = new MutationObserver(() => {
+  function watchChrome() {
+    const chrome = document.querySelector(".ide .window-chrome");
+    if (!chrome) {
+      window.setTimeout(watchChrome, 400);
+      return;
+    }
+
     mount();
-    updateState();
-  });
 
-  observer.observe(document.documentElement, {
-    childList: true,
-    subtree: true,
-    attributes: true,
-    attributeFilter: ["class", "style", "aria-selected"],
-  });
+    const chromeObserver = new MutationObserver(() => {
+      if (!chrome.querySelector(`.${ROOT_CLASS}`) || !chrome.querySelector(`.${MENU_BAR_CLASS}`)) {
+        mount();
+      }
+    });
+    chromeObserver.observe(chrome, { childList: true });
+  }
 
-  window.addEventListener("resize", updateState);
-  window.addEventListener("focus", updateState);
+  window.addEventListener("grokden:layout-change", scheduleUpdateState);
+  window.addEventListener("resize", scheduleUpdateState);
+  window.addEventListener("focus", scheduleUpdateState);
   document.addEventListener("click", () => {
     closeMenus();
-    setTimeout(updateState, 60);
+    scheduleUpdateState();
   }, true);
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") closeMenus();
   });
 
-  mount();
+  watchChrome();
 })();

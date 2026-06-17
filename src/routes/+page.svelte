@@ -534,7 +534,10 @@
       ...layoutConstraint,
       collapsedByConstraint: { ...layoutConstraint.collapsedByConstraint, panel: false },
     };
-    runLayoutReconcile();
+    scheduleLayoutReconcile(runLayoutReconcile);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("grokden:layout-change"));
+    }
   }
 
   function startTerminalResize(event: MouseEvent) {
@@ -1430,7 +1433,7 @@
       toggleTerminal: () => toggleTerminalPanel(),
       openTerminal: () => openTerminalPanel(),
       closeTerminal: () => setUserTerminalOpen(false),
-      isTerminalOpen: () => userTerminalOpen,
+      isTerminalOpen: () => userTerminalOpen && terminalOpen,
     });
 
     void getVersion().then((v) => {

@@ -33,6 +33,7 @@
     window.clearTimeout(closeTimer);
   }
 
+  let syncTimer = 0;
   function syncTerminalClasses() {
     const ide = getIde();
     if (!ide) return;
@@ -48,6 +49,11 @@
     if (open) {
       for (const className of TERMINAL_HIDE_CLASSES) ide.classList.remove(className);
     }
+  }
+
+  function scheduleTerminalSync() {
+    window.clearTimeout(syncTimer);
+    syncTimer = window.setTimeout(syncTerminalClasses, 80);
   }
 
   document.addEventListener(
@@ -99,9 +105,7 @@
       if (!(target instanceof Element)) return;
 
       if (target.closest(".grokden-layout-btn-panel, .terminal-close, .terminal-tab, button[aria-label='Terminal']")) {
-        window.setTimeout(syncTerminalClasses, 0);
-        window.setTimeout(syncTerminalClasses, 90);
-        window.setTimeout(syncTerminalClasses, 260);
+        scheduleTerminalSync();
       }
     },
     true,
@@ -109,21 +113,12 @@
 
   window.addEventListener("keydown", (event) => {
     if ((event.ctrlKey || event.metaKey) && event.key === "`") {
-      window.setTimeout(syncTerminalClasses, 0);
-      window.setTimeout(syncTerminalClasses, 120);
-      window.setTimeout(syncTerminalClasses, 280);
+      scheduleTerminalSync();
     }
   });
 
-  const observer = new MutationObserver(() => syncTerminalClasses());
-  observer.observe(document.documentElement, {
-    childList: true,
-    subtree: true,
-    attributes: true,
-    attributeFilter: ["class"],
-  });
-
-  window.addEventListener("resize", syncTerminalClasses);
-  window.addEventListener("focus", syncTerminalClasses);
-  window.setTimeout(syncTerminalClasses, 250);
+  window.addEventListener("grokden:layout-change", scheduleTerminalSync);
+  window.addEventListener("resize", scheduleTerminalSync);
+  window.addEventListener("focus", scheduleTerminalSync);
+  window.setTimeout(syncTerminalClasses, 300);
 })();
