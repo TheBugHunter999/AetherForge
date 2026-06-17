@@ -1,7 +1,6 @@
 <script lang="ts"></script>
 
 <div class="launch visible">
-  <div class="glow" aria-hidden="true"></div>
   <div class="logo-wrap">
     <img src="/favicon.png" alt="Grokden" width="112" height="112" />
   </div>
@@ -31,15 +30,6 @@
   .launch.visible {
     opacity: 1;
   }
-  .glow {
-    position: absolute;
-    width: 280px;
-    height: 280px;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(74, 158, 255, 0.18) 0%, rgba(139, 124, 248, 0.08) 40%, transparent 70%);
-    filter: blur(8px);
-    animation: glow-pulse 2.4s ease-in-out infinite;
-  }
   .logo-wrap {
     position: relative;
     width: 112px;
@@ -47,8 +37,8 @@
     border-radius: 26px;
     overflow: hidden;
     box-shadow:
-      0 0 0 1px rgba(255, 255, 255, 0.1),
-      0 20px 60px rgba(0, 0, 0, 0.5);
+      0 0 0 1px rgba(255, 255, 255, 0.08),
+      0 14px 34px rgba(0, 0, 0, 0.34);
     transform: scale(0.92);
     animation: logo-in 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.1s forwards;
   }
@@ -92,10 +82,6 @@
   @keyframes label-in {
     from { opacity: 0; transform: translateY(6px); }
     to { opacity: 1; transform: translateY(0); }
-  }
-  @keyframes glow-pulse {
-    0%, 100% { opacity: 0.7; transform: scale(1); }
-    50% { opacity: 1; transform: scale(1.06); }
   }
   @keyframes dot-pulse {
     0%, 100% { opacity: 0.35; }
