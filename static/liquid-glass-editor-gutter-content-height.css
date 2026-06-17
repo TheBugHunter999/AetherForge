@@ -1,0 +1,43 @@
+/*
+  Hard fix for the long editor gutter line.
+  The line-number column was stretching to the full editor height, which made a
+  giant vertical purple divider even when the file only had one line.
+*/
+
+.ide.glass-window .editor-surface {
+  align-items: flex-start !important;
+  min-height: 100% !important;
+}
+
+.ide.glass-window .line-numbers {
+  align-self: flex-start !important;
+  min-height: 0 !important;
+  height: auto !important;
+  border-right: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  padding-top: 12px !important;
+  padding-bottom: 0 !important;
+}
+
+.ide.glass-window .line-num {
+  position: relative !important;
+  min-height: var(--elh) !important;
+  background: transparent !important;
+}
+
+.ide.glass-window .line-num.active::before {
+  content: "";
+  position: absolute;
+  right: -7px;
+  top: 4px;
+  width: 2px;
+  height: 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 70%, white 30%);
+  opacity: 0.75;
+}
+
+.ide.glass-window .editor-input-wrap {
+  align-self: stretch !important;
+}
