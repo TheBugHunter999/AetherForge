@@ -141,12 +141,7 @@ if (Test-Path -LiteralPath $MsiSig) {
     $assets = @($Nsis, $NsisSig, $Msi, $MsiSig, $latestPath)
 }
 
-$ghArgs = @(
-    'release', 'create', $Tag,
-    @assets,
-    '--title', $Title,
-    '--notes-file', $notesPath
-)
+$ghArgs = @('release', 'create', $Tag) + $assets + @('--title', $Title, '--notes-file', $notesPath)
 
 if ($Draft) { $ghArgs += '--draft' }
 if ($Prerelease) { $ghArgs += '--prerelease' }
