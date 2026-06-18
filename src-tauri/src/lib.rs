@@ -1,3 +1,4 @@
+mod dropped_images;
 mod grok_cli;
 mod ide_import;
 mod telemetry;
@@ -394,6 +395,8 @@ pub fn run() {
             path_exists,
             create_file,
             create_folder,
+            dropped_images::save_dropped_image,
+            dropped_images::download_dropped_image,
             grok_cli::grok_cli_available,
             terminal::terminal_spawn,
             terminal::terminal_write,
