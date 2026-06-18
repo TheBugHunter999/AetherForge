@@ -111,7 +111,7 @@ async function droppedUrls(dt: DataTransfer): Promise<string[]> {
     urls.push(...urlsFromText(dt.getData("text/plain")));
   }
 
-  return unique(urls).filter((url) => DATA_IMAGE_RE.test(url) || url.startsWith("file://") || IMAGE_EXT_RE.test(url));
+  return unique(urls).filter((url) => DATA_IMAGE_RE.test(url) || url.startsWith("file://") || HTTP_RE.test(url));
 }
 
 export async function collectDroppedTerminalImages(dt: DataTransfer): Promise<DroppedTerminalImage[]> {
