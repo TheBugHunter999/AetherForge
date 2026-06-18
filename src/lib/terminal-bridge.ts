@@ -30,11 +30,13 @@ export type TerminalOutputEvent = {
 
 export type TerminalOutputHandler = (data: string) => void;
 export type TerminalTapHandler = (data: string) => void;
+export type TerminalCloseHandler = (id: TerminalId) => void;
 
 const OUTPUT_BUFFER_LIMIT = 64;
 const outputHandlers = new Map<TerminalId, TerminalOutputHandler>();
 const outputTaps = new Map<TerminalId, Set<TerminalTapHandler>>();
 const outputBuffers = new Map<TerminalId, string[]>();
+const terminalCloseHandlers = new Set<TerminalCloseHandler>();
 let outputListener: Promise<UnlistenFn> | null = null;
 
 function deliverOutput(id: TerminalId, data: string) {
@@ -61,6 +63,16 @@ function deliverOutput(id: TerminalId, data: string) {
     buffer.splice(0, buffer.length - OUTPUT_BUFFER_LIMIT);
   }
   outputBuffers.set(id, buffer);
+}
+
+function notifyTerminalClosed(id: TerminalId): void {
+  for (const handler of terminalCloseHandlers) {
+    try {
+      handler(id);
+    } catch (error) {
+      console.error("Terminal close callback failed:", error);
+    }
+  }
 }
 
 async function ensureOutputListener(): Promise<void> {
@@ -115,6 +127,13 @@ export function registerTerminalTap(
   };
 }
 
+export function registerTerminalCloseHandler(handler: TerminalCloseHandler): () => void {
+  terminalCloseHandlers.add(handler);
+  return () => {
+    terminalCloseHandlers.delete(handler);
+  };
+}
+
 export async function spawnTerminal(options: TerminalSpawnOptions): Promise<TerminalId> {
   await ensureOutputListener();
   return invoke<TerminalId>("terminal_spawn", {
@@ -139,10 +158,14 @@ export async function resizeTerminal(options: TerminalResizeOptions): Promise<vo
 }
 
 export async function closeTerminal(options: TerminalCloseOptions): Promise<void> {
-  await invoke("terminal_close", {
-    id: options.id,
-  });
-  outputHandlers.delete(options.id);
-  outputTaps.delete(options.id);
-  outputBuffers.delete(options.id);
+  try {
+    await invoke("terminal_close", {
+      id: options.id,
+    });
+  } finally {
+    outputHandlers.delete(options.id);
+    outputTaps.delete(options.id);
+    outputBuffers.delete(options.id);
+    notifyTerminalClosed(options.id);
+  }
 }
