@@ -18,6 +18,8 @@
     "allow-path-exists",
     "allow-create-file",
     "allow-create-folder",
+    "allow-save-dropped-image",
+    "allow-download-dropped-image",
     "allow-workspace",
     "allow-grok-cli-available",
     "allow-terminal-spawn",
