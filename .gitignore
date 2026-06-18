@@ -14,3 +14,18 @@ terminals/
 mcps/
 scripts/tmp-release/
 agent-tools/
+
+# Tauri generated schemas
+src-tauri/gen/
+
+# Signing / cert material (never commit)
+*.pem
+*.key
+*.p12
+*.pfx
+*.cer
+
+# Windows artifacts
+Thumbs.db
+ehthumbs.db
+Desktop.ini
