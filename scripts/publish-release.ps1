@@ -80,19 +80,18 @@ $nsisHash = Get-Sha256 $Nsis
 $msiHash = Get-Sha256 $Msi
 
 $releaseNotes = @"
-Grokden $version - Beta stable release. Windows desktop workspace for Grok CLI.
-
-> **Beta:** This is a feature-complete early release. Expect bugs and rough edges; report issues on GitHub.
+Grokden $version - Stable release. Windows desktop workspace for Grok CLI.
 
 ## What's new
 
-- Complete Grokden branding (window title, UI labels, legacy storage migration)
-- Premium Grok theme with polished dark glass UI
-- CSS backdrop-filter glassmorphism and liquid-glass layout polish
+- Liquid Glass UI overhaul: design tokens, 4 premium themes, 6 accent colors, authentic glass blur and transparency
+- Premium Grok theme with polished glass UI and onboarding previews
+- SuperGrok Heavy welcome hero
+- Drag-and-drop images into any terminal (local files and URLs)
+- Terminal readability, scrollbar contrast, focus states, and component polish
 - Parallel Agent Swarm with calmer IDE-style UI
 - Status bar and window layout fixes (fullscreen, narrow window)
-- Panel/terminal toggle stability (layout bridge)
-- In-app auto-updater with signed NSIS updates (new signing key in v0.2.1+)
+- In-app auto-updater with signed NSIS updates
 
 ## Requirements
 
@@ -131,7 +130,7 @@ Grokden also needs the Microsoft Edge WebView2 runtime. The installers below ins
 
 $latestJson = @{
     version = $version
-    notes = "- Beta stable release - expect bugs`n- Premium Grok theme and glass UI`n- Parallel agents, layout fixes, signed auto-updater`n- v0.2.1+ uses new updater signing key"
+    notes = "- Stable release`n- Liquid Glass UI overhaul with 4 themes and 6 accents`n- Terminal image drag-and-drop`n- Premium Grok theme and SuperGrok welcome hero`n- Signed auto-updater"
     pub_date = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ss.fffZ')
     platforms = @{
         'windows-x86_64' = @{

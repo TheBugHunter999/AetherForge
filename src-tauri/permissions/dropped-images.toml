@@ -1,0 +1,9 @@
+[[permission]]
+identifier = "allow-save-dropped-image"
+description = "Enables saving dropped image bytes to local staging."
+commands.allow = ["save_dropped_image"]
+
+[[permission]]
+identifier = "allow-download-dropped-image"
+description = "Enables downloading dropped image URLs to local staging."
+commands.allow = ["download_dropped_image"]
