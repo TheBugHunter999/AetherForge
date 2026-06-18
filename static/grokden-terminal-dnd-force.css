@@ -1,0 +1,37 @@
+/* Extra drag/drop safety net for Tauri/WebView2. */
+.terminal-wrap.grokden-dnd-force-over {
+  outline: 1px solid var(--accent-mid, rgba(255, 255, 255, 0.3)) !important;
+  outline-offset: -1px !important;
+}
+
+.terminal-wrap.grokden-dnd-force-over::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 18;
+  pointer-events: none;
+  background: rgba(0, 0, 0, 0.34);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+
+.terminal-wrap.grokden-dnd-force-over::after {
+  content: "IMG  Drop image into this terminal";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 19;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  padding: 10px 14px;
+  border: 1px solid var(--accent-mid, rgba(255, 255, 255, 0.28));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface-overlay, #151515) 92%, transparent);
+  color: var(--text, #f4f4f4);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  white-space: nowrap;
+}
