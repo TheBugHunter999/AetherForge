@@ -1,5 +1,6 @@
 <script lang="ts">
   import { getTerminalCompactActivity } from "$lib/agent-activity/activity-store";
+  import { isSafeActivityLine } from "$lib/agent-activity/grok-tui-parser";
 
   type Props = { terminalId: number | null };
   let { terminalId }: Props = $props();
@@ -7,16 +8,21 @@
   const compact = $derived(
     terminalId != null ? getTerminalCompactActivity(terminalId) : undefined,
   );
+  const displayTitle = $derived(
+    compact?.currentTitle && isSafeActivityLine(compact.currentTitle)
+      ? compact.currentTitle
+      : null,
+  );
 </script>
 
-{#if compact?.currentTitle}
+{#if displayTitle}
   <span
     class="compact-activity"
-    class:approval={compact.status === "awaiting_approval"}
-    title={compact.currentTitle}
+    class:approval={compact?.status === "awaiting_approval"}
+    title={displayTitle}
   >
-    <span class="pip" class:live={compact.status !== "done"}></span>
-    <span class="label">{compact.currentTitle}</span>
+    <span class="pip" class:live={compact?.status !== "done"}></span>
+    <span class="label">{displayTitle}</span>
   </span>
 {/if}
 

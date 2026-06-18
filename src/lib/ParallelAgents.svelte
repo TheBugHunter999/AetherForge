@@ -1,10 +1,10 @@
 <script lang="ts">
+  import { onDestroy } from "svelte";
   import type { AppSettings } from "$lib/editor-utils";
   import Terminal from "$lib/Terminal.svelte";
   import AgentActivityCompact from "$lib/AgentActivityCompact.svelte";
   import { attachParser, detachParser } from "$lib/agent-activity/activity-bridge";
   import {
-    clearActivitySessions,
     createActivitySession,
     removeSessionsByTerminalId,
   } from "$lib/agent-activity/activity-store";
@@ -147,14 +147,31 @@
     agents = agents.filter((a) => a.id !== id);
   }
 
-  function clearAgents() {
-    for (const agent of agents) cleanupAgentActivity(agent.id);
-    clearActivitySessions();
+  function releaseAllAgentState() {
+    const ids = new Set([
+      ...agents.map((agent) => agent.id),
+      ...Object.keys(agentTerminalIds),
+      ...Object.keys(agentDetachFns),
+    ]);
+    for (const id of ids) cleanupAgentActivity(id);
     agents = [];
     launching = false;
     agentTerminalIds = {};
     agentDetachFns = {};
   }
+
+  function clearAgents() {
+    releaseAllAgentState();
+  }
+
+  function handleClose() {
+    releaseAllAgentState();
+    onClose();
+  }
+
+  onDestroy(() => {
+    releaseAllAgentState();
+  });
 
   function resizeAgentSlots() {
     const count = clampAgentCount(agentCount);
@@ -335,7 +352,7 @@
               type="button"
               role="menuitem"
               class="menu-item"
-              onclick={() => { onClose(); moreMenuOpen = false; }}
+              onclick={() => { handleClose(); moreMenuOpen = false; }}
             >Back to Editor</button>
           </div>
         {/if}

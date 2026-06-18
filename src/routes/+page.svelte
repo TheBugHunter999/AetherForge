@@ -569,6 +569,10 @@
 
   let activeTab = $derived(tabs.find((tab) => tab.path === activeTabPath) ?? null);
 
+  let runningParallelAgentCount = $derived(
+    parallelAgents.filter((a) => a.status === "running" || a.status === "launching").length,
+  );
+
   let editorLines = $derived(
     activeTab
       ? activeTab.content.split("\n").map((content, index) => ({ num: index + 1, content }))
@@ -1301,6 +1305,7 @@
   function closeAgentSwarm() {
     agentSwarmOpen = false;
     if (view === "agents") view = resolveViewAfterPanelClose("agents");
+    parallelAgents = [];
   }
 
   function startDebugSession() {
@@ -1735,7 +1740,7 @@
         <button type="button" class="rail-btn codex-nav-item" class:active={agentSwarmOpen} aria-label="Parallel Agents" onclick={openAgentSwarm}>
           <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2" width="5" height="5" rx="0.5" fill="none" stroke="currentColor" stroke-width="1.1"/><rect x="9" y="2" width="5" height="5" rx="0.5" fill="none" stroke="currentColor" stroke-width="1.1"/><rect x="2" y="9" width="5" height="5" rx="0.5" fill="none" stroke="currentColor" stroke-width="1.1"/><rect x="9" y="9" width="5" height="5" rx="0.5" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>
           <span class="codex-nav-text">Parallel Agents</span>
-          {#if parallelAgents.length > 0}<span class="rail-badge inline">{parallelAgents.length}</span>{/if}
+          {#if runningParallelAgentCount > 0}<span class="rail-badge inline">{runningParallelAgentCount}</span>{/if}
         </button>
       </div>
 
@@ -1796,7 +1801,7 @@
         </button>
         <button type="button" class="codex-list-row" onclick={openAgentSwarm}>
           <span>Parallel agents</span>
-          <span class="codex-list-time">{parallelAgents.length ? `${parallelAgents.length} live` : "ready"}</span>
+          <span class="codex-list-time">{runningParallelAgentCount > 0 ? `${runningParallelAgentCount} live` : "ready"}</span>
         </button>
       </div>
 
@@ -2245,7 +2250,7 @@ This is a very long debug log line that demonstrates whether the debug console w
 
   <div class="statusbar" class:zen-hidden={settings.zenMode} bind:this={statusBarEl}>
     <div class="status-left">
-      <span class="status-chip accent">{view === "agents" ? `Agents: ${parallelAgents.length}` : view === "settings" ? "Settings" : activeTab ? "Editing" : "Ready"}</span>
+      <span class="status-chip accent">{view === "agents" ? `Agents: ${runningParallelAgentCount}` : view === "settings" ? "Settings" : activeTab ? "Editing" : "Ready"}</span>
       {#if folderPath}<span class="status-chip" title={folderPath}>{folderName}</span>{/if}
       {#if folderRestricted}<span class="status-chip warn" title="Trust the folder to enable terminals and agents">Restricted</span>{/if}
       {#if dirtyCount > 0}<span class="status-chip warn">{dirtyCount} unsaved</span>{/if}
@@ -2312,7 +2317,7 @@ This is a very long debug log line that demonstrates whether the debug console w
         {/each}
         <span class="status-chip">UTF-8</span>
       {:else if view === "agents"}
-        <span class="status-chip accent">{parallelAgents.length} agent slot{parallelAgents.length === 1 ? "" : "s"}</span>
+        <span class="status-chip accent">{runningParallelAgentCount} live agent{runningParallelAgentCount === 1 ? "" : "s"}</span>
         <span class="status-chip" title="Grok model">{settings.grokModel}</span>
         {#if grokLaunching}
           <span class="status-chip accent">Launching Grok…</span>
@@ -2530,8 +2535,9 @@ This is a very long debug log line that demonstrates whether the debug console w
     border-color: var(--glass-border);
     box-shadow:
       inset 1px 0 0 var(--glass-highlight),
-      inset -1px 0 0 var(--glass-contrast-edge),
-      12px 0 44px rgba(0, 0, 0, calc(0.12 + var(--glass-strength, 0.5) * 0.12));
+      inset -1px 0 0 var(--glass-contrast-edge);
+    contain: paint;
+    isolation: isolate;
     transition: backdrop-filter 260ms cubic-bezier(0.16, 1, 0.3, 1), background-color 260ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
@@ -2556,7 +2562,24 @@ This is a very long debug log line that demonstrates whether the debug console w
       var(--glass-editor-bg);
     backdrop-filter: blur(var(--glass-blur-editor, 16px)) saturate(1.24) contrast(1.02);
     -webkit-backdrop-filter: blur(var(--glass-blur-editor, 16px)) saturate(1.24) contrast(1.02);
+    contain: paint;
+    isolation: isolate;
+    position: relative;
+    z-index: 1;
     transition: backdrop-filter 260ms cubic-bezier(0.16, 1, 0.3, 1), background-color 260ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .ide.glass-window .welcome-center,
+  .ide.glass-window .editor-placeholder {
+    position: relative;
+    z-index: 1;
+    isolation: isolate;
+  }
+
+  .ide.glass-window .rail-btn:hover,
+  .ide.glass-window .codex-list-row:hover:not(:disabled),
+  .ide.glass-window .codex-project-row:hover {
+    box-shadow: none;
   }
 
   .ide.glass-window .workspace-body,
@@ -2883,6 +2906,8 @@ This is a very long debug log line that demonstrates whether the debug console w
     z-index: 2;
     box-sizing: border-box;
     overflow: hidden;
+    contain: paint;
+    isolation: isolate;
   }
 
   .codex-primary-actions,
