@@ -1,6 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import { removeSessionsByTerminalId } from "$lib/agent-activity/activity-store";
 
 export type TerminalId = number;
 
@@ -140,14 +139,10 @@ export async function resizeTerminal(options: TerminalResizeOptions): Promise<vo
 }
 
 export async function closeTerminal(options: TerminalCloseOptions): Promise<void> {
-  try {
-    await invoke("terminal_close", {
-      id: options.id,
-    });
-  } finally {
-    outputHandlers.delete(options.id);
-    outputTaps.delete(options.id);
-    outputBuffers.delete(options.id);
-    removeSessionsByTerminalId(options.id);
-  }
+  await invoke("terminal_close", {
+    id: options.id,
+  });
+  outputHandlers.delete(options.id);
+  outputTaps.delete(options.id);
+  outputBuffers.delete(options.id);
 }
