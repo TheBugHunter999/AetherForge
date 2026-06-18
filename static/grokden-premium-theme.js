@@ -14,6 +14,7 @@
       break;
     }
   }
+
   const CLASS_NAME = "grokden-premium-theme";
   const CARD_CLASS = "grok-premium-theme-card";
 
@@ -57,9 +58,9 @@
     card.className = `theme-card ${CARD_CLASS}`;
     card.setAttribute("aria-label", "Premium Grok theme");
     card.innerHTML = `
-      <span class="theme-prev">
-        <span class="tp-bar" style="background:#f5f5f5"></span>
-        <span class="tp-dot" style="background:#151515"></span>
+      <span class="theme-prev" aria-hidden="true">
+        <span class="tp-bar"></span>
+        <span class="tp-dot"></span>
       </span>
       <span class="theme-name">Premium Grok</span>
     `;
