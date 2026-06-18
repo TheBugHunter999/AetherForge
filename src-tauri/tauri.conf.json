@@ -25,6 +25,7 @@
         "decorations": false,
         "shadow": true,
         "resizable": true,
+        "dragDropEnabled": false,
         "backgroundColor": "#00000000"
       }
     ],
@@ -64,7 +65,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IENEMUU3M0E0MTY3MDhERDQKUldUVWpYQVdwSE1lemUxN0hqZTlKeVlHSDBFb1ZFUzJob2JpcjZoWC8wUDA2VHUyWERoeE0zTmIK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YyBrZXk6IENEMUU3M0E0MTY3MDhERDQKUldUVWpYQVdwSE1lemUxN0hqZTlKeVlHSDBFb1ZFUzJob2JpcjZoWC8wUDA2VHUyWERoeE0zTmIK",
       "endpoints": [
         "https://github.com/TheBugHunter999/Grokden/releases/latest/download/latest.json"
       ],
