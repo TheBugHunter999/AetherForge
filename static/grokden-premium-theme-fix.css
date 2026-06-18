@@ -1,5 +1,23 @@
 /* Follow-up fix for Premium Grok. Keeps the theme premium, but lets Liquid Glass actually show through. */
 
+/* When Premium Grok is enabled, the old saved base theme still exists in settings.theme.
+   Do not let that saved base theme look selected in the theme picker. */
+.ide.grokden-premium-theme .settings-view .theme-grid .theme-card.active:not(.grok-premium-theme-card) {
+  border-color: var(--border, rgba(255, 255, 255, 0.10)) !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.ide.grokden-premium-theme .settings-view .theme-grid .theme-card.active:not(.grok-premium-theme-card):hover {
+  border-color: var(--text-mute, rgba(255, 255, 255, 0.32)) !important;
+  background: var(--hover, rgba(255, 255, 255, 0.055)) !important;
+}
+
+.ide.grokden-premium-theme .settings-view .theme-grid .theme-card.active:not(.grok-premium-theme-card) .theme-name {
+  color: var(--text-dim, #c9c9c9) !important;
+  font-weight: 400 !important;
+}
+
 /* The Premium Grok card is injected by plain JS, so it does not get Svelte scoped theme-card styles. */
 .grok-premium-theme-card,
 button.grok-premium-theme-card {
@@ -34,6 +52,7 @@ button.grok-premium-theme-card {
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.055) inset !important;
 }
 
+/* Simple preview, matching the other theme cards. Just show the real theme colors. */
 .grok-premium-theme-card .theme-prev {
   position: relative !important;
   display: block !important;
@@ -43,19 +62,13 @@ button.grok-premium-theme-card {
   border-radius: 6px !important;
   overflow: hidden !important;
   border: 1px solid rgba(255, 255, 255, 0.18) !important;
-  background:
-    radial-gradient(circle at 72% 14%, rgba(255, 122, 26, 0.42), transparent 28%),
-    radial-gradient(circle at 48% -8%, rgba(255, 255, 255, 0.22), transparent 34%),
-    linear-gradient(180deg, #161616, #050505) !important;
+  background: #111111 !important;
+  box-shadow: none !important;
 }
 
 .grok-premium-theme-card .theme-prev::after {
   content: "" !important;
-  position: absolute !important;
-  inset: 8px 8px 7px 8px !important;
-  border-radius: 7px !important;
-  border: 1px solid rgba(255, 255, 255, 0.10) !important;
-  background: rgba(255, 255, 255, 0.035) !important;
+  display: none !important;
 }
 
 .grok-premium-theme-card .tp-bar {
@@ -64,10 +77,10 @@ button.grok-premium-theme-card {
   top: 0 !important;
   left: 0 !important;
   right: 0 !important;
-  height: 8px !important;
+  height: 9px !important;
   border-radius: 6px 6px 0 0 !important;
-  background: linear-gradient(90deg, #ffffff, #bdbdbd) !important;
-  opacity: 0.85 !important;
+  background: #a6a6a6 !important;
+  opacity: 0.9 !important;
 }
 
 .grok-premium-theme-card .tp-dot {
@@ -79,8 +92,8 @@ button.grok-premium-theme-card {
   height: 12px !important;
   border-radius: 50% !important;
   background: #ff7a1a !important;
-  opacity: 0.95 !important;
-  box-shadow: 0 0 18px rgba(255, 122, 26, 0.35) !important;
+  opacity: 1 !important;
+  box-shadow: none !important;
 }
 
 .grok-premium-theme-card .theme-name {
@@ -92,6 +105,11 @@ button.grok-premium-theme-card {
   font-weight: 500 !important;
   text-align: center !important;
   white-space: nowrap !important;
+}
+
+.grok-premium-theme-card.active .theme-name {
+  color: #ffffff !important;
+  font-weight: 700 !important;
 }
 
 .grok-premium-theme-card .theme-name::after {
