@@ -69,18 +69,28 @@ function looksLikePromptOrEcho(line: string): boolean {
   );
 }
 
+const BOX_DRAWING_RE = /[\u2500-\u257F\u2580-\u259F\u25A0-\u25FF\u2800-\u28FF\uE000-\uF8FF]/;
+const PARTIAL_TUI_RE =
+  /(?:\[\s*\d{0,3}%?\s*\]|█{2,}|░{2,}|▓{2,}|─{2,}|│|┌|┐|└|┘|├|┤|┬|┴|┼|╭|╮|╰|╯|╱|╲|╳)/;
+
 function looksLikeTuiNoise(line: string): boolean {
-  if (/\u001b|[\u2500-\u257f�]/.test(line)) return true;
+  if (/\u001b/.test(line)) return true;
+  if (BOX_DRAWING_RE.test(line)) return true;
+  if (PARTIAL_TUI_RE.test(line)) return true;
   if (/^[\W_]+$/.test(line)) return true;
+  if (/^[\s\-_=|/\\.+*#@~`^]+$/u.test(line)) return true;
 
   const body = line.replace(LEADING_STATUS_MARK, "");
   if (!body || body.length > 180) return true;
 
+  const letters = body.match(/\p{L}/gu)?.length ?? 0;
+  if (letters < 2) return true;
+
   const oddChars = body.replace(/[\p{L}\p{N}\s._/@:+=,()\[\]{}'"`\\\-]/gu, "").length;
-  return oddChars > Math.max(5, body.length * 0.28);
+  return oddChars > Math.max(4, body.length * 0.22);
 }
 
-function isSafeActivityLine(line: string): boolean {
+export function isSafeActivityLine(line: string): boolean {
   if (line.length < 3 || line.length > 180) return false;
   if (looksLikePromptOrEcho(line)) return false;
   if (looksLikeTuiNoise(line)) return false;
@@ -108,16 +118,7 @@ export class GrokTuiParser {
   flush(): ParserEvent[] {
     const tail = this.ansi.flush();
     if (tail) this.buffer += tail;
-    const events = this.parseCompleteLines();
-    if (!this.buffer.endsWith("\n")) {
-      const line = normalizeLine(this.buffer.split("\n").pop() ?? "");
-      const event = line.length >= 3 ? this.matchLine(line) : null;
-      if (event && event.type !== "step_end" && event.title !== this.lastTitle) {
-        this.lastTitle = event.title;
-        events.push(event);
-      }
-    }
-    return events;
+    return this.parseCompleteLines();
   }
 
   private parseCompleteLines(): ParserEvent[] {

@@ -1,5 +1,6 @@
 import type { AgentSession, AgentStep, AgentRunStatus } from "$lib/agent-activity/types";
 import { normalizeActivityTitle } from "$lib/agent-activity/display-text";
+import { isSafeActivityLine } from "$lib/agent-activity/grok-tui-parser";
 
 export type TerminalCompactActivity = {
   currentTitle: string | null;
@@ -109,7 +110,7 @@ export function pushActivityStep(
   if (!session) return;
 
   const title = normalizeActivityTitle(partial.title);
-  if (!title) return;
+  if (!title || !isSafeActivityLine(title)) return;
 
   const last = session.steps[session.steps.length - 1];
   if (last?.status === "running" && normalizeActivityTitle(last.title) === title) {

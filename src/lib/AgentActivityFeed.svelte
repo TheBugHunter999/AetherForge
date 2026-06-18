@@ -7,6 +7,7 @@
     pruneStaleSessions,
     isSessionLive,
   } from "$lib/agent-activity/activity-store";
+  import { isSafeActivityLine } from "$lib/agent-activity/grok-tui-parser";
   import type { AgentRunStatus, AgentStep } from "$lib/agent-activity/types";
   import { formatStepFiles } from "$lib/agent-activity/display-text";
 
@@ -99,7 +100,7 @@
             {statusLabel(active.status)}
           </span>
         {/if}
-        {#if active.currentTitle}
+        {#if active.currentTitle && isSafeActivityLine(active.currentTitle)}
           <span class="current-title" title={active.currentTitle}>{active.currentTitle}</span>
         {/if}
       </div>
@@ -117,7 +118,7 @@
             {isSessionLive(active) ? "Waiting for agent output…" : "Agent is idle."}
           </li>
         {:else}
-          {#each active.steps as step (step.id)}
+          {#each active.steps.filter((step) => isSafeActivityLine(step.title)) as step (step.id)}
             <li class="step" class:running={step.status === "running"} class:done={step.status === "success"}>
               <span class="step-icon" class:permission={step.kind === "permission"}>{stepIcon(step)}</span>
               <div class="step-body">
