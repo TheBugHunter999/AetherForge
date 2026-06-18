@@ -1,0 +1,93 @@
+/* SuperGrok HEAVY welcome hero text. Theme-aware, with Premium Grok matching the xAI-style black/white look. */
+
+.welcome-supergrok-hero {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(8px, 1.1vw, 12px);
+  margin: 0 0 clamp(18px, 2.6vh, 30px);
+  color: var(--text, #f5f5f5);
+  line-height: 1;
+  letter-spacing: -0.065em;
+  text-align: center;
+  user-select: none;
+  -webkit-user-select: none;
+  filter: drop-shadow(0 18px 52px rgba(0, 0, 0, 0.34));
+}
+
+.welcome-supergrok-word {
+  color: var(--text, #f5f5f5);
+  font-size: clamp(42px, 6.2vw, 76px);
+  font-weight: 680;
+  letter-spacing: -0.07em;
+  font-family: "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.welcome-supergrok-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transform: translateY(4px);
+  padding: 4px 8px 5px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--text, #ffffff) 18%, transparent);
+  color: color-mix(in srgb, var(--text, #ffffff) 74%, var(--bg, #000000));
+  font-size: clamp(14px, 1.7vw, 21px);
+  font-weight: 760;
+  letter-spacing: 0.025em;
+  line-height: 1;
+  font-family: "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.ide.grokden-premium-theme .welcome-supergrok-hero,
+.ide.grokden-premium-theme.glass-window .welcome-supergrok-hero {
+  color: #ffffff;
+  text-shadow: 0 0 42px rgba(255, 255, 255, 0.055);
+}
+
+.ide.grokden-premium-theme .welcome-supergrok-word,
+.ide.grokden-premium-theme.glass-window .welcome-supergrok-word {
+  color: #ffffff;
+  font-weight: 660;
+}
+
+.ide.grokden-premium-theme .welcome-supergrok-badge,
+.ide.grokden-premium-theme.glass-window .welcome-supergrok-badge {
+  background: #2f2f32;
+  color: #bfc0c5;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* Make room so the hero feels intentional instead of stacked too tightly. */
+.ide .welcome-center:has(.welcome-supergrok-hero) .welcome-title,
+.ide.glass-window .welcome-center:has(.welcome-supergrok-hero) .welcome-title {
+  margin-top: 0 !important;
+  margin-bottom: clamp(14px, 2vh, 22px) !important;
+  font-size: clamp(22px, 2.5vw, 34px) !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.035em !important;
+  color: var(--text-dim, #cbd5e1) !important;
+  opacity: 0.92 !important;
+}
+
+@media (max-width: 760px), (max-height: 620px) {
+  .welcome-supergrok-hero {
+    margin-bottom: 14px;
+    gap: 8px;
+  }
+
+  .welcome-supergrok-word {
+    font-size: clamp(34px, 7vw, 48px);
+  }
+
+  .welcome-supergrok-badge {
+    transform: translateY(3px);
+    border-radius: 7px;
+    padding: 3px 6px 4px;
+    font-size: clamp(12px, 2.2vw, 15px);
+  }
+
+  .ide .welcome-center:has(.welcome-supergrok-hero) .welcome-title {
+    font-size: clamp(18px, 3vw, 24px) !important;
+  }
+}
