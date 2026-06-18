@@ -19,6 +19,10 @@
     type CommandSuggestion,
   } from "$lib/terminal-commands";
   import { appendToBuffer, consumeTerminalInput } from "$lib/terminal-input";
+  import {
+    collectDroppedTerminalImages,
+    formatDroppedImagesForTerminal,
+  } from "$lib/terminal-image-drop";
   import TerminalHelper from "$lib/TerminalHelper.svelte";
   import {
     debounce,
@@ -79,6 +83,10 @@
   let resizeSerial = 0;
   let initialResizeDone = false;
   let sessionLifecycleGen = 0;
+  let imageDropActive = $state(false);
+  let imageDropBusy = $state(false);
+  let imageDropMessage = $state("Drop image into terminal");
+  let imageDragDepth = 0;
 
   let bellEnabled = false;
   let suggestions = $derived(
@@ -410,6 +418,67 @@
     });
   }
 
+  function hasImageLikeDrop(dt: DataTransfer | null): boolean {
+    if (!dt) return false;
+    if (Array.from(dt.files || []).some((file) => file.type.startsWith("image/") || /\.(png|jpe?g|webp|gif|bmp|svg)$/i.test(file.name))) return true;
+    return Array.from(dt.types || []).some((type) => ["text/uri-list", "text/html", "text/plain"].includes(type));
+  }
+
+  function handleImageDragEnter(event: DragEvent) {
+    if (!hasImageLikeDrop(event.dataTransfer)) return;
+    event.preventDefault();
+    imageDragDepth += 1;
+    imageDropMessage = "Drop image into this terminal";
+    imageDropActive = true;
+    if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+  }
+
+  function handleImageDragOver(event: DragEvent) {
+    if (!hasImageLikeDrop(event.dataTransfer)) return;
+    event.preventDefault();
+    imageDropActive = true;
+    if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+  }
+
+  function handleImageDragLeave(event: DragEvent) {
+    if (!hasImageLikeDrop(event.dataTransfer)) return;
+    imageDragDepth = Math.max(0, imageDragDepth - 1);
+    if (imageDragDepth === 0) imageDropActive = false;
+  }
+
+  async function handleImageDrop(event: DragEvent) {
+    if (!hasImageLikeDrop(event.dataTransfer)) return;
+    event.preventDefault();
+    imageDragDepth = 0;
+    imageDropActive = false;
+    imageDropBusy = true;
+    imageDropMessage = "Importing image...";
+
+    try {
+      if (!terminalId || !sessionActive) {
+        term?.writeln("\r\n\x1b[33mStart this terminal before dropping images.\x1b[0m");
+        return;
+      }
+      const dt = event.dataTransfer;
+      if (!dt) return;
+      const images = await collectDroppedTerminalImages(dt);
+      if (images.length === 0) {
+        term?.writeln("\r\n\x1b[33mNo image found in that drop. Try a local image file or a direct image URL.\x1b[0m");
+        return;
+      }
+      const data = formatDroppedImagesForTerminal(images);
+      inputBuffer = appendToBuffer(inputBuffer, data);
+      await writeTerminal({ id: terminalId, data });
+      term?.focus();
+    } catch (error) {
+      console.error("Image drop failed:", error);
+      term?.writeln(`\r\n\x1b[31mImage drop failed: ${String(error)}\x1b[0m`);
+    } finally {
+      imageDropBusy = false;
+      imageDropMessage = "Drop image into terminal";
+    }
+  }
+
   onMount(() => {
     if (!hostEl) return;
 
@@ -662,8 +731,24 @@
   });
 </script>
 
-<div class="terminal-wrap" class:compact>
+<div
+  class="terminal-wrap"
+  class:compact
+  class:image-drop-active={imageDropActive || imageDropBusy}
+  ondragenter={handleImageDragEnter}
+  ondragover={handleImageDragOver}
+  ondragleave={handleImageDragLeave}
+  ondrop={handleImageDrop}
+>
   <div class="terminal-host" data-terminal-root class:has-helper={helperVisible && enableHelper} bind:this={hostEl}></div>
+  {#if imageDropActive || imageDropBusy}
+    <div class="terminal-drop-overlay" aria-live="polite">
+      <div class="terminal-drop-card">
+        <span class="terminal-drop-icon">IMG</span>
+        <span>{imageDropMessage}</span>
+      </div>
+    </div>
+  {/if}
   {#if enableHelper}
     <TerminalHelper input={inputBuffer} {suggestions} onApply={(item) => void applySuggestion(item)} />
   {/if}
@@ -695,6 +780,47 @@
 
   .terminal-host.has-helper {
     padding-bottom: 100px;
+  }
+
+  .terminal-drop-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    background: rgba(0, 0, 0, 0.34);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+  }
+
+  .terminal-drop-card {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border: 1px solid var(--accent-mid);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--surface-overlay) 92%, transparent);
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 600;
+    box-shadow: 0 16px 44px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  }
+
+  .terminal-drop-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 32px;
+    height: 22px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 10px;
+    letter-spacing: 0.04em;
   }
 
   :global(.terminal-host .xterm) {
