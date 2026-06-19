@@ -3992,7 +3992,8 @@ This is a very long debug log line that demonstrates whether the debug console w
     display: flex;
     align-items: center;
     gap: 2px;
-    height: 34px;
+    height: 28px;
+    min-height: 28px;
     padding: 0 8px;
     background: var(--panel);
     border-bottom: 1px solid var(--border);
@@ -4004,8 +4005,8 @@ This is a very long debug log line that demonstrates whether the debug console w
     display: flex;
     align-items: center;
     padding: 0 10px;
-    height: 100%;
-    font-size: 12px;
+    height: 24px;
+    font-size: 11px;
     color: var(--text-dim);
     background: transparent;
     border: none;

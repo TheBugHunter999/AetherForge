@@ -713,7 +713,7 @@ export function shouldShowGitPanel(settings: AppSettings): boolean {
 }
 
 export function panelMaximizedHeight(settings: AppSettings): number {
-  return settings.panelMaximizeOnOpen ? 480 : clamp(settings.panelDefaultSize, 120, 600);
+  return settings.panelMaximizeOnOpen ? 360 : clamp(settings.panelDefaultSize, 120, 480);
 }
 
 export function panelResizeCursor(location: PanelLocation): "ns-resize" | "ew-resize" {

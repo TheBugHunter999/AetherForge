@@ -197,11 +197,9 @@
     min-height: var(--grok-chrome-h);
     max-height: var(--grok-chrome-h);
     flex-shrink: 0;
-    background: var(--grok-glass-chrome);
-    border-bottom: 1px solid var(--grok-border);
-    box-shadow: var(--grok-shadow-chrome);
-    backdrop-filter: blur(var(--grok-blur-chrome)) saturate(var(--grok-saturate));
-    -webkit-backdrop-filter: blur(var(--grok-blur-chrome)) saturate(var(--grok-saturate));
+    background: var(--chrome, var(--panel-solid));
+    border-bottom: 1px solid var(--border);
+    box-shadow: none;
     color: var(--grok-text-secondary);
     font-family: var(--grok-font-sans);
     user-select: none;

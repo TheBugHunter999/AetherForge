@@ -464,7 +464,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   openFoldersInNewWindow: false,
   windowRestoreFullscreen: false,
   panelDefaultLocation: "bottom",
-  panelDefaultSize: 320,
+  panelDefaultSize: 220,
   autoHidePanels: false,
   sidebarLocation: "left",
   panelMaximizeOnOpen: false,
@@ -476,7 +476,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   debugConfirmOnExit: true,
   debugInlineValues: true,
   terminalShellPath: defaultShellPath(), // "" = auto-detect (PowerShell on Windows)
-  terminalFontSize: 14,
+  terminalFontSize: 13,
   terminalScrollback: 10000,
   terminalCopyOnSelect: false,
   terminalCursorStyle: "block",
@@ -734,6 +734,13 @@ export function loadSettings(): AppSettings {
         if (localStorage.getItem(opaqueMigrationKey) !== "1") {
           parsed.windowTransparency = 100;
           localStorage.setItem(opaqueMigrationKey, "1");
+        }
+        const compactTerminalKey = "Grokden.compactTerminal.v1";
+        if (localStorage.getItem(compactTerminalKey) !== "1") {
+          if ((parsed.panelDefaultSize ?? 320) > 240) {
+            parsed.panelDefaultSize = 220;
+          }
+          localStorage.setItem(compactTerminalKey, "1");
         }
         return { ...DEFAULT_SETTINGS, ...parsed };
       }

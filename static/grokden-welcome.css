@@ -1,8 +1,8 @@
 /* Grokden Welcome view — Section 11 / Phase 3. Uses --grok-* tokens only. */
 
 .grok-welcome {
-  --grok-bg: var(--editor-bg, #0f1118);
-  --grok-surface: var(--panel, #181b24);
+  --grok-bg: var(--editor-bg, #060608);
+  --grok-surface: var(--panel, #101015);
   --grok-surface-2: var(--surface-raised, #232730);
   --grok-border: var(--border-muted, rgba(255, 255, 255, 0.08));
   --grok-border-strong: var(--border, rgba(255, 255, 255, 0.14));
@@ -13,7 +13,7 @@
   --grok-accent-soft: var(--accent-soft, rgba(92, 201, 199, 0.14));
   --grok-hover: var(--hover, rgba(255, 255, 255, 0.06));
   --grok-hover-strong: var(--hover-strong, rgba(255, 255, 255, 0.1));
-  --grok-on-accent: var(--on-accent, #0f1118);
+  --grok-on-accent: var(--on-accent, #060608);
   --grok-radius-sm: 8px;
   --grok-radius-md: 12px;
   --grok-radius-lg: 16px;

@@ -1,8 +1,8 @@
 /* Grokden Project Home view — Section 4.2 / Phase 4. Uses --grok-* tokens only. */
 
 .grok-project-home {
-  --grok-bg: var(--editor-bg, #0f1118);
-  --grok-surface: var(--panel, #181b24);
+  --grok-bg: var(--editor-bg, #060608);
+  --grok-surface: var(--panel, #101015);
   --grok-surface-2: var(--surface-raised, #232730);
   --grok-border: var(--border-muted, rgba(255, 255, 255, 0.08));
   --grok-border-strong: var(--border, rgba(255, 255, 255, 0.14));
