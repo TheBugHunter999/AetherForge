@@ -84,14 +84,11 @@ Grokden $version - Stable release. Windows desktop workspace for Grok CLI.
 
 ## What's new
 
-- Liquid Glass UI overhaul: design tokens, 4 premium themes, 6 accent colors, authentic glass blur and transparency
-- Premium Grok theme with polished glass UI and onboarding previews
-- SuperGrok Heavy welcome hero
-- Drag-and-drop images into any terminal (local files and URLs)
-- Terminal readability, scrollbar contrast, focus states, and component polish
-- Parallel Agent Swarm with calmer IDE-style UI
-- Status bar and window layout fixes (fullscreen, narrow window)
-- In-app auto-updater with signed NSIS updates
+- **Liquid Glass UI** — OKLCH theme system, 5 curated themes, per-theme glass tuning, edge refraction (WebView2)
+- Native **Mica/Acrylic** window material on Windows 11
+- Glass controls: refraction, edge intensity, chromatic aberration, reduce-effects toggle
+- Per-theme xterm palettes and WCAG-accessible color tokens
+- Parallel Agent Swarm, terminal image drag-and-drop, signed in-app auto-updater
 
 ## Requirements
 
@@ -130,7 +127,7 @@ Grokden also needs the Microsoft Edge WebView2 runtime. The installers below ins
 
 $latestJson = @{
     version = $version
-    notes = "- Stable release`n- Liquid Glass UI overhaul with 4 themes and 6 accents`n- Terminal image drag-and-drop`n- Premium Grok theme and SuperGrok welcome hero`n- Signed auto-updater"
+    notes = "- Stable release`n- Liquid Glass UI with 5 themes and refraction`n- Signed auto-updater (NSIS)"
     pub_date = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ss.fffZ')
     platforms = @{
         'windows-x86_64' = @{
