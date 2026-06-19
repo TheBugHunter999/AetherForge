@@ -27,7 +27,7 @@ All themes rebuilt from OKLCH surface steps with automated contrast enforcement.
 | textDim on bg | 8.22:1 | PASS |
 | textMute on panel | 5.05:1 | PASS |
 | accent on bg | 5.50:1 | PASS |
-| onAccent on accent | 2.87:1 | FAIL |
+| onAccent on accent | 6.24:1 | PASS |
 
 **Palette:** bg `#231e19`, panel `#1a120a`, chrome `#130a03`, accent `#d67e5b`
 
@@ -44,7 +44,7 @@ All themes rebuilt from OKLCH surface steps with automated contrast enforcement.
 | textDim on bg | 8.77:1 | PASS |
 | textMute on panel | 4.61:1 | PASS |
 | accent on bg | 5.24:1 | PASS |
-| onAccent on accent | 3.71:1 | FAIL |
+| onAccent on accent | 4.83:1 | PASS |
 
 **Palette:** bg `#05050c`, panel `#090815`, chrome `#04030e`, accent `#7e70ec`
 
@@ -61,7 +61,7 @@ All themes rebuilt from OKLCH surface steps with automated contrast enforcement.
 | textDim on bg | 8.48:1 | PASS |
 | textMute on panel | 4.42:1 | PASS |
 | accent on bg | 5.56:1 | PASS |
-| onAccent on accent | 3.36:1 | FAIL |
+| onAccent on accent | 5.32:1 | PASS |
 
 **Palette:** bg `#070c17`, panel `#09101f`, chrome `#020616`, accent `#7a7cf0`
 
@@ -78,7 +78,7 @@ All themes rebuilt from OKLCH surface steps with automated contrast enforcement.
 | textDim on bg | 9.18:1 | PASS |
 | textMute on panel | 5.75:1 | PASS |
 | accent on bg | 4.43:1 | PASS |
-| onAccent on accent | 4.61:1 | PASS |
+| onAccent on accent | 4.83:1 | PASS |
 
 **Palette:** bg `#eff6fd`, panel `#f2fdff`, chrome `#e6f4ff`, accent `#0074ca`
 
@@ -95,7 +95,7 @@ All themes rebuilt from OKLCH surface steps with automated contrast enforcement.
 | textDim on bg | 8.41:1 | PASS |
 | textMute on panel | 4.24:1 | PASS |
 | accent on bg | 5.97:1 | PASS |
-| onAccent on accent | 3.36:1 | FAIL |
+| onAccent on accent | 5.32:1 | PASS |
 
 **Palette:** bg `#000000`, panel `#030102`, chrome `#020001`, accent `#7a7cf0`
 

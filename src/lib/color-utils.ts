@@ -160,8 +160,21 @@ export function rgbaFromRgb(hex: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha.toFixed(3)})`;
 }
 
-/** Pick readable foreground (light or dark) for a background. */
+/** Pick readable foreground for a background (WCAG AA 4.5:1 on accent buttons). */
 export function pickOnColor(bgHex: string): string {
-  const lum = relativeLuminance(hexToRgb(bgHex));
-  return lum > 0.45 ? "#0f172a" : "#f8fafc";
+  const candidates = ["#ffffff", "#f8fafc", "#ececf1", "#0b1220", "#0f172a", "#1a120a", "#060608"];
+  for (const fg of candidates) {
+    const ratio = contrastRatio(fg, bgHex);
+    if (ratio != null && ratio >= 4.5) return fg;
+  }
+  let best = "#ffffff";
+  let bestRatio = 0;
+  for (const fg of candidates) {
+    const ratio = contrastRatio(fg, bgHex);
+    if (ratio != null && ratio > bestRatio) {
+      bestRatio = ratio;
+      best = fg;
+    }
+  }
+  return best;
 }

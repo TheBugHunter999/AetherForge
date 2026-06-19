@@ -2,38 +2,38 @@
    Single source of truth on :root; legacy vars map to --grok-* for migration. */
 
 :root {
-  /* ── Surfaces ─────────────────────────────────────────────────────────── */
-  --grok-bg: #060608;
-  --grok-bg-elevated: #0b0b0f;
-  --grok-surface: #101015;
-  --grok-surface-2: #16161c;
-  --grok-surface-3: #1e1e26;
-  --grok-glass: rgba(20, 20, 28, 0.55);
-  --grok-glass-strong: rgba(20, 20, 28, 0.72);
-  --grok-glass-chrome: rgba(11, 11, 15, 0.82);
-  --grok-editor: #060608;
-  --grok-terminal: #050507;
+  /* ── Surfaces (bridge → grokden-tokens.css) ─────────────────────────────── */
+  --grok-bg: var(--bg);
+  --grok-bg-elevated: var(--bg-elevated);
+  --grok-surface: var(--panel);
+  --grok-surface-2: var(--panel-2);
+  --grok-surface-3: var(--surface-3);
+  --grok-glass: var(--glass-bg);
+  --grok-glass-strong: var(--glass-bg-strong);
+  --grok-glass-chrome: color-mix(in srgb, var(--bg-elevated) 82%, transparent);
+  --grok-editor: var(--editor-bg);
+  --grok-terminal: var(--terminal-bg);
 
   /* ── Borders ──────────────────────────────────────────────────────────── */
-  --grok-border: rgba(255, 255, 255, 0.08);
-  --grok-border-strong: rgba(255, 255, 255, 0.14);
-  --grok-border-muted: rgba(255, 255, 255, 0.04);
-  --grok-border-focus: rgba(139, 92, 246, 0.55);
-  --grok-divider: rgba(255, 255, 255, 0.06);
+  --grok-border: var(--border);
+  --grok-border-strong: var(--border-strong);
+  --grok-border-muted: var(--border-muted);
+  --grok-border-focus: color-mix(in srgb, var(--accent) 55%, transparent);
+  --grok-divider: var(--divider);
 
   /* ── Text tiers ───────────────────────────────────────────────────────── */
-  --grok-text: #ececf1;
-  --grok-text-secondary: #a8a8b3;
-  --grok-text-muted: #6b6b78;
-  --grok-text-disabled: rgba(236, 236, 241, 0.32);
-  --grok-text-inverse: #060608;
+  --grok-text: var(--text);
+  --grok-text-secondary: var(--text-dim);
+  --grok-text-muted: var(--text-mute);
+  --grok-text-disabled: var(--text-disabled);
+  --grok-text-inverse: var(--on-accent);
 
   /* ── Accents ─────────────────────────────────────────────────────────── */
-  --grok-purple: #8b5cf6;
-  --grok-purple-strong: #7c3aed;
-  --grok-purple-muted: #a78bfa;
-  --grok-purple-soft: rgba(139, 92, 246, 0.18);
-  --grok-purple-glow: rgba(139, 92, 246, 0.35);
+  --grok-purple: var(--accent);
+  --grok-purple-strong: var(--accent-hover);
+  --grok-purple-muted: color-mix(in srgb, var(--accent) 72%, var(--text));
+  --grok-purple-soft: var(--accent-soft);
+  --grok-purple-glow: var(--accent-mid);
   --grok-cyan: #22d3ee;
   --grok-cyan-muted: #5cc9c7;
   --grok-cyan-soft: rgba(34, 211, 238, 0.16);
@@ -45,24 +45,24 @@
   --grok-orange-soft: rgba(255, 122, 26, 0.14);
 
   /* ── Interactive states ───────────────────────────────────────────────── */
-  --grok-hover: rgba(255, 255, 255, 0.055);
-  --grok-hover-strong: rgba(255, 255, 255, 0.10);
-  --grok-active: rgba(255, 255, 255, 0.13);
-  --grok-pressed: rgba(255, 255, 255, 0.18);
-  --grok-selection: rgba(139, 92, 246, 0.28);
-  --grok-scrollbar: rgba(255, 255, 255, 0.18);
-  --grok-scrollbar-hover: rgba(255, 255, 255, 0.32);
-  --grok-chip-bg: rgba(255, 255, 255, 0.07);
+  --grok-hover: var(--hover);
+  --grok-hover-strong: var(--hover-strong);
+  --grok-active: var(--active);
+  --grok-pressed: var(--hover-strong);
+  --grok-selection: var(--selection);
+  --grok-scrollbar: var(--scrollbar);
+  --grok-scrollbar-hover: var(--scrollbar-hover);
+  --grok-chip-bg: var(--hover);
 
   /* ── Semantic states ──────────────────────────────────────────────────── */
-  --grok-danger: #f87171;
-  --grok-danger-soft: rgba(248, 113, 113, 0.14);
-  --grok-warn: #f59e0b;
-  --grok-warn-soft: rgba(245, 158, 11, 0.14);
-  --grok-success: #34d399;
-  --grok-success-soft: rgba(52, 211, 153, 0.14);
-  --grok-info: #60a5fa;
-  --grok-info-soft: rgba(96, 165, 250, 0.14);
+  --grok-danger: var(--danger);
+  --grok-danger-soft: var(--danger-soft);
+  --grok-warn: var(--warn);
+  --grok-warn-soft: var(--warn-soft);
+  --grok-success: var(--success);
+  --grok-success-soft: var(--success-soft);
+  --grok-info: var(--info);
+  --grok-info-soft: var(--info-soft);
 
   /* ── Spacing scale ────────────────────────────────────────────────────── */
   --grok-space-0: 0;
@@ -78,18 +78,18 @@
 
   /* ── Radius scale ─────────────────────────────────────────────────────── */
   --grok-radius-xs: 2px;
-  --grok-radius-sm: 4px;
-  --grok-radius-md: 6px;
-  --grok-radius-lg: 8px;
-  --grok-radius-xl: 12px;
+  --grok-radius-sm: var(--radius-sm);
+  --grok-radius-md: var(--radius-md);
+  --grok-radius-lg: var(--radius-lg);
+  --grok-radius-xl: var(--radius-lg);
   --grok-radius-2xl: 16px;
-  --grok-radius-full: 9999px;
+  --grok-radius-full: var(--radius-pill);
 
   /* ── Shadows ──────────────────────────────────────────────────────────── */
-  --grok-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.24);
-  --grok-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.28);
-  --grok-shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.36);
-  --grok-shadow-xl: 0 24px 64px rgba(0, 0, 0, 0.44);
+  --grok-shadow-sm: var(--shadow-sm);
+  --grok-shadow-md: var(--shadow-md);
+  --grok-shadow-lg: var(--shadow-lg);
+  --grok-shadow-xl: var(--shadow-toolbar);
   --grok-shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.05);
   --grok-shadow-chrome: inset 0 1px 0 rgba(255, 255, 255, 0.06);
   --grok-shadow-panel: 0 18px 54px rgba(0, 0, 0, 0.28);
@@ -99,10 +99,10 @@
   --grok-blur-md: 16px;
   --grok-blur-lg: 24px;
   --grok-blur-xl: 32px;
-  --grok-blur-chrome: 22px;
-  --grok-blur-panel: 18px;
+  --grok-blur-chrome: var(--glass-blur);
+  --grok-blur-panel: var(--glass-blur);
   --grok-blur-editor: 14px;
-  --grok-saturate: 1.22;
+  --grok-saturate: var(--glass-saturate);
 
   /* ── Motion ───────────────────────────────────────────────────────────── */
   --grok-duration-instant: 80ms;
@@ -114,7 +114,7 @@
   --grok-ease-out: cubic-bezier(0, 0, 0.2, 1);
 
   /* ── Layout dimensions ────────────────────────────────────────────────── */
-  --grok-rail-w: 56px;
+  --grok-rail-w: var(--rail-width-collapsed);
   --grok-chrome-h: 40px;
   --grok-statusbar-h: 24px;
   --grok-tabbar-h: 33px;
@@ -136,8 +136,8 @@
   --grok-z-tooltip: 600;
 
   /* ── Typography ─────────────────────────────────────────────────────── */
-  --grok-font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --grok-font-mono: "JetBrains Mono", "Fira Code", "Cascadia Code", Consolas, monospace;
+  --grok-font-sans: var(--font-ui);
+  --grok-font-mono: var(--font-mono);
   --grok-font-size-xs: 11px;
   --grok-font-size-sm: 12px;
   --grok-font-size-base: 13px;
@@ -154,48 +154,19 @@
   /* ── Focus ring ───────────────────────────────────────────────────────── */
   --grok-focus-width: 2px;
   --grok-focus-offset: 2px;
-  --grok-focus-ring: var(--grok-purple);
+  --grok-focus-ring: var(--focus-ring);
 
   /* ── Legacy variable bridge (migration) ───────────────────────────────── */
-  --bg: var(--grok-bg);
-  --panel: var(--grok-surface);
-  --panel-solid: var(--grok-surface-2);
-  --editor-bg: var(--grok-editor);
-  --surface-raised: var(--grok-surface-3);
-  --surface-overlay: var(--grok-glass);
-  --surface-inset: var(--grok-bg-elevated);
-  --border: var(--grok-border);
-  --border-strong: var(--grok-border-strong);
-  --border-muted: var(--grok-border-muted);
-  --text: var(--grok-text);
-  --text-dim: var(--grok-text-secondary);
-  --text-mute: var(--grok-text-muted);
-  --text-disabled: var(--grok-text-disabled);
-  --hover: var(--grok-hover);
-  --hover-strong: var(--grok-hover-strong);
-  --active: var(--grok-active);
-  --danger: var(--grok-danger);
-  --danger-soft: var(--grok-danger-soft);
-  --warn: var(--grok-warn);
-  --warn-soft: var(--grok-warn-soft);
-  --success: var(--grok-success);
-  --success-soft: var(--grok-success-soft);
-  --info: var(--grok-info);
-  --info-soft: var(--grok-info-soft);
-  --chip-bg: var(--grok-chip-bg);
-  --scrollbar: var(--grok-scrollbar);
-  --scrollbar-hover: var(--grok-scrollbar-hover);
-  --selection: var(--grok-selection);
-  --accent: var(--grok-purple);
-  --accent2: var(--grok-purple-muted);
-  --accent-muted: var(--grok-purple-muted);
-  --accent-subtle: var(--grok-surface-3);
-  --accent-soft: var(--grok-purple-soft);
-  --accent-mid: rgba(139, 92, 246, 0.35);
-  --accent-strong: var(--grok-border-strong);
-  --accent-grad: linear-gradient(135deg, var(--grok-purple), var(--grok-purple-strong));
-  --focus-ring: var(--grok-focus-ring);
-  --on-accent: var(--grok-text-inverse);
+  /* Canonical tokens live in grokden-tokens.css; --grok-* aliases above. */
+  --panel-solid: var(--panel-2);
+  --surface-overlay: var(--glass-bg);
+  --surface-inset: var(--bg-elevated);
+  --accent2: color-mix(in srgb, var(--accent) 72%, var(--text));
+  --accent-muted: color-mix(in srgb, var(--accent) 72%, var(--text));
+  --accent-subtle: var(--surface-3);
+  --accent-strong: var(--border-strong);
+  --accent-grad: linear-gradient(135deg, var(--accent), var(--accent-hover));
+  --chip-bg: var(--hover);
   --grokden-shell: var(--grok-bg);
   --grokden-shell-2: var(--grok-bg-elevated);
   --grokden-panel: var(--grok-surface);

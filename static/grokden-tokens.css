@@ -1,0 +1,256 @@
+/* Grokden design tokens — single source of truth (Phase 1)
+   Loaded first; runtime inline vars from buildThemeStyle may override per theme. */
+
+:root,
+[data-theme="obsidian"] {
+  /* Surfaces (near-black, stepped) */
+  --bg: #060608;
+  --bg-elevated: #0b0b0f;
+  --panel: #101015;
+  --panel-2: #16161c;
+  --panel-solid: #16161c;
+  --surface-3: #1e1e26;
+  --surface-raised: #1e1e26;
+  --editor-bg: #060608;
+  --terminal-bg: #050507;
+
+  /* Borders / dividers */
+  --border: rgba(255, 255, 255, 0.10);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --border-muted: rgba(255, 255, 255, 0.06);
+  --divider: rgba(255, 255, 255, 0.06);
+
+  /* Text tiers */
+  --text: #ececf1;
+  --text-dim: #a8a8b3;
+  --text-mute: #7d7d8a;
+  --text-disabled: rgba(236, 236, 241, 0.32);
+
+  /* Accent — professional violet */
+  --accent: #6b4ff0;
+  --accent-hover: #8f72ff;
+  --accent-soft: rgba(124, 92, 255, 0.16);
+  --accent-mid: rgba(124, 92, 255, 0.34);
+  --on-accent: #ffffff;
+
+  /* Interactive states */
+  --hover: rgba(255, 255, 255, 0.055);
+  --hover-strong: rgba(255, 255, 255, 0.10);
+  --active: rgba(255, 255, 255, 0.13);
+  --selection: rgba(124, 92, 255, 0.28);
+  --scrollbar: rgba(255, 255, 255, 0.16);
+  --scrollbar-hover: rgba(255, 255, 255, 0.28);
+
+  /* Status */
+  --danger: #ff6b6b;
+  --danger-soft: rgba(255, 107, 107, 0.16);
+  --warn: #ffb454;
+  --warn-soft: rgba(255, 180, 84, 0.16);
+  --success: #4ade80;
+  --success-soft: rgba(74, 222, 128, 0.16);
+  --info: #60a5fa;
+  --info-soft: rgba(96, 165, 250, 0.16);
+
+  /* Focus ring */
+  --focus-ring: color-mix(in srgb, var(--accent) 55%, transparent);
+
+  /* Radii */
+  --radius-sm: 8px;
+  --radius-md: 11px;
+  --radius-lg: 14px;
+  --radius-pill: 9999px;
+
+  /* Elevation shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.30);
+  --shadow-md: 0 8px 32px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 18px 52px rgba(0, 0, 0, 0.55);
+  --shadow-toolbar: 0 12px 40px rgba(0, 0, 0, 0.55);
+
+  /* Typography */
+  --font-ui: "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-mono: "Cascadia Code", "JetBrains Mono", ui-monospace, monospace;
+
+  /* Layout */
+  --rail-width: 248px;
+  --rail-width-collapsed: 56px;
+
+  /* Glass (Phase 2) */
+  --glass-bg: color-mix(in srgb, var(--panel) 78%, transparent);
+  --glass-bg-strong: color-mix(in srgb, var(--panel) 88%, transparent);
+  --glass-border: color-mix(in srgb, #ffffff 12%, transparent);
+  --glass-highlight: rgba(255, 255, 255, 0.08);
+  --glass-shadow: 0 1px 2px rgba(0, 0, 0, 0.30), 0 12px 40px rgba(0, 0, 0, 0.45);
+  --glass-blur: 22px;
+  --glass-saturate: 1.4;
+}
+
+[data-theme="codex"] {
+  --bg: #231e19;
+  --bg-elevated: #1a1612;
+  --panel: #1a120a;
+  --panel-2: #221a10;
+  --panel-solid: #170f06;
+  --surface-3: #32261a;
+  --surface-raised: #32261a;
+  --editor-bg: #201b16;
+  --terminal-bg: #1a1510;
+  --border: rgba(255, 255, 255, 0.10);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --border-muted: rgba(255, 255, 255, 0.06);
+  --divider: rgba(255, 255, 255, 0.06);
+  --text: #f1eae3;
+  --text-dim: #c1b5a9;
+  --text-mute: #938372;
+  --text-disabled: rgba(241, 234, 227, 0.32);
+  --accent: #d67e5b;
+  --accent-hover: #ea906d;
+  --accent-soft: rgba(214, 126, 91, 0.16);
+  --accent-mid: rgba(214, 126, 91, 0.34);
+  --on-accent: #1a120a;
+  --hover: rgba(255, 255, 255, 0.055);
+  --hover-strong: rgba(255, 255, 255, 0.10);
+  --active: rgba(255, 255, 255, 0.13);
+  --selection: rgba(214, 126, 91, 0.28);
+  --scrollbar: rgba(255, 255, 255, 0.16);
+  --scrollbar-hover: rgba(255, 255, 255, 0.28);
+  --danger: #e85854;
+  --danger-soft: rgba(232, 88, 84, 0.16);
+  --warn: #d99e4d;
+  --warn-soft: rgba(217, 158, 77, 0.16);
+  --success: #269e5f;
+  --success-soft: rgba(38, 158, 95, 0.16);
+  --info: #679dd4;
+  --info-soft: rgba(103, 157, 212, 0.16);
+  --focus-ring: color-mix(in srgb, var(--accent) 55%, transparent);
+  --glass-bg: color-mix(in srgb, var(--panel) 78%, transparent);
+  --glass-bg-strong: color-mix(in srgb, var(--panel) 88%, transparent);
+}
+
+[data-theme="aurora"] {
+  --bg: #070c17;
+  --bg-elevated: #050a14;
+  --panel: #09101f;
+  --panel-2: #0c1428;
+  --panel-solid: #0e1630;
+  --surface-3: #141e36;
+  --surface-raised: #141e36;
+  --editor-bg: #060b16;
+  --terminal-bg: #050a14;
+  --border: rgba(255, 255, 255, 0.10);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --border-muted: rgba(255, 255, 255, 0.06);
+  --divider: rgba(255, 255, 255, 0.06);
+  --text: #dce4f5;
+  --text-dim: #9aa8c4;
+  --text-mute: #6e7d9a;
+  --text-disabled: rgba(220, 228, 245, 0.32);
+  --accent: #3d72d9;
+  --accent-hover: #4a80e8;
+  --accent-soft: rgba(91, 141, 239, 0.16);
+  --accent-mid: rgba(91, 141, 239, 0.34);
+  --on-accent: #ffffff;
+  --hover: rgba(255, 255, 255, 0.055);
+  --hover-strong: rgba(255, 255, 255, 0.10);
+  --active: rgba(255, 255, 255, 0.13);
+  --selection: rgba(91, 141, 239, 0.28);
+  --scrollbar: rgba(255, 255, 255, 0.16);
+  --scrollbar-hover: rgba(255, 255, 255, 0.28);
+  --danger: #f07888;
+  --danger-soft: rgba(240, 120, 136, 0.16);
+  --warn: #e8c050;
+  --warn-soft: rgba(232, 192, 80, 0.16);
+  --success: #4cd4a0;
+  --success-soft: rgba(76, 212, 160, 0.16);
+  --info: #68a8f8;
+  --info-soft: rgba(104, 168, 248, 0.16);
+  --focus-ring: color-mix(in srgb, var(--accent) 55%, transparent);
+  --glass-bg: color-mix(in srgb, var(--panel) 78%, transparent);
+  --glass-bg-strong: color-mix(in srgb, var(--panel) 88%, transparent);
+}
+
+[data-theme="frost"] {
+  --bg: #eff6fd;
+  --bg-elevated: #e6f4ff;
+  --panel: #f2fdff;
+  --panel-2: #e8f4fc;
+  --panel-solid: #e0effa;
+  --surface-3: #d8e8f6;
+  --surface-raised: #ffffff;
+  --editor-bg: #f5faff;
+  --terminal-bg: #e8f0f8;
+  --border: rgba(15, 23, 42, 0.10);
+  --border-strong: rgba(15, 23, 42, 0.16);
+  --border-muted: rgba(15, 23, 42, 0.06);
+  --divider: rgba(15, 23, 42, 0.06);
+  --text: #0b1220;
+  --text-dim: #334155;
+  --text-mute: #64748b;
+  --text-disabled: rgba(11, 18, 32, 0.32);
+  --accent: #0074ca;
+  --accent-hover: #0088e8;
+  --accent-soft: rgba(0, 116, 202, 0.12);
+  --accent-mid: rgba(0, 116, 202, 0.25);
+  --on-accent: #ffffff;
+  --hover: rgba(15, 23, 42, 0.05);
+  --hover-strong: rgba(15, 23, 42, 0.08);
+  --active: rgba(15, 23, 42, 0.11);
+  --selection: rgba(0, 116, 202, 0.20);
+  --scrollbar: rgba(15, 23, 42, 0.20);
+  --scrollbar-hover: rgba(15, 23, 42, 0.34);
+  --danger: #c53030;
+  --danger-soft: rgba(197, 48, 48, 0.12);
+  --warn: #b45309;
+  --warn-soft: rgba(180, 83, 9, 0.12);
+  --success: #047857;
+  --success-soft: rgba(4, 120, 87, 0.12);
+  --info: #1d4ed8;
+  --info-soft: rgba(29, 78, 216, 0.12);
+  --focus-ring: color-mix(in srgb, var(--accent) 55%, transparent);
+  --glass-bg: color-mix(in srgb, var(--panel) 78%, transparent);
+  --glass-bg-strong: color-mix(in srgb, var(--panel) 88%, transparent);
+  --glass-border: color-mix(in srgb, #0f172a 10%, transparent);
+  --glass-highlight: rgba(255, 255, 255, 0.45);
+  --glass-shadow: 0 1px 2px rgba(15, 23, 42, 0.08), 0 12px 40px rgba(15, 23, 42, 0.12);
+}
+
+[data-theme="midnight"] {
+  --bg: #000000;
+  --bg-elevated: #030102;
+  --panel: #030102;
+  --panel-2: #0a0a0c;
+  --panel-solid: #0c0c0e;
+  --surface-3: #141416;
+  --surface-raised: #141416;
+  --editor-bg: #000000;
+  --terminal-bg: #000000;
+  --border: rgba(255, 255, 255, 0.10);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --border-muted: rgba(255, 255, 255, 0.06);
+  --divider: rgba(255, 255, 255, 0.06);
+  --text: #ececf1;
+  --text-dim: #a0a0ad;
+  --text-mute: #6e6e7a;
+  --text-disabled: rgba(236, 236, 241, 0.32);
+  --accent: #6366f1;
+  --accent-hover: #7a7cf0;
+  --accent-soft: rgba(99, 102, 241, 0.16);
+  --accent-mid: rgba(99, 102, 241, 0.34);
+  --on-accent: #ffffff;
+  --hover: rgba(255, 255, 255, 0.055);
+  --hover-strong: rgba(255, 255, 255, 0.10);
+  --active: rgba(255, 255, 255, 0.13);
+  --selection: rgba(99, 102, 241, 0.28);
+  --scrollbar: rgba(255, 255, 255, 0.16);
+  --scrollbar-hover: rgba(255, 255, 255, 0.28);
+  --danger: #f07070;
+  --danger-soft: rgba(240, 112, 112, 0.16);
+  --warn: #e8c050;
+  --warn-soft: rgba(232, 192, 80, 0.16);
+  --success: #4cd4a0;
+  --success-soft: rgba(76, 212, 160, 0.16);
+  --info: #68a8f8;
+  --info-soft: rgba(104, 168, 248, 0.16);
+  --focus-ring: color-mix(in srgb, var(--accent) 55%, transparent);
+  --glass-bg: color-mix(in srgb, var(--panel) 78%, transparent);
+  --glass-bg-strong: color-mix(in srgb, var(--panel) 88%, transparent);
+}
