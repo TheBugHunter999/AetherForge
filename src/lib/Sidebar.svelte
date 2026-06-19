@@ -66,12 +66,17 @@
         </svg>
       </button>
     </div>
+    <!-- GROKDEN-FIX: Sidebar.svelte deprecated — ActivityRail.svelte is the nav rail in +page.svelte -->
     <ActivityRail
       activeItem={activeItem === "skills" ? null : activeItem}
       {zenHidden}
       {scmDisabled}
       {agentBadgeCount}
+      collapsed={true}
       onSelect={handleRailSelect}
+      onOpenTerminal={onOpenTerminal}
+      onOpenFolder={onOpenFolder}
+      onToggleCollapse={toggleCollapsed}
     />
   </div>
 {:else}

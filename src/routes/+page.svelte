@@ -106,7 +106,7 @@
   import ParallelAgents from "$lib/ParallelAgents.svelte";
   import AgentActivityFeed from "$lib/AgentActivityFeed.svelte";
   import WindowChrome from "$lib/WindowChrome.svelte";
-  import Sidebar, { type SidebarSelectItem } from "$lib/Sidebar.svelte";
+  import ActivityRail, { type SidebarSelectItem } from "$lib/ActivityRail.svelte";
   import SkillsConnectors from "$lib/SkillsConnectors.svelte";
   import UpdateIndicator from "$lib/UpdateIndicator.svelte";
   import UpdateOverlay from "$lib/UpdateOverlay.svelte";
@@ -243,6 +243,9 @@
   let userSidebarOpen = $state(false);
   let userSecondaryOpen = $state(initialSecondarySidebarOpen(settings));
   let userTerminalOpen = $state(settings.showTerminalOnStart);
+  const NAV_RAIL_EXPANDED_W = 248;
+  const NAV_RAIL_COLLAPSED_W = 56;
+  const SIDEBAR_COLLAPSED_KEY = "Grokden.sidebar.collapsed";
   let sidebarCollapsed = $state(false);
   let terminalOpen = $state(settings.showTerminalOnStart);
   let secondarySidebarOpen = $state(initialSecondarySidebarOpen(settings));
@@ -342,6 +345,7 @@
     terminalHeight;
     workspaceBodyWidth;
     workspaceBodyHeight;
+    sidebarCollapsed;
     scheduleLayoutReconcile(runLayoutReconcile);
   });
 
@@ -455,7 +459,7 @@
       terminalOpen: folderRestricted ? false : terminalOpen,
       terminal,
       secondarySidebarOpen,
-      sidebarCollapsed,
+      sidebarCollapsed: !userSidebarOpen,
       activePanel,
     };
     if (!shouldPersistSessionSnapshot(settings, sessionHydrated, payload)) return;
@@ -499,7 +503,11 @@
   }
 
   function runLayoutReconcile() {
-    const railReserve = settings.zenMode ? 0 : settings.uiDensity === "compact" ? 276 : 298;
+    const railReserve = settings.zenMode
+      ? 0
+      : sidebarCollapsed
+        ? NAV_RAIL_COLLAPSED_W
+        : NAV_RAIL_EXPANDED_W;
     const chromeReserve = settings.uiDensity === "compact" ? 84 : settings.uiDensity === "spacious" ? 108 : 92;
     const result = reconcileLayout({
       settings,
@@ -518,12 +526,19 @@
     layoutConstraint = result.constraint;
     layoutStyle = result.layoutStyle;
     resolvedPanelSize = result.panelSize;
-    sidebarCollapsed = result.sidebarCollapsed;
     secondarySidebarOpen = result.secondarySidebarOpen;
     terminalOpen = result.terminalOpen;
     if (result.panelSize > 0 && result.terminalHeight !== terminalHeight) {
       terminalHeight = result.terminalHeight;
     }
+  }
+
+  function toggleNavRailCollapse() {
+    sidebarCollapsed = !sidebarCollapsed;
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem(SIDEBAR_COLLAPSED_KEY, sidebarCollapsed ? "1" : "0");
+    }
+    runLayoutReconcile();
   }
 
   function setUserSidebarOpen(open: boolean) {
@@ -1662,6 +1677,10 @@
   onMount(() => {
     void syncAppBranding();
 
+    if (typeof localStorage !== "undefined") {
+      sidebarCollapsed = localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1";
+    }
+
     installLayoutBridge({
       toggleTerminal: () => toggleTerminalPanel(),
       openTerminal: () => openTerminalPanel(),
@@ -1923,7 +1942,7 @@
 <div
   class="ide{layoutClasses.ide} workspace-enter"
   class:glass-window={settings.windowTransparency < 100}
-  class:grokden-sidebar-hidden={sidebarCollapsed}
+  class:grokden-sidebar-hidden={!userSidebarOpen}
   style="{rootStyle};{layoutStyle}"
   data-ui-lang={settings.uiLanguage}
   data-theme={settings.theme}
@@ -2025,14 +2044,17 @@
   </header>
 
   <div class="workspace{layoutClasses.workspace}">
-    <Sidebar
+    <ActivityRail
       activeItem={railActiveItem}
       zenHidden={settings.zenMode}
       scmDisabled={!shouldShowGitPanel(settings)}
       agentBadgeCount={runningParallelAgentCount}
+      collapsed={sidebarCollapsed}
+      appVersion={appVersion}
       onSelect={handleRailSelect}
       onOpenTerminal={openTerminalPanel}
       onOpenFolder={openFolder}
+      onToggleCollapse={toggleNavRailCollapse}
     />
 
     <div
@@ -2836,7 +2858,7 @@ This is a very long debug log line that demonstrates whether the debug console w
       box-shadow 260ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
-  .ide.glass-window :global(.activity-rail) {
+  .ide.glass-window .workspace > :global(nav.sidebar) {
     background:
       linear-gradient(180deg, var(--glass-sheen, rgba(255, 255, 255, 0.05)), transparent 58%),
       var(--glass-rail-bg);
@@ -2886,7 +2908,7 @@ This is a very long debug log line that demonstrates whether the debug console w
     isolation: isolate;
   }
 
-  .ide.glass-window :global(.activity-rail .rail-btn:hover) {
+  .ide.glass-window .workspace > :global(nav.sidebar .row:hover) {
     box-shadow: none;
   }
 
@@ -2945,7 +2967,7 @@ This is a very long debug log line that demonstrates whether the debug console w
   .ide.glass-window .composer-chip,
   .ide.glass-window .composer-icon-btn,
   .ide.glass-window .composer-send,
-  .ide.glass-window :global(.activity-rail .rail-btn.active) {
+  .ide.glass-window .workspace > :global(nav.sidebar .row.active) {
     background:
       linear-gradient(180deg, var(--glass-sheen, rgba(255, 255, 255, 0.04)), transparent 70%),
       color-mix(in srgb, var(--active) 78%, transparent);
@@ -4432,10 +4454,7 @@ This is a very long debug log line that demonstrates whether the debug console w
   .ide.density-compact .topbar { height: 32px; }
   .ide.density-compact .tab-bar { height: 32px; }
   .ide.density-compact .statusbar { height: 20px; }
-  .ide.density-compact :global(.activity-rail) {
-    width: var(--grok-rail-w, var(--rail-width, 52px));
-    padding-inline: 3px;
-  }
+  /* GROKDEN-FIX: nav rail width owned by ActivityRail.svelte (248/56), not density CSS */
   .ide.density-spacious .topbar { height: 48px; }
   .ide.density-spacious .tab-bar { height: 42px; }
   .ide.density-spacious .statusbar { height: 28px; font-size: 12px; }
