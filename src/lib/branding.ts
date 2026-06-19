@@ -2,6 +2,48 @@ export const APP_DISPLAY_NAME = "Grokden";
 export const WELCOME_TAGLINE = "Your AI workspace. Build, orchestrate, ship.";
 export const RECENT_WORKSPACES_STORAGE_KEY = "Grokden.recentWorkspaces";
 
+export type RecentWorkspaceEntry = {
+  path: string;
+  name: string;
+  lastOpened?: number;
+};
+
+const RECENT_WORKSPACES_MAX = 12;
+
+function workspaceDisplayName(path: string): string {
+  return path.split(/[/\\]+/).filter(Boolean).pop() ?? path;
+}
+
+export function loadRecentWorkspaces(): RecentWorkspaceEntry[] {
+  if (typeof localStorage === "undefined") return [];
+  migrateLegacyBrandingStorage();
+  try {
+    const raw = localStorage.getItem(RECENT_WORKSPACES_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as RecentWorkspaceEntry[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export function recordRecentWorkspace(path: string): RecentWorkspaceEntry[] {
+  if (typeof localStorage === "undefined") return [];
+  const normalized = path.trim();
+  if (!normalized) return loadRecentWorkspaces();
+
+  const name = workspaceDisplayName(normalized);
+  const now = Date.now();
+  const existing = loadRecentWorkspaces().filter((entry) => entry.path !== normalized);
+  const updated: RecentWorkspaceEntry[] = [
+    { path: normalized, name, lastOpened: now },
+    ...existing,
+  ].slice(0, RECENT_WORKSPACES_MAX);
+
+  localStorage.setItem(RECENT_WORKSPACES_STORAGE_KEY, JSON.stringify(updated));
+  return updated;
+}
+
 const STORAGE_KEY_MIGRATIONS: Array<{ legacy: string; current: string }> = [
   { legacy: "AetherForge.settings", current: "Grokden.settings" },
   { legacy: "AetherForge.session", current: "Grokden.session" },

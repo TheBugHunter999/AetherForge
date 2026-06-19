@@ -11,6 +11,7 @@
     isTextFile,
     buildThemeStyle,
     loadSettings,
+    type AgentModePreset,
     type SearchMatch,
   } from "$lib/editor-utils";
   import { middleTruncate } from "$lib/explorer/path-utils";
@@ -149,12 +150,19 @@
   import { attachParser, detachParser, startActivitySession } from "$lib/agent-activity/activity-bridge";
   import { getActiveActivitySession, isSessionLive } from "$lib/agent-activity/activity-store";
   import { type MissionGoal, type ParallelAgent } from "$lib/agent-grid";
+  import { applyAgentPreset } from "$lib/onboarding-machine";
   import {
     GROK_CLI_INSTALL_UNIX,
     GROK_CLI_INSTALL_WINDOWS,
     isGrokCliAvailable,
   } from "$lib/grok-cli";
-  import { APP_DISPLAY_NAME, migrateLegacyBranding, syncAppBranding } from "$lib/branding";
+  import {
+    APP_DISPLAY_NAME,
+    loadRecentWorkspaces,
+    migrateLegacyBranding,
+    recordRecentWorkspace,
+    syncAppBranding,
+  } from "$lib/branding";
   import ProjectHome, { type RecentFile } from "$lib/ProjectHome.svelte";
   import WelcomeView, {
     type RecentWorkspace,
@@ -527,13 +535,28 @@
     runLayoutReconcile();
   }
 
+  function dismissOverlayViews() {
+    settingsOpen = false;
+    agentSwarmOpen = false;
+    canvasOpen = false;
+    skillsOpen = false;
+  }
+
   function toggleExplorerPanel() {
-    view = "editor";
     if (activePanel === "explorer" && userSidebarOpen && !settings.zenMode) {
       setUserSidebarOpen(false);
       return;
     }
+    view = "editor";
+    dismissOverlayViews();
     activePanel = "explorer";
+    setUserSidebarOpen(true);
+  }
+
+  function openWorkspacePanel(panel: "search" | "scm") {
+    view = "editor";
+    dismissOverlayViews();
+    activePanel = panel;
     setUserSidebarOpen(true);
   }
 
@@ -610,15 +633,13 @@
   let gitDirty = $derived((workspaceGitInfo?.changedCount ?? 0) > 0);
 
   let railActiveItem = $derived.by((): SidebarSelectItem | null => {
-    if (settingsOpen) return "settings";
-    if (skillsOpen) return "skills";
-    if (canvasOpen) return "canvas";
-    if (agentSwarmOpen) return "agents";
-    if (!sidebarCollapsed) {
-      if (activePanel === "explorer") return "explorer";
-      if (activePanel === "search") return "search";
-      if (activePanel === "scm") return "scm";
-    }
+    if (view === "settings" && settingsOpen) return "settings";
+    if (view === "skills" && skillsOpen) return "skills";
+    if (view === "canvas" && canvasOpen) return "canvas";
+    if (view === "agents" && agentSwarmOpen) return "agents";
+    if (activePanel === "explorer") return "explorer";
+    if (activePanel === "search") return "search";
+    if (activePanel === "scm") return "scm";
     return null;
   });
 
@@ -628,13 +649,11 @@
         toggleExplorerPanel();
         break;
       case "search":
-        activePanel = "search";
-        setUserSidebarOpen(true);
+        openWorkspacePanel("search");
         break;
       case "scm":
         if (!shouldShowGitPanel(settings)) return;
-        activePanel = "scm";
-        setUserSidebarOpen(true);
+        openWorkspacePanel("scm");
         break;
       case "agents":
         openAgentSwarm();
@@ -1278,6 +1297,7 @@
       setUserTerminalOpen(false);
       if (view === "agents") closeAgentSwarm();
     }
+    recentWorkspaces = recordRecentWorkspace(path);
   }
 
   function beginFolderTrustPrompt(path: string) {
@@ -1388,11 +1408,21 @@
 
   const activeAgentSession = $derived(getActiveActivitySession());
 
-  function openAgentSwarm() {
+  function applyWelcomeAgentPreset(preset: AgentModePreset) {
+    const patch = applyAgentPreset(preset);
+    settings.agentModePreset = patch.agentModePreset;
+    settings.aiAgentModeDefault = patch.aiAgentModeDefault;
+    settings.terminalExecutionPolicy = patch.terminalExecutionPolicy;
+    settings.artifactReviewPolicy = patch.artifactReviewPolicy;
+    settings.jsExecutionPolicy = patch.jsExecutionPolicy;
+  }
+
+  function openAgentSwarm(preset?: AgentModePreset) {
     if (folderRestricted) {
       restrictedFeatureNotice("Parallel Agents");
       return;
     }
+    if (preset) applyWelcomeAgentPreset(preset);
     agentSwarmOpen = true;
     view = "agents";
     blurActiveTerminal();
@@ -1493,16 +1523,7 @@
     }
   }
 
-  let recentWorkspaces = $state<RecentWorkspace[]>([]);
-  $effect(() => {
-    if (typeof localStorage === "undefined") return;
-    try {
-      const raw = localStorage.getItem("Grokden.recentWorkspaces");
-      recentWorkspaces = raw ? (JSON.parse(raw) as RecentWorkspace[]) : [];
-    } catch {
-      recentWorkspaces = [];
-    }
-  });
+  let recentWorkspaces = $state<RecentWorkspace[]>(loadRecentWorkspaces());
 
   function closeAgentSwarm() {
     agentSwarmOpen = false;
@@ -1979,6 +2000,26 @@
         </svg>
         <span>Search</span>
       </button>
+      <button
+        type="button"
+        class="launch-btn"
+        class:launching={grokLaunching}
+        disabled={folderRestricted || grokLaunching || grokCliChecking || grokCliAvailable === false}
+        title={grokCliAvailable === false ? "Install Grok CLI first" : "Launch Grok CLI in the integrated terminal"}
+        onclick={launchGrokCli}
+      >
+        {grokLaunching ? "Launching…" : "Launch Grok CLI"}
+      </button>
+      <button
+        type="button"
+        class="launch-btn swarm-btn"
+        class:active={agentSwarmOpen}
+        disabled={folderRestricted}
+        title="Parallel Agents"
+        onclick={() => openAgentSwarm()}
+      >
+        Parallel Agents
+      </button>
       <button type="button" class="save-btn" onclick={saveActiveTab} disabled={!activeTab || !isDirty(activeTab)} title="Save (Ctrl+S)">Save</button>
     </div>
   </header>
@@ -2002,7 +2043,7 @@
     >
     <div class="workspace-panels{layoutClasses.workspacePanels}">
     {#if !settings.zenMode}
-      <aside class="sidebar">
+      <aside class="sidebar workspace-sidebar" aria-label="Workspace panel">
         {#if activePanel !== "explorer"}
           <div class="sidebar-header liquid-glass">
             <span>{activePanel === "search" ? "Search" : "Source Control"}</span>
@@ -2309,9 +2350,11 @@
               onOpenFolder={openFolder}
               onOpenTerminal={openTerminalPanel}
               onLaunchAgents={openAgentSwarm}
+              onAgentPresetChange={applyWelcomeAgentPreset}
               onOpenCanvas={openCanvasView}
               onCommandSubmit={handleWelcomeCommand}
               onApplyTheme={handleWelcomeTheme}
+              agentModePreset={settings.agentModePreset}
               {recentWorkspaces}
             />
           {:else}
@@ -2421,7 +2464,7 @@
           aria-label="Resize terminal"
           onmousedown={startTerminalResize}
         ></button>
-        <div class="terminal-header liquid-glass">
+        <div class="terminal-header glass">
           <button type="button" class="terminal-tab" class:active={bottomPanelTab === "terminal"} onclick={() => selectBottomPanelTab("terminal")}>Terminal</button>
           <button type="button" class="terminal-tab" class:active={bottomPanelTab === "output"} onclick={() => selectBottomPanelTab("output")}>Output</button>
           <button type="button" class="terminal-tab" class:active={bottomPanelTab === "problems"} onclick={() => selectBottomPanelTab("problems")}>
@@ -2808,7 +2851,7 @@ This is a very long debug log line that demonstrates whether the debug console w
     transition: backdrop-filter 260ms cubic-bezier(0.16, 1, 0.3, 1), background-color 260ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
-  .ide.glass-window .sidebar,
+  .ide.glass-window .workspace-panels .sidebar,
   .ide.glass-window .secondary-sidebar {
     background:
       linear-gradient(180deg, var(--glass-sheen, rgba(255, 255, 255, 0.04)), transparent 62%),

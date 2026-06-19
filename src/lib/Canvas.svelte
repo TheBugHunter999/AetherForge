@@ -27,7 +27,6 @@
 
 <script lang="ts">
   import { onMount, tick } from "svelte";
-  import "../../static/grokden-canvas.css";
 
   const MIN_ZOOM = 0.25;
   const MAX_ZOOM = 4;
@@ -352,15 +351,16 @@
     return e.button === 1;
   }
 
-  function isBackgroundTarget(target: EventTarget | null) {
+  function isChromeTarget(target: EventTarget | null) {
     if (!(target instanceof Element) || !rootEl) return false;
-    if (
-      target.closest(
-        ".grok-canvas__node, .grok-canvas__toolbar, .grok-canvas__zoom, .grok-canvas__minimap-toggle, .grok-canvas__empty-actions",
-      )
-    ) {
-      return false;
-    }
+    return !!target.closest(
+      ".grok-canvas__node, .grok-canvas__toolbar, .grok-canvas__zoom, .grok-canvas__minimap-toggle, .grok-canvas__empty-actions",
+    );
+  }
+
+  function isBackgroundTarget(target: EventTarget | null) {
+    if (isChromeTarget(target)) return false;
+    if (!(target instanceof Element)) return false;
     return target === rootEl || !!target.closest(".grok-canvas__surface, .grok-canvas__grid");
   }
 
@@ -374,7 +374,7 @@
     rootEl?.focus({ preventScroll: true });
     const pt = localPoint(e);
 
-    if (shouldPan(e)) {
+    if (shouldPan(e) && !isChromeTarget(e.target)) {
       isPanning = true;
       panStart = { x: pt.x, y: pt.y, panX, panY };
       e.preventDefault();

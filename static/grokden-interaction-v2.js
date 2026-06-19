@@ -75,7 +75,7 @@
     const controls = document.querySelector(".grokden-layout-controls");
     if (!root || !controls) return;
     controls.querySelector(".grokden-layout-btn-activity")?.classList.toggle("active", !root.classList.contains(ACTIVITY_HIDDEN) && visible(document.querySelector(".activity-rail")));
-    controls.querySelector(".grokden-layout-btn-sidebar")?.classList.toggle("active", !root.classList.contains(SIDEBAR_HIDDEN) && visible(document.querySelector(".sidebar")));
+    controls.querySelector(".grokden-layout-btn-sidebar")?.classList.toggle("active", !root.classList.contains(SIDEBAR_HIDDEN) && visible(document.querySelector(".workspace-panels .sidebar")));
     controls.querySelector(".grokden-layout-btn-panel")?.classList.toggle("active", !root.classList.contains(TERMINAL_HIDDEN) && visible(document.querySelector(".terminal")));
     controls.querySelector(".grokden-layout-btn-secondary")?.classList.toggle("active", !root.classList.contains(SECONDARY_HIDDEN) && visible(document.querySelector(".secondary-sidebar")));
   }
@@ -93,8 +93,8 @@
     const map = [
       [".grokden-layout-btn-activity", () => root.classList.toggle(ACTIVITY_HIDDEN)],
       [".grokden-layout-btn-sidebar", () => {
-        if (!root.classList.contains(SIDEBAR_HIDDEN) && visible(document.querySelector(".sidebar"))) root.classList.add(SIDEBAR_HIDDEN);
-        else { root.classList.remove(SIDEBAR_HIDDEN, "liquid-sidebar-force-closed"); if (!visible(document.querySelector(".sidebar"))) clickExact("Files"); }
+        if (!root.classList.contains(SIDEBAR_HIDDEN) && visible(document.querySelector(".workspace-panels .sidebar"))) root.classList.add(SIDEBAR_HIDDEN);
+        else { root.classList.remove(SIDEBAR_HIDDEN, "liquid-sidebar-force-closed"); if (!visible(document.querySelector(".workspace-panels .sidebar"))) clickExact("Explorer"); }
       }],
       [".grokden-layout-btn-panel", () => {
         if (!root.classList.contains(TERMINAL_HIDDEN) && visible(document.querySelector(".terminal"))) root.classList.add(TERMINAL_HIDDEN);

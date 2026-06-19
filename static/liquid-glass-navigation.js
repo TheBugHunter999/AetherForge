@@ -99,7 +99,7 @@
     const ide = getIde();
     if (!ide) return;
 
-    if (ide.classList.contains(SIDEBAR_FORCE_CLASS) && !ide.querySelector(".sidebar")) {
+    if (ide.classList.contains(SIDEBAR_FORCE_CLASS) && !ide.querySelector(".workspace-panels .sidebar")) {
       clearSidebarForce(ide);
     }
 

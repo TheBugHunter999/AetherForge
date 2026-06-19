@@ -3,8 +3,8 @@
   import type { AgentModePreset } from "$lib/editor-utils";
   import {
     APP_DISPLAY_NAME,
+    loadRecentWorkspaces,
     WELCOME_TAGLINE,
-    RECENT_WORKSPACES_STORAGE_KEY,
   } from "$lib/branding";
 
   export type RecentWorkspace = {
@@ -18,10 +18,12 @@
   type Props = {
     onOpenFolder: () => void;
     onOpenTerminal: () => void;
-    onLaunchAgents: () => void;
+    onLaunchAgents: (preset: AgentModePreset) => void;
+    onAgentPresetChange?: (preset: AgentModePreset) => void;
     onOpenCanvas: () => void;
     onCommandSubmit: (command: string) => void;
     onApplyTheme: (themeId: WelcomeThemeId) => void;
+    agentModePreset?: AgentModePreset;
     recentWorkspaces?: RecentWorkspace[];
   };
 
@@ -29,9 +31,11 @@
     onOpenFolder,
     onOpenTerminal,
     onLaunchAgents,
+    onAgentPresetChange,
     onOpenCanvas,
     onCommandSubmit,
     onApplyTheme,
+    agentModePreset = "agent-driven",
     recentWorkspaces = [],
   }: Props = $props();
 
@@ -115,6 +119,19 @@
     { label: "Open terminal", id: "open-terminal" },
   ] as const;
 
+  function selectAgentPreset(preset: AgentModePreset) {
+    selectedAgentPreset = preset;
+    onAgentPresetChange?.(preset);
+  }
+
+  function launchParallelAgents() {
+    onLaunchAgents(selectedAgentPreset);
+  }
+
+  $effect(() => {
+    selectedAgentPreset = agentModePreset;
+  });
+
   function runQuickAction(id: (typeof quickChips)[number]["id"]) {
     switch (id) {
       case "open-folder":
@@ -127,7 +144,7 @@
         onOpenCanvas();
         break;
       case "launch-agent":
-        onLaunchAgents();
+        launchParallelAgents();
         break;
       case "open-terminal":
         onOpenTerminal();
@@ -138,18 +155,6 @@
   const effectiveWorkspaces = $derived(
     recentWorkspaces.length > 0 ? recentWorkspaces : storedWorkspaces,
   );
-
-  function loadStoredWorkspaces(): RecentWorkspace[] {
-    if (typeof localStorage === "undefined") return [];
-    try {
-      const raw = localStorage.getItem(RECENT_WORKSPACES_STORAGE_KEY);
-      if (!raw) return [];
-      const parsed = JSON.parse(raw) as RecentWorkspace[];
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  }
 
   function submitCommand() {
     const trimmed = commandText.trim();
@@ -182,7 +187,7 @@
   }
 
   onMount(() => {
-    storedWorkspaces = loadStoredWorkspaces();
+    storedWorkspaces = loadRecentWorkspaces();
     commandInput?.focus();
   });
 </script>
@@ -193,7 +198,7 @@
 
   <div class="welcome-center grok-welcome__shell">
     <div class="welcome-stage__utilities">
-      <button type="button" class="welcome-stage__util" onclick={onLaunchAgents}>Parallel</button>
+      <button type="button" class="welcome-stage__util" onclick={launchParallelAgents}>Parallel</button>
       <span class="welcome-stage__private">
         <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.25" aria-hidden="true">
           <rect x="4" y="7" width="8" height="7" rx="1" />
@@ -270,7 +275,7 @@
                 role="option"
                 aria-selected={selectedAgentPreset === preset.id}
                 onclick={() => {
-                  selectedAgentPreset = preset.id;
+                  selectAgentPreset(preset.id);
                   showModeMenu = false;
                 }}
               >{preset.id === "agent-driven" ? "Heavy" : preset.title}</button>
@@ -350,7 +355,7 @@
             class="grok-welcome__agent-card"
             class:grok-welcome__agent-card--selected={selectedAgentPreset === preset.id}
             aria-pressed={selectedAgentPreset === preset.id}
-            onclick={() => (selectedAgentPreset = preset.id)}
+            onclick={() => selectAgentPreset(preset.id)}
           >
             {#if preset.badge}
               <span class="grok-welcome__agent-badge">{preset.badge}</span>

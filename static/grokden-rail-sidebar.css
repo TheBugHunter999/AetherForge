@@ -121,10 +121,10 @@
 
 /* ── Explorer sidebar — between rail and workbench ───────────────────── */
 
-.ide .sidebar,
-.ide.glass-window .sidebar,
-.ide.grokden-premium-theme .sidebar,
-.ide.grokden-premium-theme.glass-window .sidebar {
+.ide .workspace-panels .sidebar,
+.ide.glass-window .workspace-panels .sidebar,
+.ide.grokden-premium-theme .workspace-panels .sidebar,
+.ide.grokden-premium-theme.glass-window .workspace-panels .sidebar {
   width: clamp(
     0px,
     var(--sidebar-width, var(--grok-explorer-sidebar-w)),

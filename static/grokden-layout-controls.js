@@ -145,7 +145,7 @@
 
   function isSidebarVisible() {
     const ide = getIde();
-    const sidebar = document.querySelector(".sidebar");
+    const sidebar = document.querySelector(".workspace-panels .sidebar");
     if (ide?.classList.contains(SIDEBAR_FORCE_CLASS)) return false;
     if (!(sidebar instanceof HTMLElement)) return false;
     const style = getComputedStyle(sidebar);

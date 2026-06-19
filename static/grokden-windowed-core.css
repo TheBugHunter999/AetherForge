@@ -5,7 +5,7 @@
     padding: 8px 4px 10px !important;
     gap: 6px !important;
   }
-  .ide .sidebar { width: 260px !important; }
+  .ide .workspace-panels .sidebar { width: 260px !important; }
   .ide .secondary-sidebar { display: none !important; }
   .ide .editor-area { margin-right: 8px !important; }
   .ide .welcome-center { width: min(560px, 100%) !important; }
@@ -17,7 +17,7 @@
 @media (max-width: 1100px) {
   .ide { --rail-width: 56px !important; }
   .ide .activity-rail { width: var(--grok-rail-w, var(--rail-width, 56px)) !important; }
-  .ide .sidebar { width: 238px !important; }
+  .ide .workspace-panels .sidebar { width: 238px !important; }
   .ide .command-hint {
     min-width: 160px !important;
     max-width: 260px !important;

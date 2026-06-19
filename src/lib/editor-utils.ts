@@ -549,10 +549,14 @@ export function buildThemeStyle(settings: AppSettings): string {
   return [
     // Base surfaces
     `--bg:${t.bg}`,
+    `--bg-elevated:${t.surfaceInset}`,
     `--panel:${t.panel}`,
+    `--panel-2:${t.panelSolid}`,
     `--panel-solid:${t.panelSolid}`,
     `--editor-bg:${t.editorBg}`,
+    `--terminal-bg:${t.editorBg}`,
     `--chrome:${t.chrome}`,
+    `--surface-3:${t.surfaceRaised}`,
     `--surface-raised:${t.surfaceRaised}`,
     `--surface-overlay:${t.surfaceOverlay}`,
     `--surface-inset:${t.surfaceInset}`,
@@ -614,6 +618,7 @@ export function buildThemeStyle(settings: AppSettings): string {
     `--term-bright-white:${term.brightWhite}`,
     // Accent system
     `--accent:${accent.default}`,
+    `--accent-hover:${accent.strong}`,
     `--accent2:${accent.strong}`,
     `--accent-muted:${accent.muted}`,
     `--accent-subtle:${accent.subtle}`,

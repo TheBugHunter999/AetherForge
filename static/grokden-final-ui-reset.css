@@ -219,8 +219,8 @@
 }
 
 /* Solid side panels. This removes the ghost overlay/layer look when switching Files and Source Control. */
-.ide .sidebar,
-.ide.glass-window .sidebar,
+.ide .workspace-panels .sidebar,
+.ide.glass-window .workspace-panels .sidebar,
 .ide .explorer-panel,
 .ide .source-control-panel,
 .ide .search-panel,
@@ -235,8 +235,8 @@
   box-shadow: none !important;
 }
 
-.ide .sidebar,
-.ide.glass-window .sidebar {
+.ide .workspace-panels .sidebar,
+.ide.glass-window .workspace-panels .sidebar {
   border-right: 1px solid var(--grok-border, var(--border, rgba(255, 255, 255, 0.08))) !important;
   overflow: hidden !important;
 }

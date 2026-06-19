@@ -295,7 +295,7 @@
 }
 
 /* Click-again-to-close visual state, powered by liquid-glass-navigation.js. */
-.ide.liquid-sidebar-force-closed .sidebar {
+.ide.liquid-sidebar-force-closed .workspace-panels .sidebar {
   display: none !important;
 }
 

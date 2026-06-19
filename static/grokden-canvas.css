@@ -311,6 +311,12 @@
   box-shadow: var(--grok-shadow-toolbar);
 }
 
+/* Keep floating toolbar layout when combined with global .glass utility */
+.grok-canvas__toolbar.glass {
+  position: absolute;
+  border-radius: var(--grok-radius-pill);
+}
+
 .grok-canvas__tool-btn {
   display: inline-flex;
   align-items: center;

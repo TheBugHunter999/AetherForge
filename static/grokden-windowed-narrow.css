@@ -13,7 +13,7 @@
     padding: 0 !important;
     justify-content: center !important;
   }
-  .ide .sidebar { width: 240px !important; }
+  .ide .workspace-panels .sidebar { width: 240px !important; }
   .ide .topbar-left .app-name,
   .ide .topbar-left .logo-img {
     display: none !important;
@@ -21,7 +21,7 @@
 }
 
 @media (max-width: 820px) {
-  .ide .sidebar { display: none !important; }
+  .ide .workspace-panels .sidebar { display: none !important; }
   .ide .editor-area { margin-left: 8px !important; }
   .ide .command-hint { display: none !important; }
 }
