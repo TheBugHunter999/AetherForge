@@ -6,6 +6,18 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
     <script src="%sveltekit.assets%/grokden-icon-palette.js"></script>
+    <script>
+      try {
+        const premiumKey = "Grokden.premiumGrokTheme.enabled";
+        const settingsKey = "Grokden.settings";
+        if (localStorage.getItem(premiumKey) === "1") {
+          const parsed = JSON.parse(localStorage.getItem(settingsKey) || "{}");
+          parsed.theme = "premium-grok";
+          localStorage.setItem(settingsKey, JSON.stringify(parsed));
+        }
+        localStorage.removeItem(premiumKey);
+      } catch (_) {}
+    </script>
     <link rel="icon" href="%sveltekit.assets%/favicon.png" />
     <link rel="stylesheet" href="%sveltekit.assets%/grokden-tokens.css" />
     <link rel="stylesheet" href="%sveltekit.assets%/grokden-glass.css" />
