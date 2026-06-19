@@ -795,20 +795,10 @@
   left: 0;
   min-width: 180px;
   padding: 6px;
-  z-index: 100;
+  z-index: 20;
   display: flex;
   flex-direction: column;
   gap: 2px;
-  background: var(--surface-overlay);
-  border: 1px solid var(--border);
-  border-radius: 11px;
-  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.38);
-  backdrop-filter: blur(24px) saturate(1.25);
-  -webkit-backdrop-filter: blur(24px) saturate(1.25);
-}
-
-.ide.glass-window .cmdbar__menu {
-  background: color-mix(in srgb, var(--surface-overlay) 92%, transparent);
 }
 
 .cmdbar__menu--mode {

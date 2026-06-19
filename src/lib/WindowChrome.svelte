@@ -445,6 +445,6 @@
   }
 
   .window-chrome.maximized .chrome-controls {
-    padding-right: 0;
+    padding-right: max(env(titlebar-area-x, 0px), calc((var(--scale-factor, 1) - 1) * 12px), 12px);
   }
 </style>

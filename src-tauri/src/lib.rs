@@ -340,12 +340,11 @@ fn apply_native_window_material(window: &tauri::WebviewWindow, percent: u8) -> S
     #[cfg(target_os = "windows")]
     {
         clear_native_window_material(window);
-        // GROKDEN-FIX: Acrylic first — true translucent blur; Mica is a tinted fallback.
-        if window_vibrancy::apply_acrylic(window, Some((18, 18, 18, 175))).is_ok() {
-            return "acrylic".to_string();
-        }
         if window_vibrancy::apply_mica(window, Some(true)).is_ok() {
             return "mica".to_string();
+        }
+        if window_vibrancy::apply_acrylic(window, Some((18, 18, 18, 175))).is_ok() {
+            return "acrylic".to_string();
         }
         return "css-blur".to_string();
     }

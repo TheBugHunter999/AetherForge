@@ -1526,14 +1526,25 @@
 
   function handleWelcomeTheme(themeId: WelcomeThemeId) {
     if (themeId === "default-dark") {
-      settings.theme = "premium-grok";
+      settings.theme = "codex";
       settings.windowTransparency = 100;
+      if (typeof localStorage !== "undefined") {
+        localStorage.setItem("Grokden.premiumGrokTheme.enabled", "1");
+      }
+      document.querySelector(".ide")?.classList.add("grokden-premium-theme");
     } else if (themeId === "glass") {
-      settings.theme = "premium-grok";
       settings.windowTransparency = 72;
+      if (typeof localStorage !== "undefined") {
+        localStorage.setItem("Grokden.premiumGrokTheme.enabled", "1");
+      }
+      document.querySelector(".ide")?.classList.add("grokden-premium-theme");
     } else if (themeId === "high-contrast") {
       settings.theme = "midnight";
       settings.windowTransparency = 100;
+      if (typeof localStorage !== "undefined") {
+        localStorage.setItem("Grokden.premiumGrokTheme.enabled", "0");
+      }
+      document.querySelector(".ide")?.classList.remove("grokden-premium-theme");
     }
   }
 
