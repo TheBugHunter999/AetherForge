@@ -1,4 +1,8 @@
 import { migrateLegacyBrandingStorage } from "$lib/branding";
+import { THEMES, themeList, type ThemePalette } from "$lib/theme-palette";
+
+export type { ThemePalette } from "$lib/theme-palette";
+export { THEMES, themeList };
 
 export type FileMeta = { label: string; color: string };
 
@@ -183,103 +187,6 @@ export const LANGUAGE_NAMES: Record<string, string> = {
   txt: "Plain Text", svg: "SVG", xml: "XML",
 };
 
-export type ThemePalette = {
-  // Base surfaces
-  bg: string;
-  panel: string;
-  panelSolid: string;
-  editorBg: string;
-  // Additional surfaces
-  surfaceRaised: string;
-  surfaceOverlay: string;
-  surfaceInset: string;
-  // Borders & dividers
-  border: string;
-  borderStrong: string;
-  borderMuted: string;
-  // Text hierarchy
-  text: string;
-  textDim: string;
-  textMute: string;
-  textDisabled: string;
-  // Interactive
-  hover: string;
-  hoverStrong: string;
-  active: string;
-  // Semantic status
-  danger: string;
-  warn: string;
-  success: string;
-  info: string;
-  // Utility
-  onAccent: string;
-  chipBg: string;
-  scrollbar: string;
-  scrollbarHover: string;
-  selection: string;
-  // Flags
-  isLight?: boolean;
-};
-
-export const THEMES: Record<string, ThemePalette> = {
-  codex: {
-    bg: "#2d2d2b", panel: "#211b26", panelSolid: "#202024", editorBg: "#2b2b29",
-    surfaceRaised: "#3a3a37", surfaceOverlay: "rgba(32,32,36,0.94)", surfaceInset: "#262624",
-    border: "rgba(255,255,255,0.075)", borderStrong: "rgba(255,255,255,0.14)", borderMuted: "rgba(255,255,255,0.045)",
-    text: "#f4f4f2", textDim: "#cececa", textMute: "#8f8b91", textDisabled: "rgba(244,244,242,0.35)",
-    hover: "rgba(255,255,255,0.055)", hoverStrong: "rgba(255,255,255,0.10)", active: "rgba(255,255,255,0.13)",
-    danger: "#f87171", warn: "#d8a657", success: "#0eae59", info: "#7aa2f7",
-    onAccent: "#ffffff", chipBg: "rgba(255,255,255,0.065)",
-    scrollbar: "rgba(255,255,255,0.24)", scrollbarHover: "rgba(255,255,255,0.38)",
-    selection: "rgba(204,125,94,0.24)",
-  },
-  obsidian: {
-    bg: "#0a0a0f", panel: "#101015", panelSolid: "#14141b", editorBg: "#0c0c11",
-    surfaceRaised: "#1a1a22", surfaceOverlay: "rgba(10,10,15,0.92)", surfaceInset: "#08080c",
-    border: "rgba(255,255,255,0.08)", borderStrong: "rgba(255,255,255,0.14)", borderMuted: "rgba(255,255,255,0.04)",
-    text: "#e8e8f0", textDim: "#b0b0c0", textMute: "#6a6a7e", textDisabled: "rgba(232,232,240,0.35)",
-    hover: "rgba(255,255,255,0.05)", hoverStrong: "rgba(255,255,255,0.09)", active: "rgba(255,255,255,0.12)",
-    danger: "#ef4444", warn: "#f59e0b", success: "#10b981", info: "#3b82f6",
-    onAccent: "#ffffff", chipBg: "rgba(255,255,255,0.06)",
-    scrollbar: "rgba(255,255,255,0.22)", scrollbarHover: "rgba(255,255,255,0.38)",
-    selection: "rgba(91,141,239,0.25)",
-  },
-  aurora: {
-    bg: "#11131a", panel: "#181b24", panelSolid: "#1d2029", editorBg: "#0f1118",
-    surfaceRaised: "#232730", surfaceOverlay: "rgba(17,19,26,0.92)", surfaceInset: "#0c0e14",
-    border: "rgba(148,163,224,0.10)", borderStrong: "rgba(148,163,224,0.18)", borderMuted: "rgba(148,163,224,0.05)",
-    text: "#dce4f5", textDim: "#a8b4d0", textMute: "#5e6a85", textDisabled: "rgba(220,228,245,0.35)",
-    hover: "rgba(148,163,224,0.06)", hoverStrong: "rgba(148,163,224,0.11)", active: "rgba(148,163,224,0.15)",
-    danger: "#f87171", warn: "#fbbf24", success: "#34d399", info: "#60a5fa",
-    onAccent: "#0f1118", chipBg: "rgba(148,163,224,0.07)",
-    scrollbar: "rgba(148,163,224,0.22)", scrollbarHover: "rgba(148,163,224,0.38)",
-    selection: "rgba(139,124,248,0.25)",
-  },
-  frost: {
-    bg: "#f5f7fb", panel: "#ffffff", panelSolid: "#ffffff", editorBg: "#fafbfe",
-    surfaceRaised: "#ffffff", surfaceOverlay: "rgba(255,255,255,0.95)", surfaceInset: "#eef1f7",
-    border: "rgba(15,23,42,0.09)", borderStrong: "rgba(15,23,42,0.16)", borderMuted: "rgba(15,23,42,0.05)",
-    text: "#0f172a", textDim: "#334155", textMute: "#64748b", textDisabled: "rgba(15,23,42,0.35)",
-    hover: "rgba(15,23,42,0.04)", hoverStrong: "rgba(15,23,42,0.07)", active: "rgba(15,23,42,0.10)",
-    danger: "#dc2626", warn: "#d97706", success: "#059669", info: "#2563eb",
-    onAccent: "#ffffff", chipBg: "rgba(15,23,42,0.05)",
-    scrollbar: "rgba(15,23,42,0.18)", scrollbarHover: "rgba(15,23,42,0.32)",
-    selection: "rgba(37,99,235,0.18)",
-    isLight: true,
-  },
-  midnight: {
-    bg: "#000000", panel: "#0a0a0a", panelSolid: "#0f0f0f", editorBg: "#050505",
-    surfaceRaised: "#161616", surfaceOverlay: "rgba(0,0,0,0.95)", surfaceInset: "#000000",
-    border: "rgba(255,255,255,0.10)", borderStrong: "rgba(255,255,255,0.18)", borderMuted: "rgba(255,255,255,0.05)",
-    text: "#f0f0f0", textDim: "#a3a3a3", textMute: "#666666", textDisabled: "rgba(240,240,240,0.30)",
-    hover: "rgba(255,255,255,0.06)", hoverStrong: "rgba(255,255,255,0.10)", active: "rgba(255,255,255,0.14)",
-    danger: "#f87171", warn: "#fbbf24", success: "#34d399", info: "#60a5fa",
-    onAccent: "#000000", chipBg: "rgba(255,255,255,0.06)",
-    scrollbar: "rgba(255,255,255,0.20)", scrollbarHover: "rgba(255,255,255,0.36)",
-    selection: "rgba(139,124,248,0.30)",
-  },
-};
-
 const LEGACY_THEME_IDS = new Set([
   "midnight", "nebula", "dracula", "nord", "one-dark", "gruvbox-dark",
   "grokden-dark", "charcoal", "tokyo-night", "mocha", "warm-dark", "light",
@@ -348,14 +255,6 @@ function clamp(value: number, min: number, max: number): number {
   if (!Number.isFinite(value)) return min;
   return Math.max(min, Math.min(max, value));
 }
-
-export const themeList = [
-  { id: "codex", label: "Codex", bg: "#2d2d2b", text: "#cececa", panel: "#211b26" },
-  { id: "obsidian", label: "Obsidian", bg: "#14141b", text: "#b0b0c0", panel: "#101015" },
-  { id: "aurora", label: "Aurora", bg: "#1d2029", text: "#a8b4d0", panel: "#181b24" },
-  { id: "frost", label: "Frost", bg: "#ffffff", text: "#334155", panel: "#ffffff" },
-  { id: "midnight", label: "Midnight", bg: "#0f0f0f", text: "#a3a3a3", panel: "#0a0a0a" },
-];
 
 export const accentList = [
   { id: "coral", label: "Coral" },
@@ -638,12 +537,14 @@ export function buildThemeStyle(settings: AppSettings): string {
   const accentSoft = hexToRgba(accent.default, isLight ? 0.12 : 0.18);
   const fontSize = settings.fontSize;
   const codeFont = FONT_STACKS[settings.fontFamily] ?? FONT_STACKS.jetbrains;
+  const term = t.terminal;
   return [
     // Base surfaces
     `--bg:${t.bg}`,
     `--panel:${t.panel}`,
     `--panel-solid:${t.panelSolid}`,
     `--editor-bg:${t.editorBg}`,
+    `--chrome:${t.chrome}`,
     `--surface-raised:${t.surfaceRaised}`,
     `--surface-overlay:${t.surfaceOverlay}`,
     `--surface-inset:${t.surfaceInset}`,
@@ -651,6 +552,7 @@ export function buildThemeStyle(settings: AppSettings): string {
     `--border:${t.border}`,
     `--border-strong:${t.borderStrong}`,
     `--border-muted:${t.borderMuted}`,
+    `--divider:${t.divider}`,
     // Text
     `--text:${t.text}`,
     `--text-dim:${t.textDim}`,
@@ -660,14 +562,24 @@ export function buildThemeStyle(settings: AppSettings): string {
     `--hover:${t.hover}`,
     `--hover-strong:${t.hoverStrong}`,
     `--active:${t.active}`,
+    // Theme accent defaults (user accent overrides below)
+    `--theme-accent:${t.accent}`,
+    `--theme-accent-hover:${t.accentHover}`,
+    `--theme-accent-muted:${t.accentMuted}`,
+    `--theme-on-accent:${t.onAccent}`,
     // Status
     `--danger:${t.danger}`,
+    `--on-danger:${t.onDanger}`,
     `--danger-soft:${hexToRgba(t.danger, isLight ? 0.10 : 0.14)}`,
-    `--warn:${t.warn}`,
-    `--warn-soft:${hexToRgba(t.warn, isLight ? 0.10 : 0.14)}`,
+    `--warning:${t.warning}`,
+    `--warn:${t.warning}`,
+    `--on-warning:${t.onWarning}`,
+    `--warn-soft:${hexToRgba(t.warning, isLight ? 0.10 : 0.14)}`,
     `--success:${t.success}`,
+    `--on-success:${t.onSuccess}`,
     `--success-soft:${hexToRgba(t.success, isLight ? 0.10 : 0.14)}`,
     `--info:${t.info}`,
+    `--on-info:${t.onInfo}`,
     `--info-soft:${hexToRgba(t.info, isLight ? 0.10 : 0.14)}`,
     // Utility
     `--on-accent:${accent.onAccent}`,
@@ -675,6 +587,23 @@ export function buildThemeStyle(settings: AppSettings): string {
     `--scrollbar:${t.scrollbar}`,
     `--scrollbar-hover:${t.scrollbarHover}`,
     `--selection:${t.selection}`,
+    // Terminal palette (per-theme xterm)
+    `--term-black:${term.black}`,
+    `--term-red:${term.red}`,
+    `--term-green:${term.green}`,
+    `--term-yellow:${term.yellow}`,
+    `--term-blue:${term.blue}`,
+    `--term-magenta:${term.magenta}`,
+    `--term-cyan:${term.cyan}`,
+    `--term-white:${term.white}`,
+    `--term-bright-black:${term.brightBlack}`,
+    `--term-bright-red:${term.brightRed}`,
+    `--term-bright-green:${term.brightGreen}`,
+    `--term-bright-yellow:${term.brightYellow}`,
+    `--term-bright-blue:${term.brightBlue}`,
+    `--term-bright-magenta:${term.brightMagenta}`,
+    `--term-bright-cyan:${term.brightCyan}`,
+    `--term-bright-white:${term.brightWhite}`,
     // Accent system
     `--accent:${accent.default}`,
     `--accent2:${accent.strong}`,
@@ -697,10 +626,12 @@ export function buildThemeStyle(settings: AppSettings): string {
     `--grok-surface:${t.panel}`,
     `--grok-surface-2:${t.panelSolid}`,
     `--grok-surface-3:${t.surfaceRaised}`,
+    `--grok-chrome:${t.chrome}`,
     `--grok-editor:${t.editorBg}`,
     `--grok-border:${t.border}`,
     `--grok-border-strong:${t.borderStrong}`,
     `--grok-border-muted:${t.borderMuted}`,
+    `--grok-divider:${t.divider}`,
     `--grok-text:${t.text}`,
     `--grok-text-secondary:${t.textDim}`,
     `--grok-text-muted:${t.textMute}`,
@@ -714,8 +645,8 @@ export function buildThemeStyle(settings: AppSettings): string {
     `--grok-chip-bg:${t.chipBg}`,
     `--grok-danger:${t.danger}`,
     `--grok-danger-soft:${hexToRgba(t.danger, isLight ? 0.10 : 0.14)}`,
-    `--grok-warn:${t.warn}`,
-    `--grok-warn-soft:${hexToRgba(t.warn, isLight ? 0.10 : 0.14)}`,
+    `--grok-warn:${t.warning}`,
+    `--grok-warn-soft:${hexToRgba(t.warning, isLight ? 0.10 : 0.14)}`,
     `--grok-success:${t.success}`,
     `--grok-success-soft:${hexToRgba(t.success, isLight ? 0.10 : 0.14)}`,
     `--grok-info:${t.info}`,
