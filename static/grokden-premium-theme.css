@@ -518,3 +518,47 @@
   border-color: var(--grok-border-strong) !important;
   background: var(--grok-hover) !important;
 }
+
+/* Premium Grok + glass (folded from grokden-premium-theme-fix.css) */
+.ide.grokden-premium-theme.glass-window {
+  background: transparent;
+}
+
+.ide.grokden-premium-theme.glass-window::before {
+  background:
+    radial-gradient(circle at 50% 2%, rgba(255, 255, 255, 0.075), transparent 34%),
+    radial-gradient(circle at 78% 0%, rgba(255, 122, 26, 0.055), transparent 22%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.32), rgba(0, 0, 0, 0.14));
+  opacity: 1;
+  mix-blend-mode: normal;
+}
+
+.ide.grokden-premium-theme.glass-window .workspace > nav.sidebar {
+  margin: 0;
+  border-radius: 0;
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  box-shadow: inset -1px 0 0 var(--divider);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  contain: paint;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.ide.grokden-premium-theme.glass-window .workspace > nav.sidebar .row:hover:not(:disabled),
+.ide.grokden-premium-theme.glass-window .workspace > nav.sidebar .row.active {
+  box-shadow: none;
+  transform: none;
+}
+
+.ide.grokden-premium-theme .settings-view .theme-grid .theme-card.active:not(.grok-premium-theme-card) {
+  border-color: var(--border);
+  background: transparent;
+  box-shadow: none;
+}
+
+.ide.grokden-premium-theme .settings-view .theme-grid .theme-card.active:not(.grok-premium-theme-card) .theme-name {
+  color: var(--text-dim);
+  font-weight: 400;
+}

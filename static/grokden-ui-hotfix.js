@@ -1,13 +1,6 @@
 (() => {
   const MENU_OPEN_CLASS = "grokden-menu-open";
-  const TERMINAL_HIDE_CLASSES = [
-    "grokden-terminal-final-hidden",
-    "grokden-panel-safe-hidden",
-    "grokden-terminal-hidden",
-    "liquid-terminal-force-closed",
-  ];
 
-  const getIde = () => document.querySelector(".ide");
   const getOpenMenus = () => Array.from(document.querySelectorAll(`.${MENU_OPEN_CLASS}`));
 
   function closeMenus() {
@@ -31,29 +24,6 @@
 
   function cancelMenuClose() {
     window.clearTimeout(closeTimer);
-  }
-
-  let syncTimer = 0;
-  function syncTerminalClasses() {
-    const ide = getIde();
-    if (!ide) return;
-
-    const bridge = window.__grokdenLayout;
-    let open = false;
-    try {
-      open = Boolean(bridge?.isTerminalOpen?.());
-    } catch {
-      open = false;
-    }
-
-    if (open) {
-      for (const className of TERMINAL_HIDE_CLASSES) ide.classList.remove(className);
-    }
-  }
-
-  function scheduleTerminalSync() {
-    window.clearTimeout(syncTimer);
-    syncTimer = window.setTimeout(syncTerminalClasses, 80);
   }
 
   document.addEventListener(
@@ -97,28 +67,4 @@
     },
     true,
   );
-
-  document.addEventListener(
-    "click",
-    (event) => {
-      const target = event.target;
-      if (!(target instanceof Element)) return;
-
-      if (target.closest(".grokden-layout-btn-panel, .terminal-close, .terminal-tab, button[aria-label='Terminal']")) {
-        scheduleTerminalSync();
-      }
-    },
-    true,
-  );
-
-  window.addEventListener("keydown", (event) => {
-    if ((event.ctrlKey || event.metaKey) && event.key === "`") {
-      scheduleTerminalSync();
-    }
-  });
-
-  window.addEventListener("grokden:layout-change", scheduleTerminalSync);
-  window.addEventListener("resize", scheduleTerminalSync);
-  window.addEventListener("focus", scheduleTerminalSync);
-  window.setTimeout(syncTerminalClasses, 300);
 })();
