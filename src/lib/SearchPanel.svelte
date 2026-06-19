@@ -46,10 +46,10 @@
 
 <div class="search-panel">
   <div class="search-box">
-    <div class="search-toolbar liquid-glass">
+    <div class="search-toolbar glass glass--pill">
       <input
         bind:this={searchInput}
-        class="search-input"
+        class="search-input input"
         placeholder="Search files & open editors"
         value={query}
         oninput={(e) => onInput(e.currentTarget.value)}
@@ -58,7 +58,7 @@
         {#each optionButtons as option (option.key)}
           <button
             type="button"
-            class="search-flag"
+            class="search-flag chip"
             class:active={searchOptions[option.key]}
             title={option.title}
             aria-label={option.title}
@@ -74,7 +74,7 @@
 
   <div class="search-results">
     {#if !query.trim()}
-      <div class="panel-empty">Search file names in the explorer and the contents of open editors.</div>
+      <div class="panel-empty empty-state">Search file names in the explorer and the contents of open editors.</div>
     {:else if invalidRegex}
       <div class="panel-empty panel-error">Invalid regular expression.</div>
     {:else}

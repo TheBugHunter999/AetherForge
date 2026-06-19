@@ -307,13 +307,13 @@
           >+</button>
         </div>
       </label>
-      <button type="button" class="swarm-btn primary" class:busy={launching} onclick={launchAgents}>
+      <button type="button" class="swarm-btn btn btn--primary" class:busy={launching} onclick={launchAgents}>
         {launchLabel}
       </button>
       {#if compactLayout}
         <button
           type="button"
-          class="swarm-btn"
+          class="swarm-btn btn btn--secondary"
           class:active={goalsPanelOpen}
           aria-expanded={goalsPanelOpen}
           onclick={() => (goalsPanelOpen = !goalsPanelOpen)}
@@ -324,7 +324,7 @@
       <div class="toolbar-menu">
         <button
           type="button"
-          class="swarm-btn menu-trigger"
+          class="swarm-btn btn btn--ghost menu-trigger"
           aria-expanded={moreMenuOpen}
           aria-haspopup="menu"
           onclick={() => (moreMenuOpen = !moreMenuOpen)}

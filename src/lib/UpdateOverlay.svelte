@@ -70,7 +70,7 @@
 >
   <div class="update-mesh" aria-hidden="true"></div>
 
-  <div class="update-stage">
+  <div class="update-stage dialog glass glass--strong">
     <div class="update-hero">
       <div class="update-glow" aria-hidden="true"></div>
       <div class="update-logo-wrap" class:busy>
@@ -100,7 +100,7 @@
     </div>
 
     {#if showNotes}
-      <div class="update-card">
+      <div class="update-card card">
         <div class="update-card-head">
           <span class="update-card-icon" aria-hidden="true">✦</span>
           <span>What's in this release</span>

@@ -72,7 +72,7 @@
 
     <div class="grok-project-home__grid">
       {#if hasGit}
-        <section class="grok-project-home__card grok-project-home__card--git" aria-labelledby="grok-project-home-git-heading">
+        <section class="grok-project-home__card card grok-project-home__card--git" aria-labelledby="grok-project-home-git-heading">
           <h2 id="grok-project-home-git-heading" class="grok-project-home__card-title">Source control</h2>
           <div class="grok-project-home__git-summary">
             <span class="grok-project-home__git-branch" title={gitBranch ?? undefined}>
@@ -105,7 +105,7 @@
       {/if}
 
       <section
-        class="grok-project-home__card grok-project-home__card--recent"
+        class="grok-project-home__card card grok-project-home__card--recent"
         aria-labelledby="grok-project-home-recent-heading"
       >
         <div class="grok-project-home__card-head">
@@ -153,7 +153,7 @@
       </section>
 
       <section
-        class="grok-project-home__card grok-project-home__card--agents"
+        class="grok-project-home__card card grok-project-home__card--agents"
         aria-labelledby="grok-project-home-agents-heading"
       >
         <h2 id="grok-project-home-agents-heading" class="grok-project-home__card-title">Agents</h2>
@@ -181,7 +181,7 @@
       </section>
 
       <section
-        class="grok-project-home__card grok-project-home__card--actions"
+        class="grok-project-home__card card grok-project-home__card--actions"
         aria-labelledby="grok-project-home-actions-heading"
       >
         <h2 id="grok-project-home-actions-heading" class="grok-project-home__card-title">Quick actions</h2>

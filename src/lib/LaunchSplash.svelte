@@ -58,21 +58,21 @@
     width: 7px;
     height: 7px;
     border-radius: 50%;
-    background: rgba(255, 255, 255, 0.28);
+    background: var(--scrollbar);
     animation: dot-pulse 1.2s ease-in-out infinite;
   }
   .dot:nth-child(1) { animation-delay: 0s; }
   .dot:nth-child(2) { animation-delay: 0.2s; }
   .dot:nth-child(3) { animation-delay: 0.4s; }
   .dot.active {
-    background: #fff;
+    background: var(--text);
     transform: scale(1.15);
   }
   .label {
     margin: 0;
     font-size: 15px;
     font-weight: 400;
-    color: rgba(255, 255, 255, 0.72);
+    color: var(--text-dim);
     letter-spacing: 0.01em;
     animation: label-in 0.6s ease-out 0.25s both;
   }

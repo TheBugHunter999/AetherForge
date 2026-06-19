@@ -174,6 +174,56 @@
   background: var(--scrollbar-hover);
 }
 
+/* Component bridges — extend primitives without breaking local layout */
+.nav-item.btn,
+.settings-nav .btn {
+  width: 100%;
+  justify-content: flex-start;
+  height: auto;
+  min-height: 34px;
+  padding: 6px 12px;
+  font-weight: 400;
+}
+
+.nav-item.btn.active {
+  background: var(--active);
+  color: var(--text);
+}
+
+.trust-btn.btn {
+  flex-direction: column;
+  align-items: flex-start;
+  height: auto;
+  padding: 12px 14px;
+  width: 100%;
+}
+
+.theme-card.card {
+  cursor: pointer;
+  text-align: left;
+  padding: 10px;
+  border: 1px solid var(--border);
+}
+
+.scm-btn.btn {
+  height: 28px;
+  padding: 0 10px;
+  font-size: 11px;
+}
+
+.swarm-btn.btn {
+  height: 30px;
+  padding: 0 12px;
+  font-size: 12px;
+}
+
+.search-input.input {
+  border: none;
+  background: transparent;
+  height: 36px;
+  flex: 1;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .btn,
   .input,

@@ -197,7 +197,7 @@
             {:else if draft.step === "theme"}
               <div class="theme-row">
                 {#each ONBOARDING_THEMES as t}
-                  <button type="button" class="theme-opt" class:selected={draft.theme === t.id} onclick={() => (draft.theme = t.id)}>
+                  <button type="button" class="theme-opt card" class:selected={draft.theme === t.id} onclick={() => (draft.theme = t.id)}>
                     <div class="mini-ide" style:--frame={t.frame} style:--side={t.sidebar} style:--editor={t.editor} style:--accent={t.accent}>
                       <div class="mi-bar"></div>
                       <div class="mi-side"></div>
@@ -320,13 +320,13 @@
   </div>
 
   <footer class="wizard-nav">
-    <button type="button" class="back" disabled={draft.step === "welcome"} onclick={goBack}>Back</button>
+    <button type="button" class="back btn btn--ghost" disabled={draft.step === "welcome"} onclick={goBack}>Back</button>
     <div class="dots" aria-label="Setup progress">
       {#each wizardSteps as step, i}
         <span class="dot" class:active={stepIndex(draft.step) === i} class:done={stepIndex(draft.step) > i}></span>
       {/each}
     </div>
-    <button type="button" class="next" onclick={goNext}>
+    <button type="button" class="next btn btn--primary" onclick={goNext}>
       {draft.step === "privacy" ? "Get started" : "Next"}
       <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M6 3l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </button>

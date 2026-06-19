@@ -58,10 +58,10 @@
 <div class="settings-view">
   <nav class="settings-nav">
     <div class="nav-box">
-      <input class="nav-input" placeholder="Search settings..." bind:value={filter} />
+      <input class="nav-input input" placeholder="Search settings..." bind:value={filter} />
     </div>
     {#each settingsNav as item (item.id)}
-      <button type="button" class="nav-item" class:active={section === item.id && !filter.trim()} onclick={() => { section = item.id; filter = ""; }}>{item.label}</button>
+      <button type="button" class="nav-item btn btn--ghost" class:active={section === item.id && !filter.trim()} onclick={() => { section = item.id; filter = ""; }}>{item.label}</button>
     {/each}
   </nav>
 
@@ -151,7 +151,7 @@
       <div class="row col"><div class="meta"><div class="label">Theme</div><div class="desc">Choose the overall color scheme for the workspace.</div></div>
         <div class="theme-grid">
           {#each themeList as th (th.id)}
-            <button type="button" class="theme-card" class:active={settings.theme === th.id} onclick={() => (settings.theme = th.id)}>
+            <button type="button" class="theme-card card" class:active={settings.theme === th.id} onclick={() => (settings.theme = th.id)}>
               <span class="theme-prev" style="background: {th.bg}"><span class="tp-bar" style="background: {th.text}"></span><span class="tp-dot" style="background: {th.panel}"></span></span>
               <span class="theme-name">{th.label}</span>
             </button>

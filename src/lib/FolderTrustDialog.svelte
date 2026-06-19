@@ -24,7 +24,7 @@
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="trust-backdrop" role="presentation" onclick={(e) => e.target === e.currentTarget && onRestricted()}>
-  <div class="trust-dialog" role="dialog" aria-modal="true" aria-labelledby="trust-title">
+  <div class="trust-dialog dialog glass glass--strong" role="dialog" aria-modal="true" aria-labelledby="trust-title">
     <div class="trust-icon" aria-hidden="true">
       <svg viewBox="0 0 48 48" fill="none">
         <path
@@ -69,11 +69,11 @@
     {/if}
 
     <div class="trust-actions">
-      <button type="button" class="trust-btn primary" onclick={onTrust}>
+      <button type="button" class="trust-btn btn btn--primary" onclick={onTrust}>
         <span class="trust-btn-label">Yes, I trust the authors</span>
         <span class="trust-btn-sub">Trust folder and enable all features</span>
       </button>
-      <button type="button" class="trust-btn secondary" onclick={onRestricted}>
+      <button type="button" class="trust-btn btn btn--secondary" onclick={onRestricted}>
         <span class="trust-btn-label">No, I don&apos;t trust the authors</span>
         <span class="trust-btn-sub">Browse folder in restricted mode</span>
       </button>
