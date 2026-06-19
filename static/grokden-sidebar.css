@@ -1,6 +1,21 @@
-/* Grokden labeled sidebar (Phase 3) */
+/* Grokden labeled sidebar (Phase 3) — scoped to workspace nav rail only */
 
-.sidebar {
+.ide .workspace > nav.sidebar,
+.ide .workspace > .sidebar.sidebar--collapsed {
+  width: var(--rail-width, 248px);
+  min-width: var(--rail-width, 248px);
+  max-width: var(--rail-width, 248px);
+  flex: 0 0 var(--rail-width, 248px);
+}
+
+.ide .workspace > .sidebar.sidebar--collapsed {
+  width: var(--rail-width-collapsed, 56px);
+  min-width: var(--rail-width-collapsed, 56px);
+  max-width: var(--rail-width-collapsed, 56px);
+  flex: 0 0 var(--rail-width-collapsed, 56px);
+}
+
+.ide .workspace > nav.sidebar {
   width: var(--rail-width, 248px);
   flex-shrink: 0;
   display: flex;
@@ -13,7 +28,7 @@
   transition: width 180ms ease;
 }
 
-.sidebar--collapsed {
+.ide .workspace > .sidebar.sidebar--collapsed {
   width: var(--rail-width-collapsed, 56px);
 }
 
