@@ -19,7 +19,35 @@ const GLASS_VAR_KEYS = [
   "--glass-shadow",
   "--glass-specular",
   "--glass-glow",
+  "--glass-refraction",
+  "--glass-displacement-scale",
+  "--glass-edge-width",
+  "--glass-aberration",
 ] as const;
+
+const DISPLACEMENT_FILTER_ID = "grokden-liquid-glass";
+const DISPLACEMENT_ABERRATION_FILTER_ID = "grokden-liquid-glass-aberration";
+
+/** Sync SVG feDisplacementMap scale from --glass-displacement-scale (vars don't work inside SVG filters). */
+function syncLiquidGlassFilterScale(glassStyle: string): void {
+  if (typeof document === "undefined") return;
+  const chunks = glassStyle.split(";");
+  let scale = "0";
+  let aberration = "0";
+  for (const chunk of chunks) {
+    const colon = chunk.indexOf(":");
+    if (colon <= 0) continue;
+    const key = chunk.slice(0, colon).trim();
+    const value = chunk.slice(colon + 1).trim();
+    if (key === "--glass-displacement-scale") scale = value;
+    if (key === "--glass-aberration") aberration = value;
+  }
+  const useAberration = parseFloat(aberration) > 0.01;
+  const filterId = useAberration ? DISPLACEMENT_ABERRATION_FILTER_ID : DISPLACEMENT_FILTER_ID;
+  const primary = document.getElementById("grokden-liquid-glass-disp");
+  if (primary) primary.setAttribute("scale", useAberration ? "0" : scale);
+  document.documentElement.style.setProperty("--glass-filter-url", `url(#${filterId})`);
+}
 
 export type GlassDebugState = {
   percent: number;
@@ -109,8 +137,11 @@ function applyGlassDom(glass: boolean, glassStyle: string): void {
   body.classList.toggle("opaque-window", !glass);
   if (glass && glassStyle) {
     applyGlassVarsToRoot(glassStyle);
+    syncLiquidGlassFilterScale(glassStyle);
   } else {
     clearGlassVarsFromRoot();
+    document.documentElement.style.removeProperty("--glass-filter-url");
+    syncLiquidGlassFilterScale("--glass-displacement-scale:0;--glass-aberration:0");
   }
 }
 

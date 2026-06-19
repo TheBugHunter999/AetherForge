@@ -317,7 +317,56 @@ struct WindowTransparencyResult {
 
 static LAST_WINDOW_TRANSPARENCY: Mutex<Option<WindowTransparencyResult>> = Mutex::new(None);
 
-/// Toggle webview background only — frosted glass is handled in CSS via backdrop-filter.
+fn clear_native_window_material(window: &tauri::WebviewWindow) {
+    #[cfg(target_os = "windows")]
+    {
+        let _ = window_vibrancy::clear_mica(window);
+        let _ = window_vibrancy::clear_acrylic(window);
+        let _ = window_vibrancy::clear_blur(window);
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let _ = window_vibrancy::clear_vibrancy(window);
+    }
+}
+
+/// Apply OS backdrop material when glass is active; clear when opaque.
+fn apply_native_window_material(window: &tauri::WebviewWindow, percent: u8) -> String {
+    if percent >= 100 {
+        clear_native_window_material(window);
+        return "opaque".to_string();
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        clear_native_window_material(window);
+        if window_vibrancy::apply_mica(window, Some(true)).is_ok() {
+            return "mica".to_string();
+        }
+        if window_vibrancy::apply_acrylic(window, Some((18, 18, 18, 175))).is_ok() {
+            return "acrylic".to_string();
+        }
+        return "css-blur".to_string();
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        clear_native_window_material(window);
+        use window_vibrancy::{apply_vibrancy, NSVisualEffectMaterial};
+        if apply_vibrancy(window, NSVisualEffectMaterial::HudWindow, None, None).is_ok() {
+            return "vibrancy".to_string();
+        }
+        return "css-blur".to_string();
+    }
+
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    {
+        let _ = window;
+        "css-blur".to_string()
+    }
+}
+
+/// Toggle webview background + native material — frosted glass panels use CSS backdrop-filter.
 #[tauri::command]
 fn set_window_transparency(
     app: AppHandle,
@@ -336,20 +385,19 @@ fn set_window_transparency(
     let opaque_bg = Color::from((9_u8, 9, 13, 255));
     let transparent_bg = Color::from((0_u8, 0, 0, 0));
 
-    let result = if percent >= 100 {
-        WindowTransparencyResult {
-            effect: "opaque".to_string(),
-            percent,
-        }
-    } else {
-        WindowTransparencyResult {
-            effect: "css-blur".to_string(),
-            percent,
-        }
+    let Some(window) = app.get_webview_window("main") else {
+        let effect = if percent >= 100 {
+            "opaque".to_string()
+        } else {
+            "css-blur".to_string()
+        };
+        return Ok(WindowTransparencyResult { effect, percent });
     };
 
-    let Some(window) = app.get_webview_window("main") else {
-        return Ok(result);
+    let native_effect = apply_native_window_material(&window, percent);
+    let result = WindowTransparencyResult {
+        effect: native_effect,
+        percent,
     };
 
     if percent >= 100 {

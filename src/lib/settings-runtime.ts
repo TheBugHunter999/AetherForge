@@ -383,34 +383,52 @@ export function buildGlassThemeVars(settings: AppSettings): string {
   if (settings.windowTransparency >= 100) return "";
 
   const theme = THEMES[settings.theme] ?? THEMES["codex"];
+  const profile = theme.glass;
+  const isLight = theme.isLight ?? profile.isLight;
   const { strength, blurPx, chromeAlpha, panelAlpha, editorAlpha, borderAlpha } = glassSurfaceMix(
     settings.windowTransparency,
   );
 
-  const blurChrome = Math.round(blurPx * 1.2);
-  const blurPanel = blurPx;
-  const blurEditor = Math.round(blurPx * 0.9);
+  const blurScale = profile.blurMultiplier;
+  const blurChrome = Math.round(blurPx * 1.2 * blurScale);
+  const blurPanel = Math.round(blurPx * blurScale);
+  const blurEditor = Math.round(blurPx * 0.9 * blurScale);
   const glowAlpha = 0.03 + strength * 0.055;
-  const specularAlpha = 0.05 + strength * 0.16;
+  const specularAlpha = (0.05 + strength * 0.16) * profile.specularStrength;
+  const sheenAlpha = (0.035 + strength * 0.06) * profile.sheenStrength;
+  const contrastEdgeAlpha = (0.14 + strength * 0.1) * profile.contrastEdgeStrength;
+
+  const tintBase = isLight ? theme.panelSolid : theme.chrome;
+  const lineLight = isLight ? "#0f172a" : "#ffffff";
+  const lineDark = isLight ? "#ffffff" : "#000000";
+
+  const refraction = strength * profile.refraction * (isLight ? 0.55 : 1);
+  const displacementScale = Math.round(refraction * 22 * 10) / 10;
+  const edgeWidth = (0.35 + strength * 0.45) * (isLight ? 0.85 : 1);
+  const aberration = strength * profile.aberrationBias * (isLight ? 0.35 : 1);
 
   return [
     `--glass-strength:${strength.toFixed(3)}`,
-    `--glass-blur:${blurPx}px`,
+    `--glass-blur:${blurPanel}px`,
     `--glass-blur-chrome:${blurChrome}px`,
     `--glass-blur-panel:${blurPanel}px`,
     `--glass-blur-editor:${blurEditor}px`,
-    `--glass-chrome-bg:${hexToRgba(theme.panelSolid, chromeAlpha)}`,
+    `--glass-chrome-bg:${hexToRgba(tintBase, chromeAlpha)}`,
     `--glass-panel-bg:${hexToRgba(theme.panelSolid, panelAlpha)}`,
     `--glass-editor-bg:${hexToRgba(theme.editorBg, editorAlpha)}`,
     `--glass-rail-bg:${hexToRgba(theme.panel, panelAlpha)}`,
-    `--glass-border:${hexToRgba("#ffffff", borderAlpha * 0.32)}`,
-    `--glass-highlight:${hexToRgba("#ffffff", specularAlpha)}`,
-    `--glass-sheen:${hexToRgba("#ffffff", 0.035 + strength * 0.06)}`,
-    `--glass-contrast-edge:${hexToRgba("#000000", 0.14 + strength * 0.10)}`,
-    `--glass-panel-ring:${hexToRgba("#ffffff", 0.05 + strength * 0.08)}`,
-    `--glass-shadow:0 18px 70px rgba(0,0,0,${(0.34 + strength * 0.12).toFixed(3)}), inset 0 1px 0 ${hexToRgba("#ffffff", specularAlpha)}`,
+    `--glass-border:${hexToRgba(lineLight, borderAlpha * (isLight ? 0.42 : 0.32))}`,
+    `--glass-highlight:${hexToRgba(lineLight, specularAlpha)}`,
+    `--glass-sheen:${hexToRgba(lineLight, sheenAlpha)}`,
+    `--glass-contrast-edge:${hexToRgba(lineDark, contrastEdgeAlpha)}`,
+    `--glass-panel-ring:${hexToRgba(lineLight, 0.05 + strength * 0.08)}`,
+    `--glass-shadow:0 18px 70px rgba(0,0,0,${(0.34 + strength * 0.12).toFixed(3)}), inset 0 1px 0 ${hexToRgba(lineLight, specularAlpha)}`,
     `--glass-specular:${specularAlpha.toFixed(3)}`,
     `--glass-glow:${glowAlpha.toFixed(3)}`,
+    `--glass-refraction:${refraction.toFixed(3)}`,
+    `--glass-displacement-scale:${displacementScale.toFixed(1)}`,
+    `--glass-edge-width:${edgeWidth.toFixed(3)}`,
+    `--glass-aberration:${aberration.toFixed(3)}`,
   ].join(";");
 }
 

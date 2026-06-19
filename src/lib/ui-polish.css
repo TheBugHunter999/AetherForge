@@ -185,3 +185,51 @@
     padding-inline: 8px;
   }
 }
+
+/* Apple-style Liquid Glass — chrome/panel headers only (not scrolling editor surfaces).
+   WebView2: backdrop-filter supports url(#svg-filter). WKWebView: blur-only via -webkit- prefix. */
+.glass-window .liquid-glass {
+  background: var(--glass-panel-bg, var(--glass-chrome-bg));
+  border: 1px solid var(--glass-border, var(--border));
+  box-shadow:
+    var(--glass-shadow, none),
+    inset 0 1px 0 var(--glass-highlight),
+    inset 0 -1px 0 var(--glass-contrast-edge);
+  contain: layout paint style;
+  will-change: backdrop-filter, transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  backdrop-filter: var(--glass-filter-url, none) blur(var(--glass-blur-panel, 20px)) saturate(160%) brightness(1.05);
+  -webkit-backdrop-filter: blur(var(--glass-blur-panel, 20px)) saturate(160%);
+}
+
+.glass-window .liquid-glass.liquid-glass-chrome {
+  background: var(--glass-chrome-bg);
+  backdrop-filter: var(--glass-filter-url, none) blur(var(--glass-blur-chrome, 24px)) saturate(160%) brightness(1.05);
+  -webkit-backdrop-filter: blur(var(--glass-blur-chrome, 24px)) saturate(160%);
+}
+
+.glass-window .liquid-glass.liquid-glass-rail {
+  background: var(--glass-rail-bg);
+}
+
+.opaque-window .liquid-glass,
+.glass-window.panel-animating .liquid-glass {
+  --glass-displacement-scale: 0;
+  backdrop-filter: blur(var(--glass-blur-panel, 20px)) saturate(140%);
+  -webkit-backdrop-filter: blur(var(--glass-blur-panel, 20px)) saturate(140%);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .glass-window .liquid-glass {
+    --glass-displacement-scale: 0;
+    backdrop-filter: blur(var(--glass-blur-panel, 16px)) saturate(120%);
+    -webkit-backdrop-filter: blur(var(--glass-blur-panel, 16px)) saturate(120%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glass-window .liquid-glass {
+    --glass-displacement-scale: 0;
+  }
+}
