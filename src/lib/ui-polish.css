@@ -60,11 +60,11 @@
 }
 
 .terminal-header {
-  height: 28px;
-  min-height: 28px;
+  height: 24px;
+  min-height: 24px;
   padding: 0 8px;
   gap: 2px;
-  background: var(--panel);
+  background: var(--terminal-bg, var(--editor-bg));
   border-bottom: 1px solid var(--border);
   overflow-x: auto;
   scrollbar-width: none;
@@ -75,7 +75,7 @@
 }
 
 .terminal-tab {
-  height: 24px;
+  height: 22px;
   padding: 0 10px;
   border: none;
   border-radius: 4px;
@@ -97,7 +97,7 @@
 
 .terminal-close {
   margin-left: auto;
-  height: 22px;
+  height: 20px;
   padding: 0 8px;
   border: none;
   border-radius: 4px;
@@ -130,9 +130,9 @@
   background: transparent;
 }
 
-/* Xterm inner surface. Removes the cramped top-left feeling from the screenshots. */
+/* Xterm inner surface — minimal padding, flat. */
 .terminal-host {
-  padding: 12px 14px !important;
+  padding: 4px 6px !important;
   border-top: 0 !important;
 }
 
@@ -141,7 +141,7 @@
 }
 
 .terminal-host .xterm-screen {
-  border-radius: 10px;
+  border-radius: 0;
 }
 
 .terminal-host .xterm-viewport {

@@ -464,7 +464,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   openFoldersInNewWindow: false,
   windowRestoreFullscreen: false,
   panelDefaultLocation: "bottom",
-  panelDefaultSize: 220,
+  panelDefaultSize: 180,
   autoHidePanels: false,
   sidebarLocation: "left",
   panelMaximizeOnOpen: false,
@@ -735,10 +735,10 @@ export function loadSettings(): AppSettings {
           parsed.windowTransparency = 100;
           localStorage.setItem(opaqueMigrationKey, "1");
         }
-        const compactTerminalKey = "Grokden.compactTerminal.v1";
+        const compactTerminalKey = "Grokden.compactTerminal.v2";
         if (localStorage.getItem(compactTerminalKey) !== "1") {
-          if ((parsed.panelDefaultSize ?? 320) > 240) {
-            parsed.panelDefaultSize = 220;
+          if ((parsed.panelDefaultSize ?? 320) > 200) {
+            parsed.panelDefaultSize = 180;
           }
           localStorage.setItem(compactTerminalKey, "1");
         }

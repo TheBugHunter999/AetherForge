@@ -2493,12 +2493,18 @@
           onmousedown={startTerminalResize}
         ></button>
         <div class="terminal-header">
-          <button type="button" class="terminal-tab" class:active={bottomPanelTab === "terminal"} onclick={() => selectBottomPanelTab("terminal")}>Terminal</button>
-          <button type="button" class="terminal-tab" class:active={bottomPanelTab === "output"} onclick={() => selectBottomPanelTab("output")}>Output</button>
-          <button type="button" class="terminal-tab" class:active={bottomPanelTab === "problems"} onclick={() => selectBottomPanelTab("problems")}>
-            Problems{#if workspaceLintIssues.length > 0}<span class="tab-count">{workspaceLintIssues.length}</span>{/if}
-          </button>
-          <button type="button" class="terminal-tab" class:active={bottomPanelTab === "debug"} onclick={() => selectBottomPanelTab("debug")}>Debug</button>
+          <span class="terminal-title">
+            {bottomPanelTab === "output"
+              ? "Output"
+              : bottomPanelTab === "problems"
+                ? `Problems${workspaceLintIssues.length > 0 ? ` (${workspaceLintIssues.length})` : ""}`
+                : bottomPanelTab === "debug"
+                  ? "Debug"
+                  : "Terminal"}
+          </span>
+          {#if bottomPanelTab !== "terminal"}
+            <button type="button" class="terminal-back" onclick={() => selectBottomPanelTab("terminal")}>Back</button>
+          {/if}
           <button type="button" class="terminal-close" aria-label="Hide terminal" title="Close panel" onclick={() => setUserTerminalOpen(false)}>
             <svg viewBox="0 0 16 16" aria-hidden="true">
               <path d="M4 4l8 8M12 4L4 12" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" />
@@ -3991,37 +3997,37 @@ This is a very long debug log line that demonstrates whether the debug console w
   .terminal-header {
     display: flex;
     align-items: center;
-    gap: 2px;
-    height: 28px;
-    min-height: 28px;
+    gap: 6px;
+    height: 24px;
+    min-height: 24px;
     padding: 0 8px;
-    background: var(--panel);
+    background: var(--terminal-bg, var(--editor-bg));
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
     min-width: 0;
-    overflow-x: auto;
   }
-  .terminal-tab {
-    display: flex;
-    align-items: center;
-    padding: 0 10px;
-    height: 24px;
+  .terminal-title {
     font-size: 11px;
+    font-weight: 500;
     color: var(--text-dim);
-    background: transparent;
+    letter-spacing: 0.01em;
+    user-select: none;
+  }
+  .terminal-back {
+    height: 20px;
+    padding: 0 8px;
     border: none;
-    border-radius: var(--radius-sm, 6px);
-    font-family: inherit;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--text-mute);
+    font: inherit;
+    font-size: 10px;
     cursor: pointer;
     transition: background 0.12s ease, color 0.12s ease;
   }
-  .terminal-tab:hover {
+  .terminal-back:hover {
     background: var(--hover);
     color: var(--text);
-  }
-  .terminal-tab.active {
-    color: var(--text);
-    box-shadow: inset 0 -2px 0 var(--accent);
   }
   .tab-count {
     margin-left: 6px;
@@ -4119,8 +4125,8 @@ This is a very long debug log line that demonstrates whether the debug console w
   }
   .terminal-close {
     margin-left: auto;
-    width: 28px;
-    height: 28px;
+    width: 22px;
+    height: 22px;
     padding: 0;
     border: none;
     background: transparent;
