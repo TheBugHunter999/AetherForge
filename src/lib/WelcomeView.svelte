@@ -226,7 +226,7 @@
       >+</button>
 
       {#if showQuickMenu}
-        <div class="cmdbar__menu glass" role="menu">
+        <div class="cmdbar__menu" role="menu">
           {#each quickChips as chip}
             <button
               type="button"
@@ -266,7 +266,7 @@
         </button>
 
         {#if showModeMenu}
-          <div class="cmdbar__menu cmdbar__menu--mode glass" role="listbox">
+          <div class="cmdbar__menu cmdbar__menu--mode" role="listbox">
             {#each agentPresets as preset}
               <button
                 type="button"

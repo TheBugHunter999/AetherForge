@@ -434,6 +434,19 @@ export function buildGlassThemeVars(settings: AppSettings): string {
     `--glass-displacement-scale:${displacementScale.toFixed(1)}`,
     `--glass-edge-width:${edgeWidth.toFixed(3)}`,
     `--glass-aberration:${aberration.toFixed(3)}`,
+    // Surface overrides — glass mode only; inline vars beat class CSS on .ide
+    `--bg:transparent`,
+    `--bg-elevated:var(--glass-panel-bg)`,
+    `--panel:var(--glass-panel-bg)`,
+    `--panel-2:var(--glass-rail-bg)`,
+    `--panel-solid:var(--glass-panel-bg)`,
+    `--editor-bg:var(--glass-editor-bg)`,
+    `--terminal-bg:var(--glass-editor-bg)`,
+    `--chrome:var(--glass-chrome-bg)`,
+    `--surface-3:var(--glass-panel-bg)`,
+    `--surface-raised:var(--glass-panel-bg)`,
+    `--surface-overlay:color-mix(in srgb, var(--glass-panel-bg) 92%, var(--text) 8%)`,
+    `--surface-inset:color-mix(in srgb, var(--glass-editor-bg) 90%, transparent)`,
   ].join(";");
 }
 
