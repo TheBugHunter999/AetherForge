@@ -1,18 +1,14 @@
 <!doctype html>
-<html lang="en" style="color-scheme:dark;background:var(--grok-bg,#060608);margin:0;padding:0;overflow:hidden">
+<html lang="en" style="color-scheme:dark;background:transparent;margin:0;padding:0;overflow:hidden">
   <head>
     <meta charset="utf-8" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
-      rel="stylesheet"
-    />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
     <script src="%sveltekit.assets%/grokden-icon-palette.js"></script>
     <link rel="icon" href="%sveltekit.assets%/favicon.png" />
     <link rel="stylesheet" href="%sveltekit.assets%/grokden-tokens.css" />
     <link rel="stylesheet" href="%sveltekit.assets%/grokden-glass.css" />
-
     <link rel="stylesheet" href="%sveltekit.assets%/grokden-supergrok-welcome.css" />
     <link rel="stylesheet" href="%sveltekit.assets%/grokden-ui.css" />
     <link rel="stylesheet" href="%sveltekit.assets%/liquid-glass-polish.css" />
@@ -29,15 +25,11 @@
     <link rel="stylesheet" href="%sveltekit.assets%/grokden-windowed-narrow.css" />
     <link rel="stylesheet" href="%sveltekit.assets%/grokden-icon-palette.css" />
     <link rel="stylesheet" href="%sveltekit.assets%/grokden-smooth-layout.css" />
-
     <link rel="stylesheet" href="%sveltekit.assets%/grokden-vscode-editor.css" />
     <link rel="stylesheet" href="%sveltekit.assets%/grokden-tab-panel-safe.css" />
-
     <link rel="stylesheet" href="%sveltekit.assets%/grokden-ui-polish-hotfix.css" />
     <link rel="stylesheet" href="%sveltekit.assets%/grokden-scrollbar-cleanup.css" />
-    <link rel="stylesheet" href="%sveltekit.assets%/grokden-premium-theme.css" />
-
-
+    <link rel="stylesheet" href="%sveltekit.assets%/grokden-pass3-polish.css" />
     <link rel="stylesheet" href="%sveltekit.assets%/grokden-welcome.css" />
     <link rel="stylesheet" href="%sveltekit.assets%/grokden-project-home.css" />
     <link rel="stylesheet" href="%sveltekit.assets%/grokden-canvas.css" />
@@ -46,34 +38,9 @@
     <title>Grokden</title>
     %sveltekit.head%
   </head>
-  <body data-sveltekit-preload-data="hover" style="background:var(--grok-bg,#060608);margin:0;padding:0;overflow:hidden">
-    <!-- Global Liquid Glass SVG filters (refraction via feDisplacementMap).
-         backdrop-filter: url(#…) works in WebView2/Chromium; WKWebView uses -webkit-backdrop-filter blur fallback only. -->
-    <svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" style="position:absolute;pointer-events:none" aria-hidden="true">
-      <defs>
-        <filter id="grokden-liquid-glass" x="-8%" y="-8%" width="116%" height="116%" color-interpolation-filters="sRGB">
-          <feImage href="%sveltekit.assets%/glass/edge-displacement.png" result="dispMap" preserveAspectRatio="none" />
-          <feDisplacementMap id="grokden-liquid-glass-disp" in="SourceGraphic" in2="dispMap" scale="12" xChannelSelector="R" yChannelSelector="G" />
-        </filter>
-        <filter id="grokden-liquid-glass-aberration" x="-8%" y="-8%" width="116%" height="116%" color-interpolation-filters="sRGB">
-          <feImage href="%sveltekit.assets%/glass/edge-displacement.png" result="dispMap" preserveAspectRatio="none" />
-          <feDisplacementMap in="SourceGraphic" in2="dispMap" scale="0" xChannelSelector="R" yChannelSelector="G" result="base" />
-          <feColorMatrix in="base" type="matrix" values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="rChan" />
-          <feOffset in="rChan" dx="-0.6" dy="0" result="rShift" />
-          <feColorMatrix in="base" type="matrix" values="0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0" result="gChan" />
-          <feColorMatrix in="base" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0" result="bChan" />
-          <feOffset in="bChan" dx="0.6" dy="0" result="bShift" />
-          <feBlend in="rShift" in2="gChan" mode="screen" result="rg" />
-          <feBlend in="rg" in2="bShift" mode="screen" />
-        </filter>
-      </defs>
-    </svg>
+  <body data-sveltekit-preload-data="hover" style="background:transparent;margin:0;padding:0;overflow:hidden">
     <div style="display: contents">%sveltekit.body%</div>
     <script defer src="%sveltekit.assets%/liquid-glass-navigation.js"></script>
-
     <script defer src="%sveltekit.assets%/grokden-ui-hotfix.js"></script>
-    <script defer src="%sveltekit.assets%/grokden-premium-theme.js"></script>
-
-
   </body>
 </html>
