@@ -105,7 +105,8 @@
   import ParallelAgents from "$lib/ParallelAgents.svelte";
   import AgentActivityFeed from "$lib/AgentActivityFeed.svelte";
   import WindowChrome from "$lib/WindowChrome.svelte";
-  import ActivityRail, { type ActivityRailItem } from "$lib/ActivityRail.svelte";
+  import Sidebar, { type SidebarSelectItem } from "$lib/Sidebar.svelte";
+  import SkillsConnectors from "$lib/SkillsConnectors.svelte";
   import UpdateIndicator from "$lib/UpdateIndicator.svelte";
   import UpdateOverlay from "$lib/UpdateOverlay.svelte";
   import {
@@ -237,8 +238,9 @@
   let sidebarCollapsed = $state(false);
   let terminalOpen = $state(settings.showTerminalOnStart);
   let secondarySidebarOpen = $state(initialSecondarySidebarOpen(settings));
-  let view = $state<"editor" | "settings" | "agents" | "canvas">("editor");
+  let view = $state<"editor" | "settings" | "agents" | "canvas" | "skills">("editor");
   let canvasOpen = $state(false);
+  let skillsOpen = $state(false);
   let parallelAgents = $state<ParallelAgent[]>([]);
   let missionGoals = $state<MissionGoal[]>([]);
   let agentSwarmOpen = $state(false);
@@ -592,7 +594,8 @@
       !activeTab &&
       !settingsOpen &&
       !agentSwarmOpen &&
-      !canvasOpen,
+      !canvasOpen &&
+      !skillsOpen,
   );
 
   let projectRecentFiles = $derived(
@@ -606,8 +609,9 @@
   let gitBranch = $derived(workspaceGitInfo?.branch ?? null);
   let gitDirty = $derived((workspaceGitInfo?.changedCount ?? 0) > 0);
 
-  let railActiveItem = $derived.by((): ActivityRailItem | null => {
+  let railActiveItem = $derived.by((): SidebarSelectItem | null => {
     if (settingsOpen) return "settings";
+    if (skillsOpen) return "skills";
     if (canvasOpen) return "canvas";
     if (agentSwarmOpen) return "agents";
     if (!sidebarCollapsed) {
@@ -618,7 +622,7 @@
     return null;
   });
 
-  function handleRailSelect(item: ActivityRailItem) {
+  function handleRailSelect(item: SidebarSelectItem) {
     switch (item) {
       case "explorer":
         toggleExplorerPanel();
@@ -637,6 +641,9 @@
         break;
       case "canvas":
         openCanvasView();
+        break;
+      case "skills":
+        openSkillsView();
         break;
       case "settings":
         openSettings();
@@ -841,13 +848,21 @@
   }
 
   /** Pick the next main view after closing a settings or swarm panel tab. */
-  function resolveViewAfterPanelClose(closed: "agents" | "settings" | "canvas"): "editor" | "settings" | "agents" | "canvas" {
+  function resolveViewAfterPanelClose(
+    closed: "agents" | "settings" | "canvas" | "skills",
+  ): "editor" | "settings" | "agents" | "canvas" | "skills" {
     if (closed === "agents" && settingsOpen) return "settings";
     if (closed === "settings" && agentSwarmOpen) return "agents";
     if (closed === "canvas" && agentSwarmOpen) return "agents";
     if (closed === "canvas" && settingsOpen) return "settings";
+    if (closed === "canvas" && skillsOpen) return "skills";
     if (closed === "agents" && canvasOpen) return "canvas";
     if (closed === "settings" && canvasOpen) return "canvas";
+    if (closed === "skills" && agentSwarmOpen) return "agents";
+    if (closed === "skills" && canvasOpen) return "canvas";
+    if (closed === "skills" && settingsOpen) return "settings";
+    if (closed === "agents" && skillsOpen) return "skills";
+    if (closed === "settings" && skillsOpen) return "skills";
     return "editor";
   }
 
@@ -1396,6 +1411,18 @@
   function closeCanvasView() {
     canvasOpen = false;
     if (view === "canvas") view = resolveViewAfterPanelClose("canvas");
+  }
+
+  function openSkillsView() {
+    skillsOpen = true;
+    view = "skills";
+    blurActiveTerminal();
+    setUserSidebarOpen(false);
+  }
+
+  function closeSkillsView() {
+    skillsOpen = false;
+    if (view === "skills") view = resolveViewAfterPanelClose("skills");
   }
 
   function openRecentProjectFile(file: RecentFile) {
@@ -1957,12 +1984,14 @@
   </header>
 
   <div class="workspace{layoutClasses.workspace}">
-    <ActivityRail
+    <Sidebar
       activeItem={railActiveItem}
       zenHidden={settings.zenMode}
       scmDisabled={!shouldShowGitPanel(settings)}
       agentBadgeCount={runningParallelAgentCount}
       onSelect={handleRailSelect}
+      onOpenTerminal={openTerminalPanel}
+      onOpenFolder={openFolder}
     />
 
     <div
@@ -2025,6 +2054,19 @@
     <main class="editor-area editor-area--split-ready" data-editor-split="single">
       <div class="tab-bar">
         <div class="tab-bar-scroll dark-scrollbar">
+          {#if skillsOpen}
+            <button
+              type="button"
+              class="tab"
+              class:active={view === "skills"}
+              onclick={() => (view = "skills")}
+              onauxclick={(e) => handlePanelTabMiddleClick(closeSkillsView, e)}
+            >
+              <span class="tab-badge swarm-badge">SK</span>
+              <span class="tab-name" title="Skills & Connectors">{middleTruncate("Skills", TAB_NAME_MAX)}</span>
+              <span class="tab-close" role="button" tabindex="0" aria-label="Close Skills & Connectors" onclick={(e) => { e.stopPropagation(); closeSkillsView(); }} onkeydown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); closeSkillsView(); } }}></span>
+            </button>
+          {/if}
           {#if canvasOpen}
             <button
               type="button"
@@ -2064,7 +2106,7 @@
               <span class="tab-close" role="button" tabindex="0" aria-label="Close Settings" onclick={(e) => closeSettings(e)} onkeydown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); closeSettings(); } }}></span>
             </button>
           {/if}
-          {#if tabs.length === 0 && !settingsOpen && !agentSwarmOpen && !canvasOpen}
+          {#if tabs.length === 0 && !settingsOpen && !agentSwarmOpen && !canvasOpen && !skillsOpen}
             <span class="tab active muted">{folderPath ? folderName || "Home" : "Welcome"}</span>
           {:else}
             {#each tabs as tab (tab.path)}
@@ -2130,6 +2172,14 @@
           out:fade={settings.enableAnimations ? fadeFast : { duration: 0 }}
         >
           <Settings bind:settings />
+        </div>
+      {:else if view === "skills"}
+        <div
+          class="view-pane skills-view-pane"
+          in:fade={settings.enableAnimations ? fadeFast : { duration: 0 }}
+          out:fade={settings.enableAnimations ? fadeFast : { duration: 0 }}
+        >
+          <SkillsConnectors />
         </div>
       {:else if view === "canvas"}
         <div
