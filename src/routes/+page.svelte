@@ -106,6 +106,7 @@
   import ParallelAgents from "$lib/ParallelAgents.svelte";
   import AgentActivityFeed from "$lib/AgentActivityFeed.svelte";
   import WindowChrome from "$lib/WindowChrome.svelte";
+  import ChromeMenuBar from "$lib/ChromeMenuBar.svelte";
   import ActivityRail, { type SidebarSelectItem } from "$lib/ActivityRail.svelte";
   import SkillsConnectors from "$lib/SkillsConnectors.svelte";
   import UpdateIndicator from "$lib/UpdateIndicator.svelte";
@@ -533,12 +534,19 @@
     }
   }
 
+  function notifyLayoutChange() {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("grokden:layout-change"));
+    }
+  }
+
   function toggleNavRailCollapse() {
     sidebarCollapsed = !sidebarCollapsed;
     if (typeof localStorage !== "undefined") {
       localStorage.setItem(SIDEBAR_COLLAPSED_KEY, sidebarCollapsed ? "1" : "0");
     }
     runLayoutReconcile();
+    notifyLayoutChange();
   }
 
   function setUserSidebarOpen(open: boolean) {
@@ -548,6 +556,7 @@
       collapsedByConstraint: { ...layoutConstraint.collapsedByConstraint, sidebar: false },
     };
     runLayoutReconcile();
+    notifyLayoutChange();
   }
 
   function dismissOverlayViews() {
@@ -582,6 +591,7 @@
       collapsedByConstraint: { ...layoutConstraint.collapsedByConstraint, secondary: false },
     };
     runLayoutReconcile();
+    notifyLayoutChange();
   }
 
   function setUserTerminalOpen(open: boolean) {
@@ -1686,6 +1696,12 @@
       openTerminal: () => openTerminalPanel(),
       closeTerminal: () => setUserTerminalOpen(false),
       isTerminalOpen: () => userTerminalOpen && terminalOpen,
+      toggleActivityBar: () => toggleNavRailCollapse(),
+      isActivityBarVisible: () => !sidebarCollapsed,
+      toggleSidebar: () => setUserSidebarOpen(!userSidebarOpen),
+      isSidebarOpen: () => userSidebarOpen,
+      toggleSecondary: () => setUserSecondaryOpen(!userSecondaryOpen),
+      isSecondaryOpen: () => userSecondaryOpen,
     });
 
     void getVersion().then((v) => {
@@ -1948,6 +1964,43 @@
   data-theme={settings.theme}
 >
   <WindowChrome>
+    {#snippet menuBar()}
+      <ChromeMenuBar
+        modLabel={quickOpenModLabel}
+        activityBarExpanded={!sidebarCollapsed}
+        explorerOpen={userSidebarOpen && !settings.zenMode}
+        terminalOpen={userTerminalOpen && terminalOpen}
+        secondaryOpen={userSecondaryOpen && secondarySidebarOpen}
+        settingsActive={view === "settings" && settingsOpen}
+        quickOpenActive={quickOpenVisible}
+        onToggleActivityBar={toggleNavRailCollapse}
+        onToggleExplorer={() => setUserSidebarOpen(!userSidebarOpen)}
+        onTogglePanel={toggleTerminalPanel}
+        onToggleSecondary={() => setUserSecondaryOpen(!userSecondaryOpen)}
+        onQuickOpen={() => (quickOpenVisible = true)}
+        onOpenSettings={openSettings}
+        onOpenFolder={openFolder}
+        onSave={saveActiveTab}
+        onCopy={() => document.execCommand("copy")}
+        onPaste={() => document.execCommand("paste")}
+        onSelectAll={() => {
+          const active = document.activeElement;
+          if (active instanceof HTMLTextAreaElement || active instanceof HTMLInputElement) {
+            active.select();
+            return;
+          }
+          document.execCommand("selectAll");
+        }}
+        onLaunchGrok={launchGrokCli}
+        onOpenAgents={openAgentSwarm}
+        onOpenExplorer={toggleExplorerPanel}
+        onOpenSearch={() => openWorkspacePanel("search")}
+        onOpenScm={() => openWorkspacePanel("scm")}
+        onOpenTerminal={openTerminalPanel}
+        onOpenDebug={() => selectBottomPanelTab("debug")}
+        onCheckUpdates={openUpdateOverlay}
+      />
+    {/snippet}
     {#snippet utilities()}
       <UpdateIndicator
         state={updateIndicatorState}

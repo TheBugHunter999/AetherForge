@@ -5,6 +5,12 @@ export type GrokdenLayoutBridge = {
   openTerminal: () => void;
   closeTerminal: () => void;
   isTerminalOpen: () => boolean;
+  toggleActivityBar: () => void;
+  isActivityBarVisible: () => boolean;
+  toggleSidebar: () => void;
+  isSidebarOpen: () => boolean;
+  toggleSecondary: () => void;
+  isSecondaryOpen: () => boolean;
 };
 
 declare global {

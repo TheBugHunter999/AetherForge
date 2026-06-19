@@ -137,10 +137,6 @@
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.13);
 }
 
-.ide.grokden-activity-rail-hidden .activity-rail {
-  display: none !important;
-}
-
 .ide.glass-window .grokden-menu-trigger:hover,
 .ide.glass-window .grokden-menu-open .grokden-menu-trigger,
 .ide.glass-window .grokden-layout-btn:hover {

@@ -12,6 +12,7 @@
 
   let {
     locked = false,
+    menuBar,
     utilities,
     workspaceTitle,
     environmentMode = "standard",
@@ -20,6 +21,7 @@
   }: {
     /** Setup wizard: centered, no drag, no maximize. */
     locked?: boolean;
+    menuBar?: import("svelte").Snippet;
     utilities?: import("svelte").Snippet;
     workspaceTitle?: string;
     environmentMode?: EnvironmentMode;
@@ -132,6 +134,12 @@
   {#if workspaceTitle}
     <div class="chrome-left" data-tauri-drag-region={locked ? undefined : true}>
       <span class="workspace-title">{workspaceTitle}</span>
+    </div>
+  {/if}
+
+  {#if menuBar}
+    <div class="chrome-menu-bar">
+      {@render menuBar()}
     </div>
   {/if}
 
@@ -269,6 +277,15 @@
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 240px;
+  }
+
+  .chrome-menu-bar {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    height: var(--grok-chrome-h);
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
   }
 
   .chrome-drag {
