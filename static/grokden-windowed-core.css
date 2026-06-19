@@ -1,9 +1,9 @@
 @media (max-width: 1250px) {
-  .ide { --rail-width: 258px !important; }
+  .ide { --rail-width: 56px !important; }
   .ide .activity-rail {
-    width: var(--rail-width, 258px) !important;
-    padding: 10px 7px 9px !important;
-    gap: 10px !important;
+    width: var(--grok-rail-w, var(--rail-width, 56px)) !important;
+    padding: 8px 4px 10px !important;
+    gap: 6px !important;
   }
   .ide .sidebar { width: 260px !important; }
   .ide .secondary-sidebar { display: none !important; }
@@ -15,22 +15,9 @@
 }
 
 @media (max-width: 1100px) {
-  .ide { --rail-width: 236px !important; }
-  .ide .activity-rail { width: var(--rail-width, 236px) !important; }
+  .ide { --rail-width: 56px !important; }
+  .ide .activity-rail { width: var(--grok-rail-w, var(--rail-width, 56px)) !important; }
   .ide .sidebar { width: 238px !important; }
-  .ide .codex-section-title { font-size: 11px !important; }
-  .ide .rail-btn,
-  .ide .codex-list-row {
-    min-height: 29px !important;
-    padding: 5px 8px !important;
-    font-size: 13px !important;
-  }
-  .ide .codex-project-row {
-    min-height: 31px !important;
-    padding: 6px 8px !important;
-  }
-  .ide .codex-list-time,
-  .ide .codex-project-meta { font-size: 11px !important; }
   .ide .command-hint {
     min-width: 160px !important;
     max-width: 260px !important;

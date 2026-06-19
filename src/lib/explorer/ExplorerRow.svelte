@@ -108,32 +108,45 @@
   .tree-row {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: var(--grok-space-2, 4px);
     width: 100%;
-    height: 22px;
-    min-height: 22px;
-    padding: 0 8px 0 4px;
+    height: 30px;
+    min-height: 30px;
+    padding: 0 var(--grok-space-4, 8px) 0 var(--grok-space-2, 4px);
     margin: 0;
-    font-size: 13px;
-    font-weight: 400;
+    font-size: var(--grok-font-size-base, 13px);
+    font-weight: var(--grok-font-weight-regular, 400);
     font-family: inherit;
-    color: var(--text-dim);
+    color: var(--grok-text-secondary, var(--text-dim));
     background: none;
     border: none;
-    border-radius: 0;
+    border-radius: var(--grok-radius-lg, 8px);
     text-align: left;
     cursor: pointer;
     box-sizing: border-box;
     user-select: none;
+    transition:
+      background var(--grok-duration-fast, 150ms) var(--grok-ease-default, ease),
+      color var(--grok-duration-fast, 150ms) var(--grok-ease-default, ease),
+      box-shadow var(--grok-duration-fast, 150ms) var(--grok-ease-default, ease);
   }
 
   .tree-row.folder {
-    color: var(--text);
+    color: var(--grok-text, var(--text));
   }
 
-  .tree-row:hover,
+  .tree-row:hover {
+    background: var(--grok-surface-2, var(--hover));
+  }
+
   .tree-row.folder.selected {
-    background: var(--hover);
+    color: var(--grok-text, var(--text));
+    background: var(--grok-purple-soft, var(--accent-soft));
+    box-shadow: inset var(--grok-focus-width, 2px) 0 0 var(--grok-purple, var(--accent));
+  }
+
+  .tree-row.folder.selected:hover {
+    background: color-mix(in srgb, var(--grok-purple-soft, var(--accent-soft)) 88%, var(--grok-surface-2, var(--hover)));
   }
 
   .tree-row.file.muted {
@@ -141,7 +154,7 @@
   }
 
   .tree-row.folder.loading {
-    color: var(--text-mute);
+    color: var(--grok-text-muted, var(--text-mute));
   }
 
   .tree-file-row {
@@ -149,29 +162,45 @@
     align-items: center;
     gap: 0;
     width: 100%;
-    height: 22px;
+    height: 30px;
     min-width: 0;
+    border-radius: var(--grok-radius-lg, 8px);
     box-sizing: border-box;
+    transition:
+      background var(--grok-duration-fast, 150ms) var(--grok-ease-default, ease),
+      box-shadow var(--grok-duration-fast, 150ms) var(--grok-ease-default, ease);
+  }
+
+  .tree-file-row:hover:not(.active) {
+    background: var(--grok-surface-2, var(--hover));
   }
 
   .tree-file-row.active {
-    background: var(--hover);
-    box-shadow: inset 2px 0 0 var(--accent);
+    background: var(--grok-purple-soft, var(--accent-soft));
+    box-shadow: inset var(--grok-focus-width, 2px) 0 0 var(--grok-purple, var(--accent));
   }
 
   .tree-file-row.active .tree-row.file {
-    color: var(--text);
+    color: var(--grok-text, var(--text));
+    background: transparent;
+  }
+
+  .tree-file-row.active .tree-row.file:hover {
     background: transparent;
   }
 
   .tree-file-row.active .file-icon {
-    color: var(--text);
+    color: var(--grok-text, var(--text));
   }
 
   .tree-row.file {
     flex: 1;
     min-width: 0;
     padding-right: 0;
+  }
+
+  .tree-row.file:hover {
+    background: transparent;
   }
 
   .twistie,
@@ -195,7 +224,7 @@
     height: 0;
     border-top: 3px solid transparent;
     border-bottom: 3px solid transparent;
-    border-left: 4px solid var(--text-mute);
+    border-left: 4px solid var(--grok-text-muted, var(--text-mute));
     transition: transform 0.1s ease;
   }
 
@@ -208,7 +237,7 @@
     height: 6px;
     border: none;
     border-radius: 50%;
-    background: var(--text-mute);
+    background: var(--grok-text-muted, var(--text-mute));
     opacity: 0.45;
     animation: pulse-dot 1s ease-in-out infinite;
   }
@@ -221,6 +250,11 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    border-radius: var(--grok-radius-lg, 8px);
+  }
+
+  .nest-twistie:hover {
+    background: var(--grok-surface-2, var(--hover));
   }
 
   .nest-twistie::before {
@@ -229,7 +263,7 @@
     height: 0;
     border-top: 3px solid transparent;
     border-bottom: 3px solid transparent;
-    border-left: 4px solid var(--text-mute);
+    border-left: 4px solid var(--grok-text-muted, var(--text-mute));
     transition: transform 0.1s ease;
   }
 
@@ -244,15 +278,15 @@
     width: 16px;
     height: 16px;
     flex-shrink: 0;
-    color: var(--text-mute);
+    color: var(--grok-text-muted, var(--text-mute));
   }
 
   .folder-icon {
-    color: color-mix(in srgb, var(--accent) 55%, var(--text-mute));
+    color: color-mix(in srgb, var(--grok-purple, var(--accent)) 55%, var(--grok-text-muted, var(--text-mute)));
   }
 
   .file-icon {
-    color: var(--text-dim);
+    color: var(--grok-text-secondary, var(--text-dim));
   }
 
   .label {
@@ -261,36 +295,36 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    line-height: 22px;
+    line-height: 30px;
   }
 
   .git-status {
     flex-shrink: 0;
     margin-left: auto;
-    padding: 0 8px 0 4px;
-    font-size: 11px;
-    font-weight: 400;
-    line-height: 22px;
+    padding: 0 var(--grok-space-4, 8px) 0 var(--grok-space-2, 4px);
+    font-size: var(--grok-font-size-xs, 11px);
+    font-weight: var(--grok-font-weight-regular, 400);
+    line-height: 30px;
     opacity: 0.9;
   }
 
   .git-status[data-status="U"],
   .git-status[data-status="?"] {
-    color: var(--success);
+    color: var(--grok-success, var(--success));
   }
 
   .git-status[data-status="A"],
   .git-status[data-status="M"] {
-    color: var(--warn);
+    color: var(--grok-warn, var(--warn));
   }
 
   .git-status[data-status="D"],
   .git-status[data-status="!"] {
-    color: var(--danger);
+    color: var(--grok-danger, var(--danger));
   }
 
   .git-status[data-status="R"] {
-    color: var(--accent);
+    color: var(--grok-purple, var(--accent));
   }
 
   @keyframes pulse-dot {

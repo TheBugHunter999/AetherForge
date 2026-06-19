@@ -15,6 +15,7 @@
   } from "$lib/explorer/explorer-store.svelte";
   import type { ExplorerTreeNode } from "$lib/workspace/types";
   import type { ExplorerDisplayRow } from "$lib/settings-runtime";
+  import { EXPLORER_ROW_HEIGHT } from "$lib/explorer/path-utils";
 
   type Props = {
     settings: AppSettings;
@@ -54,7 +55,7 @@
   {:else}
     <VirtualList
       items={rows}
-      rowHeight={22}
+      rowHeight={EXPLORER_ROW_HEIGHT}
       itemKey={(row: ExplorerDisplayRow<ExplorerTreeNode>) => row.node.path}
     >
       {#snippet children({ item: row, style })}
@@ -91,15 +92,15 @@
   }
 
   .tree-empty {
-    padding: 4px 20px;
-    font-size: 13px;
-    color: var(--text-mute);
+    padding: var(--grok-space-2, 4px) 20px;
+    font-size: var(--grok-font-size-base, 13px);
+    color: var(--grok-text-muted, var(--text-mute));
     font-style: italic;
   }
 
   .tree-virtual-row {
     display: block;
-    height: 22px;
+    height: 30px;
     margin: 0;
     padding: 0;
     overflow: hidden;

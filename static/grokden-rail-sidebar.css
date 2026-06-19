@@ -1,0 +1,157 @@
+/* GROKDEN Phase 2 — Rail + explorer sidebar layout (Section 8, 12.7)
+   Fixed icon rail; explorer sidebar between rail and workbench. */
+
+:root {
+  --grok-explorer-sidebar-w: 280px;
+  --grok-explorer-sidebar-min-w: 220px;
+  --grok-explorer-sidebar-max-w: 420px;
+  --grok-rail-sidebar-gap: 1px;
+}
+
+/* ── Workspace shell: rail | 1px gap | panels ─────────────────────────── */
+
+.ide .workspace {
+  gap: 0;
+}
+
+.ide .workspace-body {
+  margin-left: var(--grok-rail-sidebar-gap);
+  min-width: 0;
+}
+
+.ide .workspace.sidebar-right .workspace-body {
+  margin-left: 0;
+  margin-right: var(--grok-rail-sidebar-gap);
+}
+
+.ide .workspace-panels {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 0;
+  overflow: hidden;
+  gap: 0;
+}
+
+/* ── Activity rail — fixed width, migrate off codex / --rail-width ─────── */
+
+.ide .activity-rail,
+.ide .activity-rail.codex-sidebar,
+.ide.glass-window .activity-rail,
+.ide.glass-window .activity-rail.codex-sidebar,
+.ide.grokden-premium-theme .activity-rail,
+.ide.grokden-premium-theme.glass-window .activity-rail {
+  width: var(--grok-rail-w) !important;
+  min-width: var(--grok-rail-w) !important;
+  max-width: var(--grok-rail-w) !important;
+  flex: 0 0 var(--grok-rail-w) !important;
+  background: var(--grok-bg-elevated) !important;
+  border-right: 1px solid var(--grok-border) !important;
+  box-shadow: inset -1px 0 0 var(--grok-divider) !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  border-top: 0 !important;
+  border-bottom: 0 !important;
+  border-left: 0 !important;
+  padding: var(--grok-space-5) var(--grok-space-4) var(--grok-space-4) !important;
+  gap: var(--grok-space-4) !important;
+  overflow: hidden !important;
+  contain: layout style paint;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.ide .workspace.sidebar-right .activity-rail,
+.ide .workspace-panels.sidebar-right .activity-rail,
+.ide.glass-window .workspace.sidebar-right .activity-rail,
+.ide.glass-window .workspace-panels.sidebar-right .activity-rail {
+  border-right: 0 !important;
+  border-left: 1px solid var(--grok-border) !important;
+  box-shadow: inset 1px 0 0 var(--grok-divider) !important;
+}
+
+/* Icon-only rail: primary actions + settings; hide wide codex sections */
+.ide .activity-rail .codex-section {
+  display: none !important;
+}
+
+.ide .activity-rail .codex-primary-actions {
+  display: flex !important;
+  flex-direction: column;
+  gap: var(--grok-space-2);
+}
+
+.ide .activity-rail .codex-section-title,
+.ide .activity-rail .codex-nav-text,
+.ide .activity-rail .codex-project-name,
+.ide .activity-rail .codex-project-meta,
+.ide .activity-rail .codex-list-time,
+.ide .activity-rail .rail-spacer {
+  display: none !important;
+}
+
+.ide .activity-rail .rail-btn,
+.ide .activity-rail .codex-project-row,
+.ide .activity-rail .codex-list-row {
+  width: calc(var(--grok-rail-w) - var(--grok-space-4) * 2) !important;
+  min-width: 0 !important;
+  min-height: 36px !important;
+  padding: 0 !important;
+  justify-content: center !important;
+  align-items: center !important;
+}
+
+.ide .activity-rail .settings-item {
+  margin-top: auto;
+}
+
+.ide .activity-rail.zen-hidden {
+  width: 0 !important;
+  min-width: 0 !important;
+  max-width: 0 !important;
+  flex-basis: 0 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  border-right-color: transparent !important;
+  border-left-color: transparent !important;
+  opacity: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* ── Explorer sidebar — between rail and workbench ───────────────────── */
+
+.ide .sidebar,
+.ide.glass-window .sidebar,
+.ide.grokden-premium-theme .sidebar,
+.ide.grokden-premium-theme.glass-window .sidebar {
+  width: clamp(
+    0px,
+    var(--sidebar-width, var(--grok-explorer-sidebar-w)),
+    var(--grok-explorer-sidebar-max-w)
+  ) !important;
+  min-width: 0 !important;
+  max-width: var(--grok-explorer-sidebar-max-w) !important;
+  flex: 0 0 auto;
+  background: var(--grok-surface) !important;
+  background-image: none !important;
+  border-right: 1px solid var(--grok-border) !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  border-top: 0 !important;
+  border-bottom: 0 !important;
+  border-left: 0 !important;
+  overflow: hidden !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  opacity: 1;
+}
+
+.ide .workspace-panels.sidebar-right .sidebar,
+.ide.glass-window .workspace-panels.sidebar-right .sidebar,
+.ide.grokden-premium-theme .workspace-panels.sidebar-right .sidebar,
+.ide.grokden-premium-theme.glass-window .workspace-panels.sidebar-right .sidebar {
+  border-right: none !important;
+  border-left: 1px solid var(--grok-border) !important;
+}

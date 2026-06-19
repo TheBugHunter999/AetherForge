@@ -4,9 +4,9 @@ Grokden is a desktop workspace for people who work with the Grok command-line to
 
 ## Screenshots
 
-![Grokden welcome screen — open a folder, launch the terminal, or start parallel Grok CLI agents](docs/screenshots/welcome-screen.jpg)
+![Grokden welcome screen — command bar, quick actions, agent presets, and theme previews](docs/screenshots/welcome-screen.jpg)
 
-The welcome screen is the starting point for a new session. From here you can open a local folder, jump into the integrated terminal, or launch parallel Grok CLI agent panes. The activity rail on the left keeps explorer, search, source control, and settings one click away.
+The welcome screen is the starting point for a new session. From here you can open a folder, run commands from the central command bar, launch agents or the terminal, and preview themes. The slim activity rail on the left keeps explorer, search, source control, canvas, and settings one click away.
 
 ## Who should use Grokden
 

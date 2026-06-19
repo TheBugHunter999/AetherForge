@@ -13,6 +13,7 @@
     loadSettings,
     type SearchMatch,
   } from "$lib/editor-utils";
+  import { middleTruncate } from "$lib/explorer/path-utils";
   import {
     applyDeveloperRuntime,
     applySavePipeline,
@@ -104,6 +105,7 @@
   import ParallelAgents from "$lib/ParallelAgents.svelte";
   import AgentActivityFeed from "$lib/AgentActivityFeed.svelte";
   import WindowChrome from "$lib/WindowChrome.svelte";
+  import ActivityRail, { type ActivityRailItem } from "$lib/ActivityRail.svelte";
   import UpdateIndicator from "$lib/UpdateIndicator.svelte";
   import UpdateOverlay from "$lib/UpdateOverlay.svelte";
   import {
@@ -130,6 +132,7 @@
     invalidateChildren,
     getSearchableExplorerNodes,
     getGitStatusMap,
+    getWorkspaceInfo,
     workspaceExcludePatterns,
     setSelectedFolderPath,
   } from "$lib/explorer/explorer-store.svelte";
@@ -151,11 +154,15 @@
     isGrokCliAvailable,
   } from "$lib/grok-cli";
   import { APP_DISPLAY_NAME, migrateLegacyBranding, syncAppBranding } from "$lib/branding";
+  import ProjectHome, { type RecentFile } from "$lib/ProjectHome.svelte";
   import WelcomeView, {
     type RecentWorkspace,
     type WelcomeThemeId,
   } from "$lib/WelcomeView.svelte";
   import Canvas from "$lib/Canvas.svelte";
+
+  const quickOpenModLabel =
+    typeof navigator !== "undefined" && /Mac|iPhone|iPad/i.test(navigator.userAgent) ? "Cmd" : "Ctrl";
 
   migrateLegacyBranding();
 
@@ -579,6 +586,68 @@
     parallelAgents.filter((a) => a.status === "running" || a.status === "launching").length,
   );
 
+  let showProjectHome = $derived(
+    Boolean(folderPath) &&
+      view === "editor" &&
+      !activeTab &&
+      !settingsOpen &&
+      !agentSwarmOpen &&
+      !canvasOpen,
+  );
+
+  let projectRecentFiles = $derived(
+    [...tabs]
+      .reverse()
+      .map((tab) => ({ path: tab.path, name: tab.name }) satisfies RecentFile)
+      .slice(0, 8),
+  );
+
+  let workspaceGitInfo = $derived(getWorkspaceInfo());
+  let gitBranch = $derived(workspaceGitInfo?.branch ?? null);
+  let gitDirty = $derived((workspaceGitInfo?.changedCount ?? 0) > 0);
+
+  let railActiveItem = $derived.by((): ActivityRailItem | null => {
+    if (settingsOpen) return "settings";
+    if (canvasOpen) return "canvas";
+    if (agentSwarmOpen) return "agents";
+    if (!sidebarCollapsed) {
+      if (activePanel === "explorer") return "explorer";
+      if (activePanel === "search") return "search";
+      if (activePanel === "scm") return "scm";
+    }
+    return null;
+  });
+
+  function handleRailSelect(item: ActivityRailItem) {
+    switch (item) {
+      case "explorer":
+        toggleExplorerPanel();
+        break;
+      case "search":
+        activePanel = "search";
+        setUserSidebarOpen(true);
+        break;
+      case "scm":
+        if (!shouldShowGitPanel(settings)) return;
+        activePanel = "scm";
+        setUserSidebarOpen(true);
+        break;
+      case "agents":
+        openAgentSwarm();
+        break;
+      case "canvas":
+        openCanvasView();
+        break;
+      case "settings":
+        openSettings();
+        break;
+    }
+  }
+
+  function setEnvironmentMode(mode: "standard" | "glass") {
+    settings.windowTransparency = mode === "glass" ? 72 : 100;
+  }
+
   let editorLines = $derived(
     activeTab
       ? activeTab.content.split("\n").map((content, index) => ({ num: index + 1, content }))
@@ -992,6 +1061,11 @@
       quickOpenVisible = !quickOpenVisible;
       return;
     }
+    if (mod && (event.key === "\\" || event.code === "Backslash")) {
+      event.preventDefault();
+      handleEditorSplit();
+      return;
+    }
     if (matchKeybinding(event, "commandPalette", settings)) {
       event.preventDefault();
       openSettings();
@@ -1324,9 +1398,17 @@
     if (view === "canvas") view = resolveViewAfterPanelClose("canvas");
   }
 
+  function openRecentProjectFile(file: RecentFile) {
+    activeTabPath = file.path;
+    view = "editor";
+  }
+
   function handleWelcomeCommand(command: string) {
     const trimmed = command.trim().toLowerCase();
-    if (!trimmed) return;
+    if (!trimmed) {
+      void openFolder();
+      return;
+    }
     if (trimmed === "git clone" || trimmed.startsWith("clone")) {
       openTerminalPanel();
       grokInjectToken += 1;
@@ -1353,7 +1435,11 @@
       openCanvasView();
       return;
     }
-    launchGrokCli();
+    if (trimmed.startsWith(">")) {
+      quickOpenVisible = true;
+      return;
+    }
+    quickOpenVisible = true;
   }
 
   function handleWelcomeTheme(themeId: WelcomeThemeId) {
@@ -1380,19 +1466,16 @@
     }
   }
 
-  function loadRecentWorkspaces(): RecentWorkspace[] {
-    if (typeof localStorage === "undefined") return [];
+  let recentWorkspaces = $state<RecentWorkspace[]>([]);
+  $effect(() => {
+    if (typeof localStorage === "undefined") return;
     try {
       const raw = localStorage.getItem("Grokden.recentWorkspaces");
-      if (!raw) return [];
-      const parsed = JSON.parse(raw) as RecentWorkspace[];
-      return Array.isArray(parsed) ? parsed : [];
+      recentWorkspaces = raw ? (JSON.parse(raw) as RecentWorkspace[]) : [];
     } catch {
-      return [];
+      recentWorkspaces = [];
     }
-  }
-
-  let recentWorkspaces = $state<RecentWorkspace[]>(loadRecentWorkspaces());
+  });
 
   function closeAgentSwarm() {
     agentSwarmOpen = false;
@@ -1703,6 +1786,31 @@
     });
   }
 
+  const TAB_NAME_MAX = 28;
+
+  function openNewTabFromBar() {
+    quickOpenVisible = true;
+  }
+
+  function handleEditorSplit() {
+    settingsNotice = "Editor split is not available yet.";
+    setTimeout(() => {
+      if (settingsNotice === "Editor split is not available yet.") settingsNotice = "";
+    }, 2200);
+  }
+
+  function handleTabMiddleClick(path: string, event: MouseEvent) {
+    if (event.button !== 1) return;
+    event.preventDefault();
+    closeTab(path, event);
+  }
+
+  function handlePanelTabMiddleClick(closeFn: () => void, event: MouseEvent) {
+    if (event.button !== 1) return;
+    event.preventDefault();
+    closeFn();
+  }
+
   function closeTab(path: string, event: MouseEvent) {
     event.stopPropagation();
     const tab = tabs.find((t) => t.path === path);
@@ -1767,6 +1875,7 @@
 <div
   class="ide{layoutClasses.ide} workspace-enter"
   class:glass-window={settings.windowTransparency < 100}
+  class:grokden-sidebar-hidden={sidebarCollapsed}
   style="{rootStyle};{layoutStyle}"
   data-ui-lang={settings.uiLanguage}
   data-theme={settings.theme}
@@ -1814,100 +1923,47 @@
     </div>
 
     <div class="topbar-actions">
+      <div class="env-pills" role="group" aria-label="Environment mode">
+        <button
+          type="button"
+          class="env-pill"
+          class:active={settings.windowTransparency >= 100}
+          aria-pressed={settings.windowTransparency >= 100}
+          onclick={() => setEnvironmentMode("standard")}
+        >Standard</button>
+        <button
+          type="button"
+          class="env-pill"
+          class:active={settings.windowTransparency < 100}
+          aria-pressed={settings.windowTransparency < 100}
+          onclick={() => setEnvironmentMode("glass")}
+        >Glass</button>
+      </div>
+      <button
+        type="button"
+        class="global-search-btn"
+        aria-label="Quick Open"
+        title="Quick Open (Ctrl+P)"
+        onclick={() => (quickOpenVisible = true)}
+      >
+        <svg viewBox="0 0 16 16" aria-hidden="true">
+          <circle cx="7" cy="7" r="4" fill="none" stroke="currentColor" stroke-width="1.25" />
+          <path d="M10 10l3 3" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" />
+        </svg>
+        <span>Search</span>
+      </button>
       <button type="button" class="save-btn" onclick={saveActiveTab} disabled={!activeTab || !isDirty(activeTab)} title="Save (Ctrl+S)">Save</button>
     </div>
   </header>
 
   <div class="workspace{layoutClasses.workspace}">
-    <nav class="activity-rail codex-sidebar" aria-label="Workspace navigation" class:zen-hidden={settings.zenMode}>
-      <div class="codex-primary-actions">
-        <button type="button" class="rail-btn codex-nav-item primary" class:active={userTerminalOpen && view !== "agents"} aria-label="Terminal" onclick={toggleTerminalPanel}>
-          <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true"><rect x="2.5" y="3.5" width="11" height="9" rx="1" fill="none" stroke="currentColor" stroke-width="1.25"/><path d="M5 7l2 1.5L5 10M8.5 10.5h3" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <span class="codex-nav-text">Terminal</span>
-        </button>
-        <button type="button" class="rail-btn codex-nav-item" class:active={activePanel === "search" && !sidebarCollapsed} aria-label="Search" onclick={() => { activePanel = "search"; setUserSidebarOpen(true); }}>
-          <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4" fill="none" stroke="currentColor" stroke-width="1.25"/><path d="M10 10l3 3" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/></svg>
-          <span class="codex-nav-text">Search</span>
-        </button>
-        <button type="button" class="rail-btn codex-nav-item" class:active={agentSwarmOpen} aria-label="Parallel Agents" onclick={openAgentSwarm}>
-          <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2" width="5" height="5" rx="0.5" fill="none" stroke="currentColor" stroke-width="1.1"/><rect x="9" y="2" width="5" height="5" rx="0.5" fill="none" stroke="currentColor" stroke-width="1.1"/><rect x="2" y="9" width="5" height="5" rx="0.5" fill="none" stroke="currentColor" stroke-width="1.1"/><rect x="9" y="9" width="5" height="5" rx="0.5" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>
-          <span class="codex-nav-text">Parallel Agents</span>
-          {#if runningParallelAgentCount > 0}<span class="rail-badge inline">{runningParallelAgentCount}</span>{/if}
-        </button>
-        <button type="button" class="rail-btn codex-nav-item" class:active={canvasOpen} aria-label="Canvas" title="Canvas" onclick={openCanvasView}>
-          <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2" width="12" height="12" rx="1" fill="none" stroke="currentColor" stroke-width="1.1"/><circle cx="5" cy="5" r="0.75" fill="currentColor"/><circle cx="11" cy="5" r="0.75" fill="currentColor"/><circle cx="5" cy="11" r="0.75" fill="currentColor"/><circle cx="11" cy="11" r="0.75" fill="currentColor"/></svg>
-          <span class="codex-nav-text">Canvas</span>
-        </button>
-      </div>
-
-      <div class="codex-section">
-        <div class="codex-section-title">Projects</div>
-        <button type="button" class="codex-project-row" class:active={activePanel === "explorer" && !sidebarCollapsed} onclick={toggleExplorerPanel}>
-          <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 4.5h4l1.1 1.2H14v6.8H2V4.5z" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/></svg>
-          <span class="codex-project-name">{folderName || "Open a folder"}</span>
-          <span class="codex-project-meta">{activePanel === "explorer" && !sidebarCollapsed ? "Hide" : folderPath ? "Files" : "Start"}</span>
-        </button>
-        <button type="button" class="codex-list-row compact" onclick={openFolder}>
-          <span>{folderPath ? "Switch folder" : "Choose workspace"}</span>
-          <span class="codex-list-time">Ctrl+O</span>
-        </button>
-      </div>
-
-      <div class="codex-section">
-        <div class="codex-section-title">Workspace</div>
-        <button type="button" class="codex-list-row" class:active={activePanel === "explorer" && !sidebarCollapsed} onclick={toggleExplorerPanel}>
-          <span>Files</span>
-          <span class="codex-list-time">{activePanel === "explorer" && !sidebarCollapsed ? "hide" : tabs.length}</span>
-        </button>
-        <button type="button" class="codex-list-row" class:active={activePanel === "scm" && !sidebarCollapsed} disabled={!shouldShowGitPanel(settings)} onclick={() => { if (!shouldShowGitPanel(settings)) return; activePanel = "scm"; setUserSidebarOpen(true); }}>
-          <span>Source Control</span>
-          {#if dirtyCount > 0}<span class="codex-dot" aria-hidden="true"></span>{/if}
-        </button>
-        <button
-          type="button"
-          class="codex-list-row"
-          class:active={secondarySidebarOpen && secondaryPanelTab === "activity"}
-          onclick={() => {
-            if (secondarySidebarOpen && secondaryPanelTab === "activity") {
-              setUserSecondaryOpen(false);
-            } else {
-              setUserSecondaryOpen(true);
-              secondaryPanelTab = "activity";
-            }
-          }}
-        >
-          <span>Agent Activity</span>
-          {#if activeAgentSession && isSessionLive(activeAgentSession)}
-            <span class="rail-live inline" aria-hidden="true"></span>
-          {/if}
-        </button>
-      </div>
-
-      <div class="codex-section codex-session-section">
-        <div class="codex-section-title">Sessions</div>
-        {#if activeTab}
-          <button type="button" class="codex-list-row" onclick={() => { view = "editor"; activeTabPath = activeTab.path; }}>
-            <span>{activeTab.name}</span>
-            <span class="codex-list-time">now</span>
-          </button>
-        {/if}
-        <button type="button" class="codex-list-row" onclick={openTerminalPanel}>
-          <span>Workspace terminal</span>
-          <span class="codex-list-time">{userTerminalOpen ? "open" : "ready"}</span>
-        </button>
-        <button type="button" class="codex-list-row" onclick={openAgentSwarm}>
-          <span>Parallel agents</span>
-          <span class="codex-list-time">{runningParallelAgentCount > 0 ? `${runningParallelAgentCount} live` : "ready"}</span>
-        </button>
-      </div>
-
-      <span class="rail-spacer"></span>
-
-      <button type="button" class="rail-btn codex-nav-item settings-item" class:active={settingsOpen} aria-label="Settings" onclick={openSettings}>
-        <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="2" fill="none" stroke="currentColor" stroke-width="1.25"/><path d="M8 2.5v2M8 11.5v2M2.5 8h2M11.5 8h2M4.1 4.1l1.4 1.4M10.5 10.5l1.4 1.4M4.1 11.9l1.4-1.4M10.5 5.5l1.4-1.4" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/></svg>
-        <span class="codex-nav-text">Settings</span>
-      </button>
-    </nav>
+    <ActivityRail
+      activeItem={railActiveItem}
+      zenHidden={settings.zenMode}
+      scmDisabled={!shouldShowGitPanel(settings)}
+      agentBadgeCount={runningParallelAgentCount}
+      onSelect={handleRailSelect}
+    />
 
     <div
       class="workspace-body{layoutClasses.workspaceBody}"
@@ -1916,8 +1972,8 @@
       bind:this={workspaceBodyEl}
     >
     <div class="workspace-panels{layoutClasses.workspacePanels}">
-    {#if !sidebarCollapsed && !settings.zenMode}
-      <aside class="sidebar" transition:slide={settings.enableAnimations ? slideX : { duration: 0 }}>
+    {#if !settings.zenMode}
+      <aside class="sidebar">
         {#if activePanel !== "explorer"}
           <div class="sidebar-header">
             <span>{activePanel === "search" ? "Search" : "Source Control"}</span>
@@ -1966,41 +2022,88 @@
       </aside>
     {/if}
 
-    <main class="editor-area">
-      <div class="tab-bar dark-scrollbar">
-        {#if canvasOpen}
-          <button type="button" class="tab" class:active={view === "canvas"} onclick={() => (view = "canvas")}>
-            <span class="tab-badge swarm-badge">CV</span>
-            <span class="tab-name">Canvas</span>
-            <span class="tab-close" role="button" tabindex="0" aria-label="Close Canvas" onclick={(e) => { e.stopPropagation(); closeCanvasView(); }} onkeydown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); closeCanvasView(); } }}></span>
-          </button>
-        {/if}
-        {#if agentSwarmOpen}
-          <button type="button" class="tab" class:active={view === "agents"} onclick={() => (view = "agents")}>
-            <span class="tab-badge swarm-badge">PA</span>
-            <span class="tab-name">Parallel Agents</span>
-            <span class="tab-close" role="button" tabindex="0" aria-label="Close Parallel Agents" onclick={(e) => { e.stopPropagation(); closeAgentSwarm(); }} onkeydown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); closeAgentSwarm(); } }}></span>
-          </button>
-        {/if}
-        {#if settingsOpen}
-          <button type="button" class="tab" class:active={view === "settings"} onclick={() => (view = "settings")}>
-            <span class="tab-badge settings-badge">SET</span>
-            <span class="tab-name">Settings</span>
-            <span class="tab-close" role="button" tabindex="0" aria-label="Close Settings" onclick={(e) => closeSettings(e)} onkeydown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); closeSettings(); } }}></span>
-          </button>
-        {/if}
-        {#if tabs.length === 0 && !settingsOpen && !agentSwarmOpen && !canvasOpen}
-          <span class="tab active muted">Welcome</span>
-        {:else}
-          {#each tabs as tab (tab.path)}
-            <button type="button" class="tab" class:active={view === "editor" && activeTabPath === tab.path} onclick={() => selectTab(tab.path)}>
-              <span class="tab-badge" style="color: {fileMeta(tab.name).color}">{fileMeta(tab.name).label}</span>
-              <span class="tab-name">{tab.name}</span>
-              {#if isDirty(tab)}<span class="unsaved-dot" title="Unsaved changes"></span>{/if}
-              <span class="tab-close" role="button" tabindex="0" aria-label="Close {tab.name}" onclick={(e) => closeTab(tab.path, e)} onkeydown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); closeTab(tab.path, e as unknown as MouseEvent); } }}></span>
+    <main class="editor-area editor-area--split-ready" data-editor-split="single">
+      <div class="tab-bar">
+        <div class="tab-bar-scroll dark-scrollbar">
+          {#if canvasOpen}
+            <button
+              type="button"
+              class="tab"
+              class:active={view === "canvas"}
+              onclick={() => (view = "canvas")}
+              onauxclick={(e) => handlePanelTabMiddleClick(closeCanvasView, e)}
+            >
+              <span class="tab-badge swarm-badge">CV</span>
+              <span class="tab-name" title="Canvas">{middleTruncate("Canvas", TAB_NAME_MAX)}</span>
+              <span class="tab-close" role="button" tabindex="0" aria-label="Close Canvas" onclick={(e) => { e.stopPropagation(); closeCanvasView(); }} onkeydown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); closeCanvasView(); } }}></span>
             </button>
-          {/each}
-        {/if}
+          {/if}
+          {#if agentSwarmOpen}
+            <button
+              type="button"
+              class="tab"
+              class:active={view === "agents"}
+              onclick={() => (view = "agents")}
+              onauxclick={(e) => handlePanelTabMiddleClick(closeAgentSwarm, e)}
+            >
+              <span class="tab-badge swarm-badge">PA</span>
+              <span class="tab-name" title="Parallel Agents">{middleTruncate("Parallel Agents", TAB_NAME_MAX)}</span>
+              <span class="tab-close" role="button" tabindex="0" aria-label="Close Parallel Agents" onclick={(e) => { e.stopPropagation(); closeAgentSwarm(); }} onkeydown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); closeAgentSwarm(); } }}></span>
+            </button>
+          {/if}
+          {#if settingsOpen}
+            <button
+              type="button"
+              class="tab"
+              class:active={view === "settings"}
+              onclick={() => (view = "settings")}
+              onauxclick={(e) => handlePanelTabMiddleClick(() => closeSettings(), e)}
+            >
+              <span class="tab-badge settings-badge">SET</span>
+              <span class="tab-name" title="Settings">{middleTruncate("Settings", TAB_NAME_MAX)}</span>
+              <span class="tab-close" role="button" tabindex="0" aria-label="Close Settings" onclick={(e) => closeSettings(e)} onkeydown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); closeSettings(); } }}></span>
+            </button>
+          {/if}
+          {#if tabs.length === 0 && !settingsOpen && !agentSwarmOpen && !canvasOpen}
+            <span class="tab active muted">{folderPath ? folderName || "Home" : "Welcome"}</span>
+          {:else}
+            {#each tabs as tab (tab.path)}
+              <button
+                type="button"
+                class="tab"
+                class:active={view === "editor" && activeTabPath === tab.path}
+                onclick={() => selectTab(tab.path)}
+                onauxclick={(e) => handleTabMiddleClick(tab.path, e)}
+              >
+                <span class="tab-badge" style="color: {fileMeta(tab.name).color}">{fileMeta(tab.name).label}</span>
+                <span class="tab-name" title={tab.name}>{middleTruncate(tab.name, TAB_NAME_MAX)}</span>
+                {#if isDirty(tab)}<span class="unsaved-dot" title="Unsaved changes"></span>{/if}
+                <span class="tab-close" role="button" tabindex="0" aria-label="Close {tab.name}" onclick={(e) => closeTab(tab.path, e)} onkeydown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); closeTab(tab.path, e as unknown as MouseEvent); } }}></span>
+              </button>
+            {/each}
+          {/if}
+        </div>
+        <div class="tab-bar-actions">
+          <button
+            type="button"
+            class="tab-bar-btn ghost"
+            aria-label="New tab"
+            title="New tab (Quick Open)"
+            onclick={openNewTabFromBar}
+          >+</button>
+          <button
+            type="button"
+            class="tab-bar-btn ghost tab-split-btn"
+            aria-label="Split editor"
+            title="Split editor"
+            onclick={handleEditorSplit}
+          >
+            <svg viewBox="0 0 16 16" aria-hidden="true">
+              <rect x="2" y="3" width="5" height="10" rx="1" fill="none" stroke="currentColor" stroke-width="1.25" />
+              <rect x="9" y="3" width="5" height="10" rx="1" fill="none" stroke="currentColor" stroke-width="1.25" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       <div class="editor-content">
@@ -2136,17 +2239,43 @@
           in:fade={settings.enableAnimations ? fadeFast : { duration: 0 }}
           out:fade={settings.enableAnimations ? fadeFast : { duration: 0 }}
         >
-        <div class="editor-placeholder">
-          <WelcomeView
-            onOpenFolder={openFolder}
-            onOpenTerminal={openTerminalPanel}
-            onLaunchAgents={openAgentSwarm}
-            onOpenCanvas={openCanvasView}
-            onCommandSubmit={handleWelcomeCommand}
-            onApplyTheme={handleWelcomeTheme}
-            {recentWorkspaces}
-          />
-          {#if grokCliAvailable === false}
+        <div class="editor-placeholder" class:editor-placeholder--project-home={showProjectHome}>
+          {#if showProjectHome && folderPath}
+            <ProjectHome
+              {folderName}
+              folderPath={folderPath}
+              recentFiles={projectRecentFiles}
+              agentCount={runningParallelAgentCount}
+              {gitBranch}
+              {gitDirty}
+              onOpenFile={openRecentProjectFile}
+              onOpenTerminal={openTerminalPanel}
+              onStartAgent={openAgentSwarm}
+              onOpenCanvas={openCanvasView}
+              onQuickOpen={() => (quickOpenVisible = true)}
+            />
+          {:else if !folderPath}
+            <WelcomeView
+              onOpenFolder={openFolder}
+              onOpenTerminal={openTerminalPanel}
+              onLaunchAgents={openAgentSwarm}
+              onOpenCanvas={openCanvasView}
+              onCommandSubmit={handleWelcomeCommand}
+              onApplyTheme={handleWelcomeTheme}
+              {recentWorkspaces}
+            />
+          {:else}
+            <div class="editor-empty-ghost" role="status">
+              <button
+                type="button"
+                class="editor-empty-ghost__link"
+                onclick={() => (quickOpenVisible = true)}
+              >
+                Open a file ({quickOpenModLabel}+P)
+              </button>
+            </div>
+          {/if}
+          {#if !folderPath && grokCliAvailable === false}
             <div class="welcome-grok-alert" role="alert">
               <p class="welcome-grok-title">Grok CLI not found on PATH</p>
               <p class="welcome-grok-desc">
@@ -2171,7 +2300,7 @@
                 {grokCliChecking ? "Checking..." : "Check again"}
               </button>
             </div>
-          {:else if grokCliChecking}
+          {:else if !folderPath && grokCliChecking}
             <p class="welcome-grok-checking">Checking for Grok CLI...</p>
           {/if}
         </div>
@@ -2607,7 +2736,7 @@ This is a very long debug log line that demonstrates whether the debug console w
       box-shadow 260ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
-  .ide.glass-window .activity-rail {
+  .ide.glass-window :global(.activity-rail) {
     background:
       linear-gradient(180deg, var(--glass-sheen, rgba(255, 255, 255, 0.05)), transparent 58%),
       var(--glass-rail-bg);
@@ -2657,9 +2786,7 @@ This is a very long debug log line that demonstrates whether the debug console w
     isolation: isolate;
   }
 
-  .ide.glass-window .rail-btn:hover,
-  .ide.glass-window .codex-list-row:hover:not(:disabled),
-  .ide.glass-window .codex-project-row:hover {
+  .ide.glass-window :global(.activity-rail .rail-btn:hover) {
     box-shadow: none;
   }
 
@@ -2718,8 +2845,7 @@ This is a very long debug log line that demonstrates whether the debug console w
   .ide.glass-window .composer-chip,
   .ide.glass-window .composer-icon-btn,
   .ide.glass-window .composer-send,
-  .ide.glass-window .codex-list-row.active,
-  .ide.glass-window .codex-project-row.active {
+  .ide.glass-window :global(.activity-rail .rail-btn.active) {
     background:
       linear-gradient(180deg, var(--glass-sheen, rgba(255, 255, 255, 0.04)), transparent 70%),
       color-mix(in srgb, var(--active) 78%, transparent);
@@ -2869,6 +2995,71 @@ This is a very long debug log line that demonstrates whether the debug console w
     app-region: no-drag;
   }
 
+  .env-pills {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 2px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--chip-bg);
+  }
+
+  .env-pill {
+    min-height: 24px;
+    padding: 0 10px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-mute);
+    font: inherit;
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.12s ease, color 0.12s ease;
+  }
+
+  .env-pill:hover {
+    color: var(--text);
+    background: var(--hover);
+  }
+
+  .env-pill.active {
+    color: var(--text);
+    background: var(--active);
+    box-shadow: inset 0 0 0 1px var(--border);
+  }
+
+  .global-search-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 26px;
+    padding: 0 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--chip-bg);
+    color: var(--text-mute);
+    font: inherit;
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+  }
+
+  .global-search-btn svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    opacity: 0.75;
+  }
+
+  .global-search-btn:hover {
+    color: var(--text);
+    background: var(--hover-strong);
+    border-color: var(--border-strong);
+  }
+
   .save-btn,
   .launch-btn {
     padding: 6px 12px;
@@ -2974,172 +3165,8 @@ This is a very long debug log line that demonstrates whether the debug console w
     border-right: 1px solid var(--border);
   }
 
-  .activity-rail {
-    width: var(--rail-width, 298px);
-    flex-shrink: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 14px;
-    padding: 12px 7px 10px;
-    background: var(--panel);
-    border-right: 1px solid var(--border);
-    z-index: 2;
-    box-sizing: border-box;
-    overflow: hidden;
-    contain: paint;
-    isolation: isolate;
-  }
-
-  .codex-primary-actions,
-  .codex-section {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    min-width: 0;
-  }
-
-  .codex-section {
-    padding-top: 2px;
-  }
-
-  .codex-section-title {
-    padding: 0 8px 4px;
-    font-size: 12px;
-    color: var(--text-mute);
-  }
-
-  .codex-session-section {
-    min-height: 0;
-    overflow: hidden;
-  }
-
-  .rail-btn,
-  .codex-list-row,
-  .codex-project-row {
-    display: flex;
-    align-items: center;
-    width: 100%;
-    min-width: 0;
-    color: var(--text-dim);
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    position: relative;
-    font-family: inherit;
-    text-align: left;
-    box-sizing: border-box;
-    transition: color 0.12s ease, background 0.12s ease;
-  }
-
-  .rail-btn {
-    justify-content: flex-start;
-    gap: 10px;
-    min-height: 32px;
-    padding: 7px 9px;
-    border-radius: 7px;
-    font-size: 14px;
-  }
-  .rail-svg {
-    width: 16px;
-    height: 16px;
-    display: block;
-    flex-shrink: 0;
-    opacity: 0.65;
-    transition: opacity 0.12s;
-  }
-  .rail-btn:hover .rail-svg,
-  .rail-btn.active .rail-svg,
-  .codex-project-row.active .rail-svg { opacity: 1; }
-  .rail-btn:hover,
-  .codex-list-row:hover:not(:disabled),
-  .codex-project-row:hover { color: var(--text); background: var(--hover); }
-  .rail-btn.active,
-  .codex-list-row.active,
-  .codex-project-row.active { color: var(--text); background: var(--active); }
-
-  .codex-nav-item.primary {
-    color: var(--text);
-  }
-
-  .codex-nav-text,
-  .codex-list-row span:first-child,
-  .codex-project-name {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .codex-list-row {
-    justify-content: space-between;
-    gap: 8px;
-    min-height: 30px;
-    padding: 6px 9px;
-    border-radius: 7px;
-    font-size: 14px;
-  }
-
-  .codex-list-row.compact {
-    min-height: 26px;
-    font-size: 12px;
-    color: var(--text-mute);
-  }
-
-  .codex-list-row:disabled {
-    opacity: 0.35;
-    cursor: default;
-  }
-
-  .codex-list-time {
-    flex-shrink: 0;
-    font-size: 12px;
-    color: var(--text-mute);
-  }
-
-  .codex-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: var(--accent);
-    flex-shrink: 0;
-  }
-
-  .codex-project-row {
-    display: grid;
-    grid-template-columns: 18px minmax(0, 1fr) auto;
-    gap: 8px;
-    min-height: 34px;
-    padding: 7px 9px;
-    border-radius: 7px;
-  }
-
-  .codex-project-meta {
-    font-size: 12px;
-    color: var(--text-mute);
-  }
-
-  .rail-badge {
-    min-width: 16px;
-    height: 16px;
-    padding: 0 5px;
-    border-radius: 999px;
-    background: var(--accent);
-    color: var(--on-accent);
-    font-size: 10px;
-    font-weight: 500;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    line-height: 1;
-    margin-left: auto;
-  }
-  .rail-spacer { flex: 1; }
-
   .sidebar {
-    /* Fixed 280px (SIDEBAR_DEFAULT): reconcile zeroes --sidebar-width on close while
-       the slide-outro is still running, which collapsed this element and caused flicker. */
-    width: 280px;
+    width: var(--sidebar-width, 280px);
     flex-shrink: 0;
     background: var(--panel);
     border-right: 1px solid var(--border);
@@ -3316,11 +3343,59 @@ This is a very long debug log line that demonstrates whether the debug console w
 
   .tab-bar {
     display: flex;
-    height: 32px;
+    align-items: stretch;
+    height: 36px;
     background: var(--panel);
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .tab-bar-scroll {
+    display: flex;
+    align-items: stretch;
+    flex: 1 1 auto;
+    min-width: 0;
     overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .tab-bar-actions {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    gap: 2px;
+    padding: 0 4px;
+    border-left: 1px solid var(--border);
+  }
+
+  .tab-bar-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--text-mute);
+    font-family: inherit;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: color 0.12s ease, background 0.12s ease;
+  }
+
+  .tab-bar-btn.ghost:hover {
+    color: var(--text-dim);
+    background: var(--hover);
+  }
+
+  .tab-split-btn svg {
+    width: 14px;
+    height: 14px;
   }
 
   .tab {
@@ -3337,6 +3412,7 @@ This is a very long debug log line that demonstrates whether the debug console w
     cursor: pointer;
     flex-shrink: 0;
     height: 100%;
+    box-sizing: border-box;
     position: relative;
     transition: color 0.12s ease, background 0.12s ease;
   }
@@ -3347,17 +3423,23 @@ This is a very long debug log line that demonstrates whether the debug console w
   .tab.active {
     color: var(--text);
     background: var(--hover-strong);
-    border-bottom: 2px solid var(--accent);
+    border-top: 2px solid var(--accent);
     font-weight: 400;
   }
   .tab.muted { color: var(--text-mute); cursor: default; }
   .tab-badge { font-size: 9px; font-weight: 500; letter-spacing: -0.3px; flex-shrink: 0; }
   .tab-badge.settings-badge { color: var(--accent); }
   .tab-badge.swarm-badge { color: var(--success); }
-  .tab-name { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tab-name {
+    max-width: 140px;
+    overflow: hidden;
+    white-space: nowrap;
+    flex-shrink: 1;
+    min-width: 0;
+  }
   .unsaved-dot {
-    width: 6px;
-    height: 6px;
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
     background: var(--warn);
     flex-shrink: 0;
@@ -3496,6 +3578,42 @@ This is a very long debug log line that demonstrates whether the debug console w
     background: var(--editor-bg);
     color: var(--text-mute);
     font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  }
+
+  .editor-placeholder--project-home {
+    align-items: stretch;
+    justify-content: flex-start;
+    padding: 0;
+  }
+
+  .editor-empty-ghost {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 120px;
+    padding: 24px;
+    text-align: center;
+  }
+
+  .editor-empty-ghost__link {
+    border: none;
+    background: none;
+    padding: 0;
+    font: inherit;
+    font-size: 15px;
+    color: var(--text-mute);
+    cursor: pointer;
+    transition: color 0.12s ease;
+  }
+
+  .editor-empty-ghost__link:hover {
+    color: var(--text);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .editor-area--split-ready {
+    --editor-split-count: 1;
   }
 
   .welcome-center {
@@ -4214,9 +4332,9 @@ This is a very long debug log line that demonstrates whether the debug console w
   .ide.density-compact .topbar { height: 32px; }
   .ide.density-compact .tab-bar { height: 32px; }
   .ide.density-compact .statusbar { height: 20px; }
-  .ide.density-compact .activity-rail {
-    width: var(--rail-width, 276px);
-    padding-inline: 6px;
+  .ide.density-compact :global(.activity-rail) {
+    width: var(--grok-rail-w, var(--rail-width, 52px));
+    padding-inline: 3px;
   }
   .ide.density-spacious .topbar { height: 48px; }
   .ide.density-spacious .tab-bar { height: 42px; }

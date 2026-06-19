@@ -1,4 +1,5 @@
 import {
+  buildEditorStyleVars,
   hexToRgba,
   isTextFile,
   THEMES,
@@ -6,6 +7,8 @@ import {
   type PanelLocation,
   type SearchMatch,
 } from "$lib/editor-utils";
+
+export { buildEditorStyleVars };
 
 export {
   PANEL_MIN_SIZE,
@@ -986,14 +989,6 @@ export function buildIdeLayoutClassesWithSecondary(
 }
 
 // ── Editor typography & layout ─────────────────────────────────────────────
-
-export function buildEditorStyleVars(settings: AppSettings): string {
-  return [
-    `--tab-space:${settings.insertSpaces ? clamp(settings.tabSize, 1, 8) : 4}`,
-    `--key-repeat-delay:${settings.keyRepeatDelay}ms`,
-    `--chord-timeout:${settings.chordTimeout}ms`,
-  ].join(";");
-}
 
 export function buildEditorClasses(settings: AppSettings): string {
   const parts: string[] = [];

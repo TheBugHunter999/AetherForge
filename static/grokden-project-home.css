@@ -1,0 +1,450 @@
+/* Grokden Project Home view — Section 4.2 / Phase 4. Uses --grok-* tokens only. */
+
+.grok-project-home {
+  --grok-bg: var(--editor-bg, #0f1118);
+  --grok-surface: var(--panel, #181b24);
+  --grok-surface-2: var(--surface-raised, #232730);
+  --grok-border: var(--border-muted, rgba(255, 255, 255, 0.08));
+  --grok-border-strong: var(--border, rgba(255, 255, 255, 0.14));
+  --grok-text: var(--text, #f1f5f9);
+  --grok-muted: var(--text-mute, #8b95a8);
+  --grok-dim: var(--text-dim, #c5ced9);
+  --grok-accent: var(--accent, #5cc9c7);
+  --grok-accent-soft: var(--accent-soft, rgba(92, 201, 199, 0.14));
+  --grok-purple: #8b5cf6;
+  --grok-purple-soft: rgba(139, 92, 246, 0.16);
+  --grok-warn: var(--warn, #f59e0b);
+  --grok-warn-soft: color-mix(in srgb, var(--grok-warn) 18%, transparent);
+  --grok-hover: var(--hover, rgba(255, 255, 255, 0.06));
+  --grok-hover-strong: var(--hover-strong, rgba(255, 255, 255, 0.1));
+  --grok-radius-sm: 8px;
+  --grok-radius-md: 12px;
+  --grok-radius-pill: 9999px;
+  --grok-shadow-md: 0 14px 40px rgba(0, 0, 0, 0.24);
+  --grok-font: "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --grok-transition: 140ms cubic-bezier(0.22, 1, 0.36, 1);
+  --grok-content-max: 880px;
+  --grok-card-gap: 16px;
+
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 6vh 24px 32px;
+  box-sizing: border-box;
+  overflow: auto;
+  background: var(--grok-bg);
+  color: var(--grok-text);
+  font-family: var(--grok-font);
+  isolation: isolate;
+}
+
+.grok-project-home__shell {
+  width: 100%;
+  max-width: var(--grok-content-max);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.ide .editor-placeholder > .grok-project-home,
+.ide.glass-window .editor-placeholder > .grok-project-home {
+  margin: 0;
+  padding-left: 24px;
+  padding-right: 24px;
+}
+
+/* Header */
+.grok-project-home__header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.grok-project-home__header-icon {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--grok-radius-md);
+  border: 1px solid var(--grok-border);
+  background: color-mix(in srgb, var(--grok-surface-2) 82%, transparent);
+  color: var(--grok-accent);
+}
+
+.grok-project-home__header-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.grok-project-home__header-meta {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.grok-project-home__title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  color: var(--grok-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.grok-project-home__path {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--grok-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl;
+  text-align: left;
+  unicode-bidi: plaintext;
+}
+
+/* Card grid */
+.grok-project-home__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--grok-card-gap);
+}
+
+.grok-project-home__card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border-radius: var(--grok-radius-md);
+  border: 1px solid var(--grok-border);
+  background: var(--grok-surface-2);
+}
+
+.grok-project-home__card--recent {
+  grid-column: 1 / -1;
+}
+
+.grok-project-home__card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.grok-project-home__card-title {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--grok-muted);
+}
+
+.grok-project-home__card-action {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--grok-border);
+  border-radius: var(--grok-radius-pill);
+  background: transparent;
+  color: var(--grok-dim);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background var(--grok-transition),
+    border-color var(--grok-transition),
+    color var(--grok-transition);
+}
+
+.grok-project-home__card-action:hover {
+  color: var(--grok-text);
+  border-color: var(--grok-border-strong);
+  background: var(--grok-hover);
+}
+
+/* Git */
+.grok-project-home__git-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.grok-project-home__git-branch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  align-self: flex-start;
+  padding: 6px 10px;
+  border-radius: var(--grok-radius-pill);
+  border: 1px solid color-mix(in srgb, var(--grok-purple) 30%, transparent);
+  background: var(--grok-purple-soft);
+  color: var(--grok-text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.grok-project-home__git-branch svg {
+  width: 14px;
+  height: 14px;
+  color: var(--grok-purple);
+}
+
+.grok-project-home__git-status {
+  font-size: 12px;
+  color: var(--grok-muted);
+}
+
+.grok-project-home__git-status--dirty {
+  color: var(--grok-warn);
+}
+
+/* Recent files */
+.grok-project-home__file-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.grok-project-home__file-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--grok-border);
+  border-radius: var(--grok-radius-sm);
+  background: color-mix(in srgb, var(--grok-surface) 70%, transparent);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background var(--grok-transition),
+    border-color var(--grok-transition);
+}
+
+.grok-project-home__file-row:hover {
+  background: var(--grok-hover);
+  border-color: var(--grok-border-strong);
+}
+
+.grok-project-home__file-badge {
+  flex: 0 0 auto;
+  min-width: 28px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.grok-project-home__file-meta {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.grok-project-home__file-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--grok-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.grok-project-home__file-path {
+  font-size: 11px;
+  color: var(--grok-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl;
+  text-align: left;
+  unicode-bidi: plaintext;
+}
+
+/* Empty state */
+.grok-project-home__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  border: 1px dashed var(--grok-border-strong);
+  border-radius: var(--grok-radius-sm);
+  background: color-mix(in srgb, var(--grok-surface) 55%, transparent);
+}
+
+.grok-project-home__empty-copy {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--grok-dim);
+}
+
+.grok-project-home__empty-btn,
+.grok-project-home__inline-btn {
+  display: inline-flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--grok-border);
+  border-radius: var(--grok-radius-pill);
+  background: var(--grok-hover);
+  color: var(--grok-text);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--grok-transition);
+}
+
+.grok-project-home__empty-btn:hover,
+.grok-project-home__inline-btn:hover {
+  background: var(--grok-hover-strong);
+}
+
+/* Agents */
+.grok-project-home__agents-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.grok-project-home__agents-count {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--grok-radius-sm);
+  border: 1px solid var(--grok-border);
+  background: color-mix(in srgb, var(--grok-surface) 72%, transparent);
+  color: var(--grok-muted);
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.grok-project-home__agents-count--active {
+  color: var(--grok-accent);
+  border-color: color-mix(in srgb, var(--grok-accent) 42%, transparent);
+  background: var(--grok-accent-soft);
+}
+
+.grok-project-home__agents-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.grok-project-home__agents-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--grok-text);
+}
+
+.grok-project-home__agents-caption {
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--grok-muted);
+}
+
+/* Quick actions */
+.grok-project-home__action-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.grok-project-home__action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  min-height: 72px;
+  padding: 12px;
+  border: 1px solid var(--grok-border);
+  border-radius: var(--grok-radius-sm);
+  background: color-mix(in srgb, var(--grok-surface) 68%, transparent);
+  color: var(--grok-dim);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background var(--grok-transition),
+    border-color var(--grok-transition),
+    color var(--grok-transition),
+    transform var(--grok-transition);
+}
+
+.grok-project-home__action-btn svg {
+  width: 16px;
+  height: 16px;
+  color: var(--grok-accent);
+}
+
+.grok-project-home__action-btn:hover {
+  color: var(--grok-text);
+  border-color: var(--grok-border-strong);
+  background: var(--grok-hover);
+  transform: translateY(-1px);
+}
+
+/* Responsive */
+@media (max-width: 760px) {
+  .grok-project-home {
+    padding-top: 4vh;
+  }
+
+  .grok-project-home__title {
+    font-size: 24px;
+  }
+
+  .grok-project-home__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .grok-project-home__action-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  .grok-project-home {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .grok-project-home__header-icon {
+    width: 38px;
+    height: 38px;
+  }
+}

@@ -1,57 +1,167 @@
 /* Loaded last. Fixes the remaining rough titlebar/tabs/panel details safely. */
 
+/* Section 5.7/5.8 — editor tab strip */
 .ide .tab-bar,
 .ide.glass-window .tab-bar {
-  height: 34px !important;
-  align-items: flex-end !important;
-  gap: 3px !important;
-  padding: 4px 8px 0 !important;
+  display: flex !important;
+  height: var(--grok-tabbar-h, 36px) !important;
+  min-height: var(--grok-tabbar-h, 36px) !important;
+  padding: 0 !important;
+  gap: var(--grok-space-1, 2px) !important;
+  align-items: stretch !important;
+  overflow-x: auto !important;
   overflow-y: hidden !important;
+  background: var(--grok-surface) !important;
+  border-bottom: 1px solid var(--grok-border) !important;
+  box-shadow: none !important;
+  flex-shrink: 0 !important;
 }
 
 .ide .tab,
 .ide.glass-window .tab {
-  height: 30px !important;
-  padding: 0 12px !important;
-  border-radius: 9px 9px 0 0 !important;
-  border: 1px solid rgba(255,255,255,0.07) !important;
-  border-bottom: 0 !important;
-  background: rgba(255,255,255,0.035) !important;
-  color: #aeb8c5 !important;
+  position: relative !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: var(--grok-space-3, 6px) !important;
+  height: var(--grok-tab-h, 36px) !important;
+  min-width: 120px !important;
+  max-width: 220px !important;
+  padding: 0 10px !important;
+  margin: 0 !important;
+  border: none !important;
+  border-right: none !important;
+  border-bottom: none !important;
+  border-radius: var(--grok-radius-lg, 8px) var(--grok-radius-lg, 8px) 0 0 !important;
+  background: transparent !important;
+  color: var(--grok-text-muted) !important;
+  font-size: 12.5px !important;
+  font-weight: var(--grok-font-weight-medium, 500) !important;
   box-shadow: none !important;
   transform: none !important;
+  flex-shrink: 0 !important;
+  overflow: hidden !important;
+  cursor: pointer !important;
 }
 
 .ide .tab:hover,
 .ide.glass-window .tab:hover {
-  background: rgba(92,201,199,0.075) !important;
-  color: #e7edf4 !important;
+  background: var(--grok-surface-2) !important;
+  color: var(--grok-text-secondary) !important;
 }
 
 .ide .tab.active,
-.ide.glass-window .tab.active {
-  background: #20262d !important;
-  color: #f2f6fa !important;
-  border-color: rgba(92,201,199,0.32) !important;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08) !important;
+.ide.glass-window .tab.active,
+.ide .tab.muted.active,
+.ide.glass-window .tab.muted.active {
+  background: var(--grok-surface-2) !important;
+  color: var(--grok-text) !important;
+  border: none !important;
+  box-shadow: none !important;
+  z-index: var(--grok-z-raised, 1) !important;
+  margin-bottom: -1px !important;
+  padding-bottom: 1px !important;
+}
+
+.ide .tab.active::before,
+.ide.glass-window .tab.active::before,
+.ide .tab.muted.active::before,
+.ide.glass-window .tab.muted.active::before {
+  content: "" !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  height: 2px !important;
+  background: var(--grok-purple) !important;
+  border-radius: var(--grok-radius-lg, 8px) var(--grok-radius-lg, 8px) 0 0 !important;
 }
 
 .ide .tab.active::after,
-.ide.glass-window .tab.active::after {
-  content: "" !important;
-  position: absolute !important;
-  left: 10px !important;
-  right: 10px !important;
-  bottom: 0 !important;
-  height: 2px !important;
-  border-radius: 999px !important;
-  background: #5cc9c7 !important;
+.ide.glass-window .tab.active::after,
+.ide .tab.muted.active::after,
+.ide.glass-window .tab.muted.active::after {
+  content: none !important;
+  display: none !important;
+}
+
+.ide .tab-name,
+.ide.glass-window .tab-name {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  text-shadow: none !important;
 }
 
 .ide .tab-badge,
-.ide.glass-window .tab-badge {
-  background: transparent !important;
-  color: #5cc9c7 !important;
+.ide.glass-window .tab-badge,
+.ide .settings-badge,
+.ide.glass-window .settings-badge,
+.ide .swarm-badge,
+.ide.glass-window .swarm-badge {
+  display: none !important;
+}
+
+.ide .unsaved-dot,
+.ide.glass-window .unsaved-dot {
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: var(--grok-radius-full, 9999px) !important;
+  background: var(--grok-warn) !important;
+  flex-shrink: 0 !important;
+}
+
+.ide .tab-close,
+.ide.glass-window .tab-close {
+  opacity: 0 !important;
+  width: 18px !important;
+  height: 18px !important;
+  flex-shrink: 0 !important;
+  border-radius: var(--grok-radius-sm, 4px) !important;
+  color: var(--grok-text-muted) !important;
+  transition: opacity var(--grok-duration-fast, 150ms) var(--grok-ease-default, ease) !important;
+  pointer-events: none !important;
+}
+
+.ide .tab:hover .tab-close,
+.ide.glass-window .tab:hover .tab-close {
+  opacity: 0.55 !important;
+  pointer-events: auto !important;
+}
+
+.ide .tab:has(.unsaved-dot) .tab-close,
+.ide.glass-window .tab:has(.unsaved-dot) .tab-close {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  width: 0 !important;
+  overflow: hidden !important;
+}
+
+.ide .tab:has(.unsaved-dot):hover .unsaved-dot,
+.ide.glass-window .tab:has(.unsaved-dot):hover .unsaved-dot {
+  display: none !important;
+}
+
+.ide .tab:has(.unsaved-dot):hover .tab-close,
+.ide.glass-window .tab:has(.unsaved-dot):hover .tab-close {
+  opacity: 0.55 !important;
+  pointer-events: auto !important;
+  width: 18px !important;
+}
+
+.ide .tab-close:hover,
+.ide.glass-window .tab-close:hover {
+  opacity: 1 !important;
+  background: var(--grok-hover) !important;
+  color: var(--grok-text) !important;
+}
+
+.ide .tab-close::before,
+.ide .tab-close::after,
+.ide.glass-window .tab-close::before,
+.ide.glass-window .tab-close::after {
+  background: currentColor !important;
 }
 
 .ide .terminal,

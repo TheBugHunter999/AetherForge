@@ -6,6 +6,7 @@
     getExplorerError,
     workspaceDisplayName,
   } from "$lib/explorer/explorer-store.svelte";
+  import { middleTruncate } from "$lib/explorer/path-utils";
   import type { ExplorerTreeNode } from "$lib/workspace/types";
 
   type Props = {
@@ -40,6 +41,8 @@
 
   const explorerError = $derived(getExplorerError());
   const projectName = $derived(workspaceDisplayName() || folderPath?.split(/[/\\]+/).pop() || "");
+  const displayProjectName = $derived(middleTruncate(projectName, 36));
+  const displayError = $derived(explorerError ? middleTruncate(explorerError, 64) : "");
 </script>
 
 <div class="explorer-panel">
@@ -49,12 +52,12 @@
   </div>
 
   {#if explorerError}
-    <div class="explorer-error" title={explorerError}>{explorerError}</div>
+    <div class="explorer-error" title={explorerError}>{displayError}</div>
   {/if}
 
   {#if folderPath}
     <div class="workspace-section">
-      <span class="section-label" title={folderPath}>{projectName}</span>
+      <span class="section-label" title={folderPath}>{displayProjectName}</span>
       <div class="section-actions">
         <button type="button" class="icon-btn" disabled={folderRestricted} onclick={onNewFile} title="New file">+</button>
         <button type="button" class="icon-btn" disabled={folderRestricted} onclick={onNewFolder} title="New folder">⊕</button>
@@ -87,38 +90,41 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 8px 12px 4px;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.04em;
+    padding: var(--grok-space-4, 8px) var(--grok-space-5, 12px) var(--grok-space-2, 4px);
+    font-size: var(--grok-font-size-xs, 11px);
+    font-weight: var(--grok-font-weight-medium, 500);
+    letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: var(--text-mute);
+    color: var(--grok-text-muted, var(--text-mute));
     flex-shrink: 0;
   }
 
   .open-folder-btn {
     padding: 0 2px;
-    font-size: 14px;
+    font-size: var(--grok-font-size-lg, 14px);
     line-height: 1;
     font-family: inherit;
-    color: var(--text-mute);
+    color: var(--grok-text-muted, var(--text-mute));
     background: none;
     border: none;
+    border-radius: var(--grok-radius-lg, 8px);
     cursor: pointer;
-    transition: color 0.12s;
+    transition: color var(--grok-duration-fast, 150ms) var(--grok-ease-default, ease);
   }
+
   .open-folder-btn:hover {
-    color: var(--text);
+    color: var(--grok-text, var(--text));
+    background: var(--grok-surface-2, var(--hover));
   }
 
   .explorer-error {
-    margin: 0 8px 4px;
-    padding: 4px 8px;
-    font-size: 11px;
-    color: var(--danger);
-    background: var(--danger-soft);
-    border: 1px solid var(--border);
-    border-radius: 3px;
+    margin: 0 var(--grok-space-4, 8px) var(--grok-space-2, 4px);
+    padding: var(--grok-space-2, 4px) var(--grok-space-4, 8px);
+    font-size: var(--grok-font-size-xs, 11px);
+    color: var(--grok-danger, var(--danger));
+    background: var(--grok-danger-soft, var(--danger-soft));
+    border: 1px solid var(--grok-border, var(--border));
+    border-radius: var(--grok-radius-lg, 8px);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -129,19 +135,19 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 6px;
-    padding: 2px 8px 4px 20px;
+    gap: var(--grok-space-3, 6px);
+    padding: var(--grok-space-1, 2px) var(--grok-space-4, 8px) var(--grok-space-2, 4px) 20px;
     flex-shrink: 0;
   }
 
   .section-label {
     flex: 1;
     min-width: 0;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.02em;
+    font-size: var(--grok-font-size-xs, 11px);
+    font-weight: var(--grok-font-weight-medium, 500);
+    letter-spacing: 0.05em;
     text-transform: uppercase;
-    color: var(--text-dim);
+    color: var(--grok-text-secondary, var(--text-dim));
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -150,10 +156,10 @@
   .section-actions {
     display: flex;
     align-items: center;
-    gap: 2px;
+    gap: var(--grok-space-1, 2px);
     flex-shrink: 0;
     opacity: 0;
-    transition: opacity 0.12s;
+    transition: opacity var(--grok-duration-fast, 150ms) var(--grok-ease-default, ease);
   }
 
   .workspace-section:hover .section-actions,
@@ -162,22 +168,25 @@
   }
 
   .icon-btn {
-    width: 20px;
-    height: 20px;
+    width: 22px;
+    height: 22px;
     padding: 0;
-    font-size: 12px;
+    font-size: var(--grok-font-size-sm, 12px);
     line-height: 1;
     font-family: inherit;
-    color: var(--text-mute);
+    color: var(--grok-text-muted, var(--text-mute));
     background: none;
     border: none;
-    border-radius: 3px;
+    border-radius: var(--grok-radius-lg, 8px);
     cursor: pointer;
+    transition:
+      color var(--grok-duration-fast, 150ms) var(--grok-ease-default, ease),
+      background var(--grok-duration-fast, 150ms) var(--grok-ease-default, ease);
   }
 
   .icon-btn:hover:not(:disabled) {
-    color: var(--text);
-    background: var(--hover);
+    color: var(--grok-text, var(--text));
+    background: var(--grok-surface-2, var(--hover));
   }
 
   .icon-btn:disabled {

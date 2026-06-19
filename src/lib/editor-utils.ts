@@ -335,6 +335,20 @@ export const FONT_STACKS: Record<string, string> = {
   consolas: "Consolas, 'Cascadia Code', monospace",
 };
 
+/** Section 7 — editor monospace stack (JetBrains Mono primary). */
+export const GROK_FONT_MONO =
+  '"JetBrains Mono", "Fira Code", "Cascadia Code", Consolas, monospace';
+
+/** Section 7 — recommended editor font size range (px). */
+export const GROK_EDITOR_FONT_SIZE_MIN = 12.5;
+export const GROK_EDITOR_FONT_SIZE_MAX = 13;
+export const GROK_EDITOR_LINE_HEIGHT = 1.5;
+
+function clamp(value: number, min: number, max: number): number {
+  if (!Number.isFinite(value)) return min;
+  return Math.max(min, Math.min(max, value));
+}
+
 export const themeList = [
   { id: "codex", label: "Codex", bg: "#2d2d2b", text: "#cececa", panel: "#211b26" },
   { id: "obsidian", label: "Obsidian", bg: "#14141b", text: "#b0b0c0", panel: "#101015" },
@@ -453,7 +467,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   accent: "coral",
   fontSize: 13,
   lineHeight: 20,
-  fontFamily: "cascadia",
+  fontFamily: "jetbrains",
   tabSize: 2,
   showLineNumbers: true,
   wordWrap: false,
@@ -600,10 +614,30 @@ export function hexToRgba(hex: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
+/** Keep both ends of a string; ellipsis in the middle when over maxLen (Section 7). */
+export function middleTruncate(text: string, maxLen: number, ellipsis = "…"): string {
+  const value = text.trim();
+  if (maxLen <= 0) return "";
+  if (value.length <= maxLen) return value;
+  if (ellipsis.length >= maxLen) return ellipsis.slice(0, maxLen);
+  const keep = maxLen - ellipsis.length;
+  const head = Math.ceil(keep / 2);
+  const tail = Math.floor(keep / 2);
+  return `${value.slice(0, head)}${ellipsis}${value.slice(value.length - tail)}`;
+}
+
+/** Middle-ellipsis truncation for editor tab titles (Section 7). */
+export function truncateTabTitle(name: string, maxLen = 28): string {
+  return middleTruncate(name, maxLen);
+}
+
 export function buildThemeStyle(settings: AppSettings): string {
   const t = THEMES[settings.theme] ?? THEMES["codex"];
   const accent = ACCENTS[settings.accent] ?? ACCENTS.violet;
   const isLight = t.isLight ?? false;
+  const accentSoft = hexToRgba(accent.default, isLight ? 0.12 : 0.18);
+  const fontSize = settings.fontSize;
+  const codeFont = FONT_STACKS[settings.fontFamily] ?? FONT_STACKS.jetbrains;
   return [
     // Base surfaces
     `--bg:${t.bg}`,
@@ -646,17 +680,87 @@ export function buildThemeStyle(settings: AppSettings): string {
     `--accent2:${accent.strong}`,
     `--accent-muted:${accent.muted}`,
     `--accent-subtle:${accent.subtle}`,
-    `--accent-soft:${hexToRgba(accent.default, isLight ? 0.12 : 0.18)}`,
+    `--accent-soft:${accentSoft}`,
     `--accent-mid:${hexToRgba(accent.default, isLight ? 0.25 : 0.35)}`,
     `--accent-strong:${t.borderStrong}`,
     `--accent-grad:linear-gradient(135deg, ${accent.default}, ${accent.strong})`,
     // Focus
     `--focus-ring:${accent.default}`,
-    // Typography & editor
-    `--efs:${settings.fontSize}px`,
+    // Typography & editor (legacy)
+    `--efs:${fontSize}px`,
     `--elh:${settings.lineHeight}px`,
     `--etab:${settings.tabSize}`,
-    `--code-font:${FONT_STACKS[settings.fontFamily] ?? FONT_STACKS.cascadia}`,
+    `--code-font:${codeFont}`,
+    // --grok-* design tokens (Section 4.3)
+    `--grok-bg:${t.bg}`,
+    `--grok-bg-elevated:${t.surfaceInset}`,
+    `--grok-surface:${t.panel}`,
+    `--grok-surface-2:${t.panelSolid}`,
+    `--grok-surface-3:${t.surfaceRaised}`,
+    `--grok-editor:${t.editorBg}`,
+    `--grok-border:${t.border}`,
+    `--grok-border-strong:${t.borderStrong}`,
+    `--grok-border-muted:${t.borderMuted}`,
+    `--grok-text:${t.text}`,
+    `--grok-text-secondary:${t.textDim}`,
+    `--grok-text-muted:${t.textMute}`,
+    `--grok-text-disabled:${t.textDisabled}`,
+    `--grok-hover:${t.hover}`,
+    `--grok-hover-strong:${t.hoverStrong}`,
+    `--grok-active:${t.active}`,
+    `--grok-selection:${t.selection}`,
+    `--grok-scrollbar:${t.scrollbar}`,
+    `--grok-scrollbar-hover:${t.scrollbarHover}`,
+    `--grok-chip-bg:${t.chipBg}`,
+    `--grok-danger:${t.danger}`,
+    `--grok-danger-soft:${hexToRgba(t.danger, isLight ? 0.10 : 0.14)}`,
+    `--grok-warn:${t.warn}`,
+    `--grok-warn-soft:${hexToRgba(t.warn, isLight ? 0.10 : 0.14)}`,
+    `--grok-success:${t.success}`,
+    `--grok-success-soft:${hexToRgba(t.success, isLight ? 0.10 : 0.14)}`,
+    `--grok-info:${t.info}`,
+    `--grok-info-soft:${hexToRgba(t.info, isLight ? 0.10 : 0.14)}`,
+    `--grok-purple:${accent.default}`,
+    `--grok-purple-strong:${accent.strong}`,
+    `--grok-purple-muted:${accent.muted}`,
+    `--grok-purple-soft:${accentSoft}`,
+    `--grok-focus-ring:${accent.default}`,
+    `--grok-font-mono:${GROK_FONT_MONO}`,
+    `--grok-font-size-base:${fontSize}px`,
+    `--grok-line-height-relaxed:${GROK_EDITOR_LINE_HEIGHT}`,
+  ].join(";");
+}
+
+/** Editor-scoped --grok-* vars and runtime layout tokens (Section 4.3 + 7). */
+export function buildEditorStyleVars(settings: AppSettings): string {
+  const t = THEMES[settings.theme] ?? THEMES["codex"];
+  const accent = ACCENTS[settings.accent] ?? ACCENTS.violet;
+  const fontSize = settings.fontSize;
+  const codeFont = FONT_STACKS[settings.fontFamily] ?? FONT_STACKS.jetbrains;
+  const tabSpace = settings.insertSpaces ? clamp(settings.tabSize, 1, 8) : 4;
+
+  return [
+    // Editor surface (Section 4.3)
+    `--grok-editor:${t.editorBg}`,
+    `--grok-editor-gutter:${t.panel}`,
+    `--grok-editor-line-number:${t.textMute}`,
+    `--grok-editor-active-line:${t.panelSolid}`,
+    `--grok-editor-cursor:${accent.default}`,
+    `--grok-editor-selection:${t.selection}`,
+    // Typography (Section 7)
+    `--grok-font-mono:${GROK_FONT_MONO}`,
+    `--grok-font-size-editor:${fontSize}px`,
+    `--grok-font-size-base:${fontSize}px`,
+    `--grok-line-height-editor:${GROK_EDITOR_LINE_HEIGHT}`,
+    `--grok-line-height-relaxed:${GROK_EDITOR_LINE_HEIGHT}`,
+    // Legacy editor vars (preserve settings-driven sizing)
+    `--efs:${fontSize}px`,
+    `--elh:${settings.lineHeight}px`,
+    `--etab:${settings.tabSize}`,
+    `--code-font:${codeFont}`,
+    `--tab-space:${tabSpace}`,
+    `--key-repeat-delay:${settings.keyRepeatDelay}ms`,
+    `--chord-timeout:${settings.chordTimeout}ms`,
   ].join(";");
 }
 

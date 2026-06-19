@@ -1,9 +1,9 @@
-/* Professional editor pass, closer to VS Code: solid read surface, clean gutter, calmer minimap area. */
+/* GROKDEN VS Code-style editor — --grok-* tokens (Section 4.3 + 7) */
 
 .ide .editor-area,
 .ide.glass-window .editor-area {
-  background: #1b1f24 !important;
-  border-color: rgba(255,255,255,0.08) !important;
+  background: var(--grok-editor, var(--editor-bg, #060608)) !important;
+  border-color: var(--grok-border, var(--border, rgba(255, 255, 255, 0.08))) !important;
 }
 
 .ide .editor-content,
@@ -13,40 +13,40 @@
 .ide .editor-surface,
 .ide .editor-input-wrap,
 .ide .code-textarea {
-  background: #1b1f24 !important;
+  background: var(--grok-editor, var(--editor-bg, #060608)) !important;
 }
 
 .ide .tab-bar,
 .ide.glass-window .tab-bar {
-  background: #181c21 !important;
-  border-bottom-color: rgba(255,255,255,0.075) !important;
+  background: var(--grok-surface, var(--panel, #101015)) !important;
+  border-bottom-color: var(--grok-border, var(--border, rgba(255, 255, 255, 0.08))) !important;
 }
 
 .ide .tab,
 .ide.glass-window .tab {
   border-radius: 0 !important;
-  border-right: 1px solid rgba(255,255,255,0.06) !important;
+  border-right: 1px solid var(--grok-border-muted, var(--border-muted, rgba(255, 255, 255, 0.06))) !important;
   background: transparent !important;
-  color: #9ca6b3 !important;
+  color: var(--grok-text-muted, var(--text-mute, #6b6b78)) !important;
   box-shadow: none !important;
 }
 
 .ide .tab:hover,
 .ide.glass-window .tab:hover {
-  background: #20262d !important;
-  color: #d3d9e3 !important;
+  background: var(--grok-hover, var(--hover, rgba(255, 255, 255, 0.055))) !important;
+  color: var(--grok-text-secondary, var(--text-dim, #a8a8b3)) !important;
 }
 
 .ide .tab.active,
 .ide.glass-window .tab.active {
-  background: #1b1f24 !important;
-  color: #f2f5f8 !important;
-  border-bottom: 2px solid #5cc9c7 !important;
+  background: var(--grok-editor, var(--editor-bg, #060608)) !important;
+  color: var(--grok-text, var(--text, #ececf1)) !important;
+  border-bottom: 2px solid var(--grok-purple, var(--accent, #8b5cf6)) !important;
 }
 
 .ide .breadcrumbs {
-  background: #1b1f24 !important;
-  border-bottom: 1px solid rgba(255,255,255,0.055) !important;
+  background: var(--grok-editor, var(--editor-bg, #060608)) !important;
+  border-bottom: 1px solid var(--grok-border-muted, var(--border-muted, rgba(255, 255, 255, 0.055))) !important;
 }
 
 .ide .line-numbers,
@@ -54,29 +54,38 @@
   min-width: 52px !important;
   padding-top: 12px !important;
   padding-right: 10px !important;
-  background: #1b1f24 !important;
-  border-right: 1px solid rgba(255,255,255,0.055) !important;
+  background: var(--grok-editor-gutter, var(--grok-surface, var(--panel, #101015))) !important;
+  border-right: 1px solid var(--grok-border-muted, var(--border-muted, rgba(255, 255, 255, 0.055))) !important;
 }
 
 .ide .line-num,
 .ide.glass-window .line-num {
-  color: #7b8492 !important;
+  color: var(--grok-editor-line-number, var(--grok-text-muted, var(--text-mute, #6b6b78))) !important;
   font-weight: 400 !important;
   opacity: 1 !important;
 }
 
 .ide .line-num.active,
 .ide.glass-window .line-num.active {
-  color: #c9d1db !important;
+  color: var(--grok-text, var(--text, #ececf1)) !important;
+  background: var(--grok-editor-active-line, var(--grok-surface-2, var(--panel-solid, #16161c))) !important;
 }
 
 .ide .code-textarea,
 .ide.glass-window .code-textarea {
-  color: #e6edf3 !important;
-  caret-color: #5cc9c7 !important;
+  color: var(--grok-text, var(--text, #ececf1)) !important;
+  caret-color: var(--grok-editor-cursor, var(--grok-purple, var(--accent, #8b5cf6))) !important;
+  font-family: var(--grok-font-mono, var(--code-font, "JetBrains Mono", monospace)) !important;
+  font-size: var(--grok-font-size-editor, var(--efs, 13px)) !important;
+  line-height: var(--elh, calc(var(--grok-font-size-editor, 13px) * var(--grok-line-height-editor, 1.5))) !important;
   padding-left: 14px !important;
   text-shadow: none !important;
   letter-spacing: 0 !important;
+}
+
+.ide .code-textarea::selection,
+.ide.glass-window .code-textarea::selection {
+  background: var(--grok-editor-selection, var(--grok-selection, var(--selection, rgba(139, 92, 246, 0.28)))) !important;
 }
 
 .ide .editor-scroll::-webkit-scrollbar,
@@ -87,14 +96,14 @@
 
 .ide .editor-scroll::-webkit-scrollbar-thumb,
 .ide .code-textarea::-webkit-scrollbar-thumb {
-  background: rgba(121, 130, 145, 0.42) !important;
-  border: 3px solid #1b1f24 !important;
+  background: var(--grok-scrollbar, var(--scrollbar, rgba(255, 255, 255, 0.18))) !important;
+  border: 3px solid var(--grok-editor, var(--editor-bg, #060608)) !important;
   border-radius: 999px !important;
 }
 
 .ide .editor-scroll::-webkit-scrollbar-thumb:hover,
 .ide .code-textarea::-webkit-scrollbar-thumb:hover {
-  background: rgba(150, 160, 176, 0.58) !important;
+  background: var(--grok-scrollbar-hover, var(--scrollbar-hover, rgba(255, 255, 255, 0.32))) !important;
 }
 
 .ide .editor.ai-inline-suggestions .editor-input-wrap {

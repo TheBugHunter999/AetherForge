@@ -8,13 +8,23 @@
     DEFAULT_WINDOW_WIDTH,
   } from "$lib/window-lifecycle";
 
+  type EnvironmentMode = "standard" | "glass";
+
   let {
     locked = false,
     utilities,
+    workspaceTitle,
+    environmentMode = "standard",
+    onEnvironmentModeChange,
+    onSearchClick,
   }: {
     /** Setup wizard: centered, no drag, no maximize. */
     locked?: boolean;
     utilities?: import("svelte").Snippet;
+    workspaceTitle?: string;
+    environmentMode?: EnvironmentMode;
+    onEnvironmentModeChange?: (mode: EnvironmentMode) => void;
+    onSearchClick?: () => void;
   } = $props();
 
   let maximized = $state(false);
@@ -23,6 +33,8 @@
   let appWindow: ReturnType<typeof getCurrentWindow> | null = null;
 
   let expanded = $derived(maximized || fullscreen);
+  let showModeSwitch = $derived(!locked && Boolean(onEnvironmentModeChange));
+  let showSearch = $derived(!locked && Boolean(onSearchClick));
 
   async function syncWindowState() {
     if (!appWindow) return;
@@ -91,10 +103,15 @@
     void appWindow?.close();
   }
 
+  function setEnvironmentMode(mode: EnvironmentMode) {
+    if (mode === environmentMode) return;
+    onEnvironmentModeChange?.(mode);
+  }
+
   function onDragMouseDown(e: MouseEvent) {
     if (locked || !appWindow || e.button !== 0) return;
     const target = e.target as HTMLElement;
-    if (target.closest("button, a, input, select, textarea")) return;
+    if (target.closest("button, a, input, select, textarea, [role='button'], [role='group']")) return;
     if (e.detail === 2) {
       void toggleMaximize();
       return;
@@ -112,12 +129,61 @@
   data-tauri-drag-region={locked ? undefined : true}
   onmousedown={onDragMouseDown}
 >
+  {#if workspaceTitle}
+    <div class="chrome-left" data-tauri-drag-region={locked ? undefined : true}>
+      <span class="workspace-title">{workspaceTitle}</span>
+    </div>
+  {/if}
+
   <div class="chrome-drag" data-tauri-drag-region={locked ? undefined : true}></div>
+
   {#if utilities}
     <div class="chrome-utilities">
       {@render utilities()}
     </div>
   {/if}
+
+  {#if showModeSwitch || showSearch}
+    <div class="chrome-actions">
+      {#if showModeSwitch}
+        <div class="env-mode-switch" role="group" aria-label="Environment mode">
+          <button
+            type="button"
+            class="env-mode-seg"
+            class:active={environmentMode === "standard"}
+            aria-pressed={environmentMode === "standard"}
+            onclick={() => setEnvironmentMode("standard")}
+          >
+            Standard
+          </button>
+          <button
+            type="button"
+            class="env-mode-seg"
+            class:active={environmentMode === "glass"}
+            aria-pressed={environmentMode === "glass"}
+            onclick={() => setEnvironmentMode("glass")}
+          >
+            Glass
+          </button>
+        </div>
+      {/if}
+
+      {#if showSearch}
+        <button
+          type="button"
+          class="chrome-search-btn"
+          aria-label="Search"
+          onclick={() => onSearchClick?.()}
+        >
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <circle cx="7" cy="7" r="4.25" fill="none" stroke="currentColor" stroke-width="1.25" />
+            <path d="M10.2 10.2L13.5 13.5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" />
+          </svg>
+        </button>
+      {/if}
+    </div>
+  {/if}
+
   <div class="chrome-controls">
     <button type="button" class="chrome-btn" aria-label="Minimize" onclick={minimize}>
       <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1 5.5h8" stroke="currentColor" stroke-width="1" /></svg>
@@ -154,23 +220,55 @@
     position: relative;
     display: flex;
     align-items: center;
-    justify-content: flex-end;
-    height: 32px;
-    min-height: 32px;
-    max-height: 32px;
+    height: var(--grok-chrome-h);
+    min-height: var(--grok-chrome-h);
+    max-height: var(--grok-chrome-h);
     flex-shrink: 0;
-    background: var(--panel-solid);
-    border-bottom: 1px solid var(--border);
+    background: var(--grok-glass-chrome);
+    border-bottom: 1px solid var(--grok-border);
+    box-shadow: var(--grok-shadow-chrome);
+    backdrop-filter: blur(var(--grok-blur-chrome)) saturate(var(--grok-saturate));
+    -webkit-backdrop-filter: blur(var(--grok-blur-chrome)) saturate(var(--grok-saturate));
+    color: var(--grok-text-secondary);
+    font-family: var(--grok-font-sans);
     user-select: none;
     -webkit-app-region: drag;
     app-region: drag;
-    z-index: 20;
+    z-index: var(--grok-z-sticky);
   }
 
   .window-chrome.locked {
     -webkit-app-region: no-drag;
     app-region: no-drag;
     cursor: default;
+  }
+
+  .chrome-left {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    height: 100%;
+    padding-left: var(--grok-space-6);
+    padding-right: var(--grok-space-4);
+    min-width: 0;
+    -webkit-app-region: drag;
+    app-region: drag;
+  }
+
+  .window-chrome.locked .chrome-left {
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
+  }
+
+  .workspace-title {
+    font-size: var(--grok-font-size-sm);
+    font-weight: var(--grok-font-weight-medium);
+    line-height: var(--grok-line-height-tight);
+    color: var(--grok-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 240px;
   }
 
   .chrome-drag {
@@ -190,9 +288,87 @@
     flex: 0 0 auto;
     display: flex;
     align-items: center;
-    height: 32px;
+    height: var(--grok-chrome-h);
     -webkit-app-region: no-drag;
     app-region: no-drag;
+  }
+
+  .chrome-actions {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: var(--grok-space-3);
+    height: var(--grok-chrome-h);
+    padding: 0 var(--grok-space-4);
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
+  }
+
+  .env-mode-switch {
+    display: inline-flex;
+    align-items: center;
+    height: 28px;
+    padding: var(--grok-space-1);
+    border-radius: var(--grok-radius-full);
+    border: 1px solid var(--grok-border);
+    background: var(--grok-surface-2);
+    gap: var(--grok-space-1);
+  }
+
+  .env-mode-seg {
+    height: 22px;
+    padding: 0 var(--grok-space-5);
+    border: none;
+    border-radius: var(--grok-radius-full);
+    background: transparent;
+    color: var(--grok-text-muted);
+    font-size: var(--grok-font-size-xs);
+    font-weight: var(--grok-font-weight-medium);
+    line-height: 1;
+    cursor: default;
+    transition:
+      background var(--grok-duration-fast) var(--grok-ease-out),
+      color var(--grok-duration-fast) var(--grok-ease-out);
+  }
+
+  .env-mode-seg:hover {
+    color: var(--grok-text-secondary);
+    background: var(--grok-hover);
+  }
+
+  .env-mode-seg.active {
+    color: var(--grok-text);
+    background: var(--grok-surface-3);
+    box-shadow: var(--grok-shadow-inset);
+  }
+
+  .chrome-search-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: none;
+    border-radius: var(--grok-radius-md);
+    background: transparent;
+    color: var(--grok-text-muted);
+    cursor: default;
+    transition:
+      background var(--grok-duration-fast) var(--grok-ease-out),
+      color var(--grok-duration-fast) var(--grok-ease-out);
+  }
+
+  .chrome-search-btn svg {
+    width: 14px;
+    height: 14px;
+    display: block;
+    pointer-events: none;
+  }
+
+  .chrome-search-btn:hover {
+    background: var(--grok-hover);
+    color: var(--grok-text);
   }
 
   .chrome-controls {
@@ -200,7 +376,7 @@
     flex: 0 0 auto;
     display: flex;
     align-items: center;
-    height: 32px;
+    height: var(--grok-chrome-h);
     -webkit-app-region: no-drag;
     app-region: no-drag;
   }
@@ -210,9 +386,9 @@
     width: 46px;
     min-width: 46px;
     max-width: 46px;
-    height: 32px;
-    min-height: 32px;
-    max-height: 32px;
+    height: var(--grok-chrome-h);
+    min-height: var(--grok-chrome-h);
+    max-height: var(--grok-chrome-h);
     border: none;
     background: transparent;
     padding: 0;
@@ -221,8 +397,10 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    color: color-mix(in srgb, var(--text) 76%, transparent);
-    transition: background 120ms ease-out, color 120ms ease-out;
+    color: var(--grok-text-secondary);
+    transition:
+      background var(--grok-duration-fast) var(--grok-ease-out),
+      color var(--grok-duration-fast) var(--grok-ease-out);
   }
 
   .chrome-btn svg {
@@ -240,13 +418,13 @@
   }
 
   .chrome-btn:hover {
-    background: color-mix(in srgb, var(--text) 10%, transparent);
-    color: var(--text);
+    background: var(--grok-hover);
+    color: var(--grok-text);
   }
 
   .chrome-btn.close:hover {
-    background: #c42b1c;
-    color: #fff;
+    background: var(--grok-danger);
+    color: var(--grok-text-inverse);
   }
 
   .window-chrome.maximized .chrome-controls {
