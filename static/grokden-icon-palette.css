@@ -1,4 +1,23 @@
 /*
+  Grokden brand palette — legacy icon tokens scoped to avoid theme bleed.
+  Premium Grok and Midnight use the theme engine vars from buildThemeStyle.
+  Codex and Aurora use their own tokens.css + theme-palette.ts values.
+*/
+
+.ide[data-theme="codex"],
+.ide[data-theme="aurora"] {
+  --grokden-navy: var(--panel-solid);
+  --grokden-navy-dark: var(--bg);
+  --grokden-teal-dark: var(--accent);
+  --grokden-teal: var(--accent);
+  --grokden-cyan: var(--accent-muted);
+
+  --accent2: var(--accent);
+  --accent-subtle: var(--accent-soft);
+  --accent-strong: var(--border-strong);
+  --accent-grad: linear-gradient(135deg, var(--accent), var(--accent-hover));
+}
+/*
   Grokden brand palette — scoped to warm themes only.
   Premium Grok and Midnight use the theme engine vars from buildThemeStyle.
 */

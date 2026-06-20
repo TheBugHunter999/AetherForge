@@ -169,6 +169,7 @@
     type WelcomeThemeId,
   } from "$lib/WelcomeView.svelte";
   import Canvas from "$lib/Canvas.svelte";
+  import MemoryGalaxy from "$lib/MemoryGalaxy.svelte";
 
   const quickOpenModLabel =
     typeof navigator !== "undefined" && /Mac|iPhone|iPad/i.test(navigator.userAgent) ? "Cmd" : "Ctrl";
@@ -248,9 +249,10 @@
   let sidebarCollapsed = $state(false);
   let terminalOpen = $state(settings.showTerminalOnStart);
   let secondarySidebarOpen = $state(initialSecondarySidebarOpen(settings));
-  let view = $state<"editor" | "settings" | "agents" | "canvas" | "skills">("editor");
+  let view = $state<"editor" | "settings" | "agents" | "canvas" | "skills" | "memory">("editor");
   let canvasOpen = $state(false);
   let skillsOpen = $state(false);
+  let memoryOpen = $state(false);
   let parallelAgents = $state<ParallelAgent[]>([]);
   let missionGoals = $state<MissionGoal[]>([]);
   let agentSwarmOpen = $state(false);
@@ -562,6 +564,18 @@
     agentSwarmOpen = false;
     canvasOpen = false;
     skillsOpen = false;
+    memoryOpen = false;
+  }
+
+  function goHome() {
+    if (!confirmClearUnsavedTabs()) return;
+    tabs = [];
+    activeTabPath = null;
+    folderPath = null;
+    selectedFolderPath = null;
+    void unmountWorkspace();
+    view = "editor";
+    dismissOverlayViews();
   }
 
   function toggleExplorerPanel() {
@@ -641,7 +655,8 @@
       !settingsOpen &&
       !agentSwarmOpen &&
       !canvasOpen &&
-      !skillsOpen,
+      !skillsOpen &&
+      !memoryOpen,
   );
 
   let projectRecentFiles = $derived(
@@ -659,7 +674,9 @@
     if (view === "settings" && settingsOpen) return "settings";
     if (view === "skills" && skillsOpen) return "skills";
     if (view === "canvas" && canvasOpen) return "canvas";
+    if (view === "memory" && memoryOpen) return "memory";
     if (view === "agents" && agentSwarmOpen) return "agents";
+    if (!folderPath && view === "editor") return "home";
     if (activePanel === "explorer") return "explorer";
     if (activePanel === "search") return "search";
     if (activePanel === "scm") return "scm";
@@ -668,6 +685,9 @@
 
   function handleRailSelect(item: SidebarSelectItem) {
     switch (item) {
+      case "home":
+        goHome();
+        break;
       case "explorer":
         toggleExplorerPanel();
         break;
@@ -686,6 +706,9 @@
         break;
       case "skills":
         openSkillsView();
+        break;
+      case "memory":
+        openMemoryView();
         break;
       case "settings":
         openSettings();
@@ -887,20 +910,28 @@
 
   /** Pick the next main view after closing a settings or swarm panel tab. */
   function resolveViewAfterPanelClose(
-    closed: "agents" | "settings" | "canvas" | "skills",
-  ): "editor" | "settings" | "agents" | "canvas" | "skills" {
+    closed: "agents" | "settings" | "canvas" | "skills" | "memory",
+  ): "editor" | "settings" | "agents" | "canvas" | "skills" | "memory" {
     if (closed === "agents" && settingsOpen) return "settings";
     if (closed === "settings" && agentSwarmOpen) return "agents";
     if (closed === "canvas" && agentSwarmOpen) return "agents";
     if (closed === "canvas" && settingsOpen) return "settings";
     if (closed === "canvas" && skillsOpen) return "skills";
+    if (closed === "canvas" && memoryOpen) return "memory";
     if (closed === "agents" && canvasOpen) return "canvas";
     if (closed === "settings" && canvasOpen) return "canvas";
     if (closed === "skills" && agentSwarmOpen) return "agents";
     if (closed === "skills" && canvasOpen) return "canvas";
     if (closed === "skills" && settingsOpen) return "settings";
+    if (closed === "skills" && memoryOpen) return "memory";
     if (closed === "agents" && skillsOpen) return "skills";
     if (closed === "settings" && skillsOpen) return "skills";
+    if (closed === "memory" && agentSwarmOpen) return "agents";
+    if (closed === "memory" && canvasOpen) return "canvas";
+    if (closed === "memory" && settingsOpen) return "settings";
+    if (closed === "memory" && skillsOpen) return "skills";
+    if (closed === "agents" && memoryOpen) return "memory";
+    if (closed === "settings" && memoryOpen) return "memory";
     return "editor";
   }
 
@@ -1471,7 +1502,20 @@
 
   function closeSkillsView() {
     skillsOpen = false;
+
     if (view === "skills") view = resolveViewAfterPanelClose("skills");
+  }
+
+  function openMemoryView() {
+    memoryOpen = true;
+    view = "memory";
+    blurActiveTerminal();
+    setUserSidebarOpen(false);
+  }
+
+  function closeMemoryView() {
+    memoryOpen = false;
+    if (view === "memory") view = resolveViewAfterPanelClose("memory");
   }
 
   function openRecentProjectFile(file: RecentFile) {
@@ -1928,6 +1972,7 @@
 <div
   class="ide{layoutClasses.ide} workspace-enter"
   class:grokden-sidebar-hidden={!userSidebarOpen}
+    class:grokden-terminal-hidden={!terminalOpen}
   style="{rootStyle};{layoutStyle}"
   data-ui-lang={settings.uiLanguage}
   data-theme={settings.theme}
@@ -2046,6 +2091,17 @@
         Parallel Agents
       </button>
       <button type="button" class="save-btn" onclick={saveActiveTab} disabled={!activeTab || !isDirty(activeTab)} title="Save (Ctrl+S)">Save</button>
+      <a
+        href="https://github.com/TheBugHunter999/Grokden"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="github-btn"
+        title="View on GitHub"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>
+        </svg>
+      </a>
     </div>
   </header>
 
@@ -2257,6 +2313,14 @@
           out:fade={settings.enableAnimations ? fadeFast : { duration: 0 }}
         >
           <Canvas />
+        </div>
+      {:else if view === "memory"}
+        <div
+          class="view-pane memory-view-pane"
+          in:fade={settings.enableAnimations ? fadeFast : { duration: 0 }}
+          out:fade={settings.enableAnimations ? fadeFast : { duration: 0 }}
+        >
+          <MemoryGalaxy />
         </div>
       {:else if view === "agents"}
         <div
@@ -2980,6 +3044,29 @@ This is a very long debug log line that demonstrates whether the debug console w
     border-radius: 4px;
   }
 
+  .github-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    color: var(--text-dim);
+    text-decoration: none;
+    transition: color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
+  }
+  .github-btn svg {
+    width: 18px;
+    height: 18px;
+  }
+  .github-btn:hover {
+    color: var(--accent);
+    background: var(--hover-strong);
+    transform: scale(1.1);
+  }
+
   .rail-live {
     width: 7px;
     height: 7px;
@@ -3223,6 +3310,21 @@ This is a very long debug log line that demonstrates whether the debug console w
     flex: 1 1 0;
     min-height: 0;
     height: 100%;
+  }
+
+  .memory-view-pane {
+    position: relative;
+    padding: 0;
+    background: transparent;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .memory-view-pane :global(.mg-root) {
+    flex: 1 1 0;
+    min-height: 0;
+    width: 100%;
   }
 
   .editor-content > .view-pane,

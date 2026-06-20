@@ -11,8 +11,8 @@
   --grok-dim: var(--text-dim, #c5ced9);
   --grok-accent: var(--accent, #5cc9c7);
   --grok-accent-soft: var(--accent-soft, rgba(92, 201, 199, 0.14));
-  --grok-purple: #8b5cf6;
-  --grok-purple-soft: rgba(139, 92, 246, 0.16);
+  --grok-purple: #c89650;
+  --grok-purple-soft: rgba(200, 150, 80, 0.16);
   --grok-warn: var(--warn, #f59e0b);
   --grok-warn-soft: color-mix(in srgb, var(--grok-warn) 18%, transparent);
   --grok-hover: var(--hover, rgba(255, 255, 255, 0.06));

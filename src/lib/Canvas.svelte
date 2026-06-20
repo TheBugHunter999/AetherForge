@@ -66,6 +66,10 @@
 
   let tool = $state<CanvasTool>("select");
   let showMinimap = $state(false);
+  let minimapCanvas = $state<HTMLCanvasElement | undefined>();
+  const MINIMAP_W = 200;
+  const MINIMAP_H = 130;
+  const MINIMAP_PAD = 40;
 
   let spaceHeld = $state(false);
   let isPanning = $state(false);
@@ -86,6 +90,10 @@
 
   let connectFromId = $state<string | null>(null);
   let connectPreview = $state<{ x: number; y: number } | null>(null);
+
+  // Context menu state
+  let contextMenu = $state<{ x: number; y: number; nodeId: string } | null>(null);
+  let contextEditField = $state<"title" | "subtitle" | null>(null);
 
   let undoStack = $state<CanvasSnapshot[]>([]);
   let redoStack = $state<CanvasSnapshot[]>([]);
@@ -490,6 +498,43 @@
     };
   }
 
+  // ── Context menu ───────────────────────────────────────────────────
+  function onNodeContextMenu(e: MouseEvent, node: CanvasNode) {
+    e.preventDefault();
+    e.stopPropagation();
+    const pt = localPoint(e);
+    contextMenu = { x: pt.x, y: pt.y, nodeId: node.id };
+    contextEditField = null;
+  }
+
+  function closeContextMenu() {
+    contextMenu = null;
+    contextEditField = null;
+  }
+
+  function contextDeleteNode() {
+    if (!contextMenu) return;
+    pushUndo();
+    nodes = nodes.filter(n => n.id !== contextMenu!.nodeId);
+    edges = edges.filter(e => e.fromId !== contextMenu!.nodeId && e.toId !== contextMenu!.nodeId);
+    selectedIds = new Set([...selectedIds].filter(id => id !== contextMenu!.nodeId));
+    closeContextMenu();
+  }
+
+  function contextDuplicateNode() {
+    if (!contextMenu) return;
+    const orig = nodes.find(n => n.id === contextMenu!.nodeId);
+    if (!orig) return;
+    addNode(orig.type, orig.x + 40, orig.y + 40);
+    closeContextMenu();
+  }
+
+  function contextUpdateField(field: "title" | "subtitle", value: string) {
+    if (!contextMenu) return;
+    pushUndo();
+    nodes = nodes.map(n => n.id === contextMenu!.nodeId ? { ...n, [field]: value } : n);
+  }
+
   function onKeyDown(e: KeyboardEvent) {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
       return;
@@ -551,6 +596,118 @@
     return () => resizeObserver?.disconnect();
   });
 
+  // ── Live Minimap ─────────────────────────────────────────────────────
+  function getMinimapBounds() {
+    if (!nodes.length) return { minX: -500, minY: -300, maxX: 500, maxY: 300, scaleX: 1, scaleY: 1, scale: 1 };
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const n of nodes) {
+      minX = Math.min(minX, n.x);
+      minY = Math.min(minY, n.y);
+      maxX = Math.max(maxX, n.x + n.width);
+      maxY = Math.max(maxY, n.y + n.height);
+    }
+    minX -= MINIMAP_PAD; minY -= MINIMAP_PAD;
+    maxX += MINIMAP_PAD; maxY += MINIMAP_PAD;
+    // Include viewport bounds
+    const vpTL = screenToWorld(0, 0);
+    const vpBR = screenToWorld(viewportW, viewportH);
+    minX = Math.min(minX, vpTL.x); minY = Math.min(minY, vpTL.y);
+    maxX = Math.max(maxX, vpBR.x); maxY = Math.max(maxY, vpBR.y);
+    const rangeX = maxX - minX || 1;
+    const rangeY = maxY - minY || 1;
+    const scale = Math.min(MINIMAP_W / rangeX, MINIMAP_H / rangeY);
+    return { minX, minY, maxX, maxY, scaleX: scale, scaleY: scale, scale };
+  }
+
+  function worldToMinimap(wx: number, wy: number, bounds: ReturnType<typeof getMinimapBounds>) {
+    return {
+      x: (wx - bounds.minX) * bounds.scale,
+      y: (wy - bounds.minY) * bounds.scale,
+    };
+  }
+
+  function renderMinimap() {
+    const mc = minimapCanvas;
+    if (!mc) return;
+    const ctx = mc.getContext("2d");
+    if (!ctx) return;
+    const w = mc.width, h = mc.height;
+    ctx.clearRect(0, 0, w, h);
+    // Background
+    ctx.fillStyle = "rgba(6,6,10,0.85)";
+    ctx.fillRect(0, 0, w, h);
+    const bounds = getMinimapBounds();
+    const ox = (w - (bounds.maxX - bounds.minX) * bounds.scale) / 2;
+    const oy = (h - (bounds.maxY - bounds.minY) * bounds.scale) / 2;
+    const toMini = (wx: number, wy: number) => {
+      const p = worldToMinimap(wx, wy, bounds);
+      return { x: p.x + ox, y: p.y + oy };
+    };
+    // Edges
+    ctx.strokeStyle = "rgba(200,150,80,0.3)";
+    ctx.lineWidth = 1;
+    for (const edge of edges) {
+      const from = nodes.find(n => n.id === edge.fromId);
+      const to = nodes.find(n => n.id === edge.toId);
+      if (!from || !to) continue;
+      const p1 = toMini(from.x + from.width / 2, from.y + from.height / 2);
+      const p2 = toMini(to.x + to.width / 2, to.y + to.height / 2);
+      ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
+    }
+    // Nodes (with glow)
+    for (const node of nodes) {
+      const p = toMini(node.x, node.y);
+      const nw = Math.max(4, node.width * bounds.scale);
+      const nh = Math.max(3, node.height * bounds.scale);
+      const isSelected = selectedIds.has(node.id);
+      // Glow
+      if (isSelected) {
+        ctx.shadowColor = "#c89650";
+        ctx.shadowBlur = 6;
+      }
+      ctx.fillStyle = isSelected ? "rgba(200,150,80,0.7)" : "rgba(255,255,255,0.25)";
+      ctx.fillRect(p.x, p.y, nw, nh);
+      ctx.shadowBlur = 0;
+      // Border
+      ctx.strokeStyle = isSelected ? "rgba(200,150,80,0.9)" : "rgba(255,255,255,0.15)";
+      ctx.lineWidth = 0.5;
+      ctx.strokeRect(p.x, p.y, nw, nh);
+    }
+    // Viewport rectangle
+    const vpTL = toMini((-panX) / zoom, (-panY) / zoom);
+    const vpBR = toMini((viewportW - panX) / zoom, (viewportH - panY) / zoom);
+    ctx.strokeStyle = "rgba(200,150,80,0.5)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(vpTL.x, vpTL.y, vpBR.x - vpTL.x, vpBR.y - vpTL.y);
+    ctx.fillStyle = "rgba(200,150,80,0.04)";
+    ctx.fillRect(vpTL.x, vpTL.y, vpBR.x - vpTL.x, vpBR.y - vpTL.y);
+  }
+
+  function onMinimapClick(e: MouseEvent) {
+    const mc = minimapCanvas;
+    if (!mc || !nodes.length) return;
+    const rect = mc.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const bounds = getMinimapBounds();
+    const w = mc.width, h = mc.height;
+    const ox = (w - (bounds.maxX - bounds.minX) * bounds.scale) / 2;
+    const oy = (h - (bounds.maxY - bounds.minY) * bounds.scale) / 2;
+    const worldX = (mx - ox) / bounds.scale + bounds.minX;
+    const worldY = (my - oy) / bounds.scale + bounds.minY;
+    panX = viewportW / 2 - worldX * zoom;
+    panY = viewportH / 2 - worldY * zoom;
+  }
+
+  // Re-render minimap whenever nodes/edges/pan/zoom change
+  $effect(() => {
+    if (!showMinimap) return;
+    // Touch reactive dependencies
+    void nodes.length; void edges.length; void panX; void panY; void zoom;
+    void selectedIds.size; void viewportW; void viewportH;
+    requestAnimationFrame(renderMinimap);
+  });
+
   const canvasClass = $derived(
     [
       "grok-canvas",
@@ -580,6 +737,7 @@
   aria-label="Grokden canvas"
   onpointerdown={onPointerDown}
   onwheel={onWheel}
+  oncontextmenu={(e) => { if (!contextMenu) e.preventDefault(); closeContextMenu(); }}
 >
   <div
     class="grok-canvas__world {zoomAnimating ? 'grok-canvas__world--animate' : ''}"
@@ -609,6 +767,7 @@
             style:width="{node.width}px"
             style:min-height="{node.height}px"
             onpointerdown={(e) => onNodePointerDown(e, node)}
+            oncontextmenu={(e) => onNodeContextMenu(e, node)}
           >
             <div class="grok-canvas__node-type">
               <span class="grok-canvas__node-type-dot grok-canvas__node-type-dot--{node.type}"></span>
@@ -619,18 +778,19 @@
           </div>
         {/each}
       </div>
-
-      {#if isMarqueeing && (marqueeRect.width > 2 || marqueeRect.height > 2)}
-        <div
-          class="grok-canvas__marquee"
-          style:left="{marqueeRect.left}px"
-          style:top="{marqueeRect.top}px"
-          style:width="{marqueeRect.width}px"
-          style:height="{marqueeRect.height}px"
-        ></div>
-      {/if}
     </div>
   </div>
+
+  <!-- Marquee rendered in screen-space (outside world transform) to fix offset -->
+  {#if isMarqueeing && (marqueeRect.width > 2 || marqueeRect.height > 2)}
+    <div
+      class="grok-canvas__marquee"
+      style:left="{marqueeRect.left}px"
+      style:top="{marqueeRect.top}px"
+      style:width="{marqueeRect.width}px"
+      style:height="{marqueeRect.height}px"
+    ></div>
+  {/if}
 
   <div class="grok-canvas__vignette" aria-hidden="true"></div>
 
@@ -729,6 +889,61 @@
   </button>
 
   {#if showMinimap}
-    <div class="grok-canvas__minimap-stub" aria-hidden="true"></div>
+    <div class="grok-canvas__minimap" aria-label="Canvas minimap">
+      <canvas
+        bind:this={minimapCanvas}
+        width={MINIMAP_W}
+        height={MINIMAP_H}
+        class="grok-canvas__minimap-canvas"
+        onclick={onMinimapClick}
+      ></canvas>
+    </div>
+  {/if}
+
+  {#if contextMenu}
+    {@const ctxNode = nodes.find(n => n.id === contextMenu!.nodeId)}
+    {#if ctxNode}
+      <div
+        class="grok-canvas__ctx-menu"
+        style:left="{contextMenu.x}px"
+        style:top="{contextMenu.y}px"
+        oncontextmenu={(e) => e.preventDefault()}
+      >
+        <div class="grok-canvas__ctx-header">
+          <span class="grok-canvas__ctx-node-type">{ctxNode.type}</span>
+          <button class="grok-canvas__ctx-close" onclick={closeContextMenu}>&times;</button>
+        </div>
+        {#if contextEditField}
+          <div class="grok-canvas__ctx-edit">
+            <input
+              type="text"
+              value={ctxNode[contextEditField]}
+              oninput={(e) => contextUpdateField(contextEditField!, (e.target as HTMLInputElement).value)}
+              onkeydown={(e) => { if (e.key === 'Enter' || e.key === 'Escape') contextEditField = null; }}
+              placeholder={contextEditField === 'title' ? 'Node title...' : 'Description...'}
+              autofocus
+            />
+          </div>
+        {:else}
+          <button class="grok-canvas__ctx-item" onclick={() => { contextEditField = 'title'; }}>
+            Edit title
+          </button>
+          <button class="grok-canvas__ctx-item" onclick={() => { contextEditField = 'subtitle'; }}>
+            Edit description
+          </button>
+          <div class="grok-canvas__ctx-divider"></div>
+          <button class="grok-canvas__ctx-item" onclick={contextDuplicateNode}>
+            Duplicate
+          </button>
+          <button class="grok-canvas__ctx-item" onclick={() => { setSelection([ctxNode.id]); closeContextMenu(); }}>
+            Select
+          </button>
+          <div class="grok-canvas__ctx-divider"></div>
+          <button class="grok-canvas__ctx-item grok-canvas__ctx-item--danger" onclick={contextDeleteNode}>
+            Delete
+          </button>
+        {/if}
+      </div>
+    {/if}
   {/if}
 </div>

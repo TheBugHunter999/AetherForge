@@ -2,13 +2,15 @@
   import { APP_DISPLAY_NAME } from "$lib/branding";
 
   export type ActivityRailItem =
+    | "home"
     | "explorer"
     | "search"
     | "scm"
     | "agents"
     | "canvas"
     | "settings"
-    | "skills";
+    | "skills"
+    | "memory";
 
   export type SidebarSelectItem = ActivityRailItem;
 
@@ -83,6 +85,18 @@
     <button
       type="button"
       class="row"
+      class:active={activeItem === "home"}
+      onclick={() => onSelect("home")}
+    >
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+      <span class="label">Home</span>
+    </button>
+
+    <button
+      type="button"
+      class="row"
       class:active={activeItem === "search"}
       onclick={() => onSelect("search")}
     >
@@ -151,6 +165,26 @@
       </svg>
       <span class="label">Skills &amp; Connectors</span>
       <span class="soon-pill">Soon</span>
+    </button>
+
+    <div class="eyebrow">Memory</div>
+
+    <button
+      type="button"
+      class="row"
+      class:active={activeItem === "memory"}
+      onclick={() => onSelect("memory")}
+    >
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <circle cx="12" cy="12" r="3" />
+        <circle cx="12" cy="12" r="7" stroke-dasharray="3 3" />
+        <circle cx="12" cy="12" r="10" stroke-dasharray="2 4" opacity="0.5" />
+        <line x1="12" y1="2" x2="12" y2="5" stroke-linecap="round" />
+        <line x1="12" y1="19" x2="12" y2="22" stroke-linecap="round" />
+        <line x1="2" y1="12" x2="5" y2="12" stroke-linecap="round" />
+        <line x1="19" y1="12" x2="22" y2="12" stroke-linecap="round" />
+      </svg>
+      <span class="label">Memory Galaxy</span>
     </button>
 
     <div class="eyebrow">Workspace</div>

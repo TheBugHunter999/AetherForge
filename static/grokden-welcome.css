@@ -461,10 +461,10 @@
 }
 
 .grok-welcome__theme-preview {
-  --grok-theme-frame: #2d2d2b;
-  --grok-theme-side: #211b26;
-  --grok-theme-editor: #2b2b29;
-  --grok-theme-accent: #cc7d5e;
+  --grok-theme-frame: #1a1a1e;
+  --grok-theme-side: #141416;
+  --grok-theme-editor: #1e1e22;
+  --grok-theme-accent: #c89650;
 
   position: relative;
   aspect-ratio: 16 / 10;
@@ -491,6 +491,19 @@
   right: 0;
   height: 14%;
   background: color-mix(in srgb, var(--grok-theme-frame) 82%, black);
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0 6%;
+  box-sizing: border-box;
+}
+
+.grok-welcome__theme-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  opacity: 0.8;
 }
 
 .grok-welcome__theme-side {
@@ -499,6 +512,23 @@
   width: 28%;
   bottom: 0;
   background: var(--grok-theme-side);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8% 10%;
+  box-sizing: border-box;
+}
+
+.grok-welcome__theme-file {
+  height: 6%;
+  width: 80%;
+  border-radius: 2px;
+  background: rgba(255,255,255,0.06);
+}
+
+.grok-welcome__theme-file--active {
+  background: color-mix(in srgb, var(--grok-theme-accent) 28%, transparent);
+  width: 90%;
 }
 
 .grok-welcome__theme-editor {
@@ -506,10 +536,10 @@
   right: 0;
   width: 72%;
   bottom: 0;
-  padding: 10% 8%;
+  padding: 8% 8%;
   display: flex;
   flex-direction: column;
-  gap: 8%;
+  gap: 6%;
   background: var(--grok-theme-editor);
 }
 
@@ -537,10 +567,23 @@
   gap: 8px;
 }
 
+.grok-welcome__theme-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
 .grok-welcome__theme-label {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--grok-text);
+  letter-spacing: -0.01em;
+}
+
+.grok-welcome__theme-subtitle {
+  font-size: 11px;
+  color: var(--grok-muted);
+  line-height: 1.3;
 }
 
 .grok-welcome__theme-apply {
@@ -601,19 +644,19 @@
 
 /* Ambient dot-plane + vignette (shared with canvas aesthetic) */
 .ambient-grid {
-  position: absolute;
-  inset: -4000px;
+  position: fixed;
+  inset: 0;
   background-color: var(--editor-bg, var(--bg));
-  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
   background-size: 24px 24px;
   pointer-events: none;
   z-index: 0;
 }
 
 .ambient-vignette {
-  position: absolute;
+  position: fixed;
   inset: 0;
-  background: radial-gradient(ellipse 85% 75% at 50% 50%, transparent 35%, rgba(0, 0, 0, 0.55) 100%);
+  background: radial-gradient(ellipse 90% 80% at 50% 50%, transparent 40%, rgba(0, 0, 0, 0.45) 100%);
   pointer-events: none;
   z-index: 1;
 }
@@ -671,6 +714,10 @@
   margin: clamp(14px, 2vh, 22px) 0 0;
   font-size: clamp(14px, 1.6vw, 16px);
   color: var(--text-dim);
+  white-space: normal;
+  overflow: visible;
+  max-width: 100%;
+  word-wrap: break-word;
 }
 
 /* Command pill (Phase 5) */
