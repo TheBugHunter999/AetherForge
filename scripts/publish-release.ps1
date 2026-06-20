@@ -80,15 +80,14 @@ $nsisHash = Get-Sha256 $Nsis
 $msiHash = Get-Sha256 $Msi
 
 $releaseNotes = @"
-Grokden $version - Stable release. Windows desktop workspace for Grok CLI.
+Grokden $version — Windows desktop workspace for Grok CLI.
 
 ## What's new
 
-- **Liquid Glass UI** — OKLCH theme system, 5 curated themes, per-theme glass tuning, edge refraction (WebView2)
-- Native **Mica/Acrylic** window material on Windows 11
-- Glass controls: refraction, edge intensity, chromatic aberration, reduce-effects toggle
-- Per-theme xterm palettes and WCAG-accessible color tokens
-- Parallel Agent Swarm, terminal image drag-and-drop, signed in-app auto-updater
+- **Premium Grok & Midnight themes** — neutral black/gray surfaces (no navy/teal bleed)
+- **Minimal terminal** — compact docked panel, flat header matching body, simplified chrome
+- **Welcome layout** — cleaner home view; glass/liquid theme overlays removed
+- Signed in-app auto-updater (NSIS), parallel agents, integrated terminals
 
 ## Requirements
 
@@ -127,7 +126,7 @@ Grokden also needs the Microsoft Edge WebView2 runtime. The installers below ins
 
 $latestJson = @{
     version = $version
-    notes = "- Stable release`n- Liquid Glass UI with 5 themes and refraction`n- Signed auto-updater (NSIS)"
+    notes = "- Premium Grok & Midnight neutral dark themes`n- Compact minimal terminal`n- Signed auto-updater (NSIS)"
     pub_date = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ss.fffZ')
     platforms = @{
         'windows-x86_64' = @{
