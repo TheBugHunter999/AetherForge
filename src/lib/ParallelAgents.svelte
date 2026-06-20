@@ -3,6 +3,7 @@
   import type { AppSettings } from "$lib/editor-utils";
   import Terminal from "$lib/Terminal.svelte";
   import AgentActivityCompact from "$lib/AgentActivityCompact.svelte";
+  import { mergeAgentWorktree, removeAgentWorktree } from "$lib/worktree-bridge";
   import { attachParser, detachParser } from "$lib/agent-activity/activity-bridge";
   import {
     createActivitySession,
@@ -10,6 +11,7 @@
   } from "$lib/agent-activity/activity-store";
   import {
     buildAgentGrokCommand,
+    buildAgentSpecificGrokCommand,
     buildAgentInjectPrompt,
     clampAgentCount,
     computeAgentGridLayout,
@@ -55,6 +57,7 @@
   let swarmBodyWidth = $state(0);
   let goalsPanelOpen = $state(false);
   let moreMenuOpen = $state(false);
+  let worktreeNotice = $state("");
 
   const SWARM_COMPACT_WIDTH = 960;
   let compactLayout = $derived(swarmBodyWidth > 0 && swarmBodyWidth < SWARM_COMPACT_WIDTH);
@@ -145,6 +148,28 @@
   function removeAgent(id: string) {
     cleanupAgentActivity(id);
     agents = agents.filter((a) => a.id !== id);
+  }
+
+  async function finishWorktree(agent: ParallelAgent, action: "merge" | "discard") {
+    if (!agent.worktreePath || !agent.cwd || !agent.branch) return;
+    const verb = action === "merge"
+      ? "merge this agent branch into the current branch"
+      : "discard this agent worktree and delete its branch";
+    if (!window.confirm(`Are you sure you want to ${verb}?`)) return;
+    agents = agents.map((item) => item.id === agent.id ? { ...item, status: "idle" as const } : item);
+    cleanupAgentActivity(agent.id);
+    worktreeNotice = action === "merge" ? `Merging ${agent.label}…` : `Discarding ${agent.label}…`;
+    try {
+      if (action === "merge") {
+        await mergeAgentWorktree({ workspacePath: agent.cwd, worktreePath: agent.worktreePath, branch: agent.branch });
+      } else {
+        await removeAgentWorktree({ workspacePath: agent.cwd, worktreePath: agent.worktreePath, branch: agent.branch });
+      }
+      agents = agents.filter((item) => item.id !== agent.id);
+      worktreeNotice = action === "merge" ? `${agent.label} merged.` : `${agent.label} discarded.`;
+    } catch (error) {
+      worktreeNotice = `${agent.label}: ${String(error)}`;
+    }
   }
 
   function releaseAllAgentState() {
@@ -285,6 +310,9 @@
       <div>
         <h2 class="swarm-heading">Parallel Agents</h2>
       </div>
+      {#if worktreeNotice}
+        <span class="swarm-worktree-notice" title={worktreeNotice}>{worktreeNotice}</span>
+      {/if}
     </div>
     <div class="swarm-toolbar-main">
       <label class="count-control">
@@ -392,6 +420,10 @@
               <span class="cell-pip" class:live={agent.status === "running" || agent.status === "launching"}></span>
               <div class="cell-head-main">
                 <span class="cell-title" title={agent.label}>{agent.label}</span>
+                <span class="cell-model" title="Model">{agent.model || settings.grokModel}</span>
+                {#if agent.worktreeIsolation}
+                  <span class="cell-isolation" title={agent.worktreePath || agent.branch || "Isolated Git worktree"}>isolated</span>
+                {/if}
                 {#if agentTerminalIds[agent.id] != null && agent.status !== "launching"}
                   <div class="cell-activity-slot">
                     <AgentActivityCompact terminalId={agentTerminalIds[agent.id]} />
@@ -399,6 +431,10 @@
                 {/if}
               </div>
               <div class="cell-head-actions">
+                {#if agent.worktreeIsolation && agent.worktreePath}
+                  <button type="button" class="worktree-action" title="Merge this isolated branch" onclick={() => finishWorktree(agent, "merge")}>Merge</button>
+                  <button type="button" class="worktree-action danger" title="Discard this isolated worktree" onclick={() => finishWorktree(agent, "discard")}>Discard</button>
+                {/if}
                 <span class="cell-status" class:running={agent.status === "running"}>
                   {statusLabel[agent.status]}
                 </span>
@@ -410,14 +446,14 @@
               {#if agent.status !== "idle"}
                   <Terminal
                     {settings}
-                    {cwd}
+                    cwd={agent.worktreePath || agent.cwd || cwd}
                     sessionActive={true}
                     visible={true}
                     compact={true}
                     enableHelper={false}
                     restartBeforeInject={true}
                     injectToken={agent.injectToken}
-                    injectCommand={grokCommand || buildAgentGrokCommand(settings)}
+                    injectCommand={agent.model ? buildAgentSpecificGrokCommand(settings, agent) : (grokCommand || buildAgentGrokCommand(settings))}
                     injectPrompt={buildAgentInjectPrompt(agent, goals)}
                     onSpawned={(tid) => handleAgentSpawned(agent.id, agent.label, tid)}
                   />
@@ -575,6 +611,7 @@
   }
 
   .swarm-heading { margin: 0; font-size: 13px; font-weight: 500; color: var(--text); letter-spacing: 0; }
+  .swarm-worktree-notice { max-width: 240px; overflow: hidden; color: var(--text-mute); font: 500 9px/1 "JetBrains Mono", monospace; text-overflow: ellipsis; white-space: nowrap; }
 
   .swarm-toolbar-main {
     display: flex;
@@ -803,6 +840,42 @@
     opacity: 1;
     animation: pulse-live 1.4s ease-in-out infinite;
   }
+
+  .cell-model,
+  .cell-isolation {
+    flex: 0 1 auto;
+    max-width: 126px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding: 2px 5px;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    color: var(--text-mute);
+    background: var(--chip-bg);
+    font: 500 8px/1 "JetBrains Mono", monospace;
+  }
+
+  .cell-isolation {
+    color: var(--accent);
+    border-color: var(--accent-mid);
+    background: var(--accent-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .worktree-action {
+    height: 20px;
+    padding: 0 5px;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    background: var(--chip-bg);
+    color: var(--text-mute);
+    font: 600 8px/1 "JetBrains Mono", monospace;
+    cursor: pointer;
+  }
+  .worktree-action:hover { color: var(--text); background: var(--hover); }
+  .worktree-action.danger:hover { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 45%, var(--border)); }
 
   .agent-cell.launching .cell-pip { background: #fbbf24; opacity: 1; }
   .agent-cell.error .cell-pip { background: #f87171; opacity: 1; }

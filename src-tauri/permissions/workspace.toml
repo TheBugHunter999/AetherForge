@@ -9,4 +9,7 @@ commands.allow = [
   "workspace_refresh",
   "workspace_git_status",
   "workspace_search_fuzzy",
+  "workspace_create_agent_worktree",
+  "workspace_remove_agent_worktree",
+  "workspace_merge_agent_worktree",
 ]

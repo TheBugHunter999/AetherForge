@@ -149,7 +149,13 @@
   } from "$lib/folder-trust";
   import { attachParser, detachParser, startActivitySession } from "$lib/agent-activity/activity-bridge";
   import { getActiveActivitySession, isSessionLive } from "$lib/agent-activity/activity-store";
-  import { type MissionGoal, type ParallelAgent } from "$lib/agent-grid";
+  import {
+    createAgentId,
+    createEmptyGoal,
+    type MissionGoal,
+    type ParallelAgent,
+  } from "$lib/agent-grid";
+  import { createAgentWorktree } from "$lib/worktree-bridge";
   import { applyAgentPreset } from "$lib/onboarding-machine";
   import {
     GROK_CLI_INSTALL_UNIX,
@@ -168,7 +174,7 @@
     type RecentWorkspace,
     type WelcomeThemeId,
   } from "$lib/WelcomeView.svelte";
-  import Canvas from "$lib/Canvas.svelte";
+  import Canvas, { type CanvasAgentLaunchSpec } from "$lib/Canvas.svelte";
   import MemoryGalaxy from "$lib/MemoryGalaxy.svelte";
 
   const quickOpenModLabel =
@@ -1488,6 +1494,63 @@
     setUserSidebarOpen(false);
   }
 
+  async function launchCanvasAgentWorkspace(specs: CanvasAgentLaunchSpec[]) {
+    if (folderRestricted) {
+      restrictedFeatureNotice("Canvas agents");
+      throw new Error("Trust the current folder before launching agents.");
+    }
+    if (!specs.length) return;
+    if (grokCliAvailable === false) {
+      settingsNotice = "Install Grok CLI before launching the canvas agent workspace.";
+      throw new Error("Grok CLI is not installed.");
+    }
+
+    const prepared: ParallelAgent[] = [];
+    const goals: MissionGoal[] = [];
+    for (const spec of specs) {
+      const goal = createEmptyGoal({
+        title: spec.goal || `${spec.role} mission`,
+        notes: spec.prompt,
+        category: "Canvas orchestration",
+      });
+      let worktreePath: string | null = null;
+      let branch: string | null = null;
+      if (spec.worktreeIsolation) {
+        branch = `grokden/${spec.id}`;
+        worktreePath = await createAgentWorktree({
+          workspacePath: spec.cwd,
+          branch,
+          slug: spec.id,
+        });
+      }
+      goals.push(goal);
+      prepared.push({
+        id: createAgentId(),
+        label: spec.role,
+        role: spec.role,
+        model: spec.model,
+        cwd: spec.cwd,
+        prompt: spec.prompt,
+        goalId: goal.id,
+        injectToken: 1,
+        status: "launching",
+        worktreeIsolation: spec.worktreeIsolation,
+        worktreePath,
+        branch,
+        upstreamRoles: spec.upstreamRoles,
+      });
+    }
+
+    missionGoals = [...missionGoals, ...goals];
+    parallelAgents = prepared;
+    agentSwarmOpen = true;
+    view = "agents";
+    blurActiveTerminal();
+    setUserSidebarOpen(false);
+    setUserSecondaryOpen(true);
+    secondaryPanelTab = "activity";
+  }
+
   function closeCanvasView() {
     canvasOpen = false;
     if (view === "canvas") view = resolveViewAfterPanelClose("canvas");
@@ -2312,7 +2375,7 @@
           in:fade={settings.enableAnimations ? fadeFast : { duration: 0 }}
           out:fade={settings.enableAnimations ? fadeFast : { duration: 0 }}
         >
-          <Canvas />
+          <Canvas defaultCwd={folderPath} onLaunchAgents={launchCanvasAgentWorkspace} />
         </div>
       {:else if view === "memory"}
         <div

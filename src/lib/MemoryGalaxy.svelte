@@ -13,6 +13,9 @@
     connections: number; level: number; type: string;
     lastAccessed: string; strength: number; category: string;
     description: string; glowIntensity: number;
+    notes?: string;
+    images?: { id: string; name: string; dataUrl: string; aspectRatio: number }[];
+    custom?: boolean;
   }
 
   interface Camera { x: number; y: number; zoom: number; targetZoom: number; targetX: number; targetY: number; }
@@ -31,8 +34,10 @@
   let hoveredPlanet = $state<Planet | null>(null);
   let activeCommand = $state<Command>("explore");
   let isDragging = $state(false);
+  let dragDistance = 0;
+  let draggedPlanetId: string | null = null;
   let dragStart = { x: 0, y: 0 };
-  let mouseScreen = { x: 0, y: 0 };
+  let mouseScreen = $state({ x: 0, y: 0 });
 
   const camera: Camera = { x: 0, y: 0, zoom: 0.18, targetZoom: 0.18, targetX: 0, targetY: 0 };
 
@@ -44,9 +49,15 @@
   let galaxyStarSprite: HTMLCanvasElement | null = null;
   let galaxyStars: { x: number; y: number; size: number; brightness: number; seed: number }[] = [];
   let universeStars: { x: number; y: number; z: number; size: number; brightness: number; rotSpeed: number }[] = [];
+  let galaxyTool = $state<"explore" | "move" | "connect">("explore");
+  let connectFromId = $state<string | null>(null);
+  let showPlanetSpawner = $state(false);
+  let planetNotice = $state("");
+  let persistTimer: ReturnType<typeof setTimeout> | undefined;
+  let planetDraft = $state({ name: "New world", type: "Project Memory", color: "#55aadd", radius: 105, hasRing: true });
 
   // ── Planet Data ──────────────────────────────────────────────────────
-  const PLANETS: Planet[] = [
+  let PLANETS = $state<Planet[]>([
     { id: "experiences", label: "EXPERIENCES", x: -1200, y: -800, radius: 140, color: "#c89650", atmosphere: "#ddb870", ringColor: "#e8d0a0", hasRing: true, orbitRadius: 1450, orbitSpeed: 0.00018, orbitPhase: 0, surfaceSeed: 1, connections: 42100000, level: 8, type: "Sensory Archive", lastAccessed: "1.5m ago", strength: 9.2, category: "experiences", description: "42.1B experiential memory nodes", glowIntensity: 0.8 },
     { id: "skills", label: "SKILLS", x: 1100, y: -950, radius: 110, color: "#ff9f43", atmosphere: "#ffc880", ringColor: "#ffe0b0", hasRing: false, orbitRadius: 1325, orbitSpeed: 0.00025, orbitPhase: 1.2, surfaceSeed: 2, connections: 21300000, level: 7, type: "Procedural Memory", lastAccessed: "3.7m ago", strength: 8.5, category: "skills", description: "21.3B procedural skill patterns", glowIntensity: 0.7 },
     { id: "knowledge", label: "KNOWLEDGE", x: 1450, y: 500, radius: 165, color: "#4cc9f0", atmosphere: "#80e0ff", ringColor: "#a0e8ff", hasRing: true, orbitRadius: 1700, orbitSpeed: 0.00014, orbitPhase: 2.5, surfaceSeed: 3, connections: 38700000, level: 9, type: "Declarative Store", lastAccessed: "2.3s ago", strength: 9.8, category: "knowledge", description: "38.7B factual knowledge nodes", glowIntensity: 0.9 },
@@ -58,9 +69,9 @@
     { id: "intuition", label: "INTUITION", x: -225, y: -1700, radius: 74, color: "#e0a060", atmosphere: "#f0c080", ringColor: "#f8d8a0", hasRing: false, orbitRadius: 1850, orbitSpeed: 0.00028, orbitPhase: 4.5, surfaceSeed: 9, connections: 3800000, level: 9, type: "Subconscious Oracle", lastAccessed: "0.1s ago", strength: 9.9, category: "intuition", description: "3.8M pre-conscious signals", glowIntensity: 0.95 },
     { id: "creativity", label: "CREATIVITY", x: 800, y: 1350, radius: 175, color: "#ff7744", atmosphere: "#ffaa77", ringColor: "#ffccaa", hasRing: true, orbitRadius: 1675, orbitSpeed: 0.00014, orbitPhase: 5.8, surfaceSeed: 10, connections: 28900000, level: 8, type: "Generative Engine", lastAccessed: "1.2s ago", strength: 9.3, category: "creativity", description: "28.9B creative pathways", glowIntensity: 0.82 },
     { id: "ethics", label: "ETHICS", x: -1550, y: -1250, radius: 64, color: "#88ddff", atmosphere: "#aaeeff", ringColor: "#ccffff", hasRing: false, orbitRadius: 1900, orbitSpeed: 0.00012, orbitPhase: 1.8, surfaceSeed: 11, connections: 2100000, level: 7, type: "Moral Compass", lastAccessed: "22s ago", strength: 8.9, category: "ethics", description: "2.1M ethical frameworks", glowIntensity: 0.7 },
-  ];
+  ]);
 
-  const CONNECTIONS: Connection[] = [
+  let CONNECTIONS = $state<Connection[]>([
     { from: "experiences", to: "knowledge", color: "#4cc9f0", strength: 0.9 },
     { from: "knowledge", to: "insights", color: "#c89650", strength: 0.85 },
     { from: "skills", to: "knowledge", color: "#ff9f43", strength: 0.8 },
@@ -81,7 +92,7 @@
     { from: "ethics", to: "cognition", color: "#88ddff", strength: 0.65 },
     { from: "ethics", to: "experiences", color: "#aaeeff", strength: 0.6 },
     { from: "language", to: "creativity", color: "#ffe080", strength: 0.78 },
-  ];
+  ]);
 
   const CATEGORIES = [
     { label: "Experiences", count: "42.1B", color: "#c89650" },
@@ -108,6 +119,212 @@
     { id: "simulate", label: "SIMULATE", icon: "◇" },
     { id: "evolve", label: "EVOLVE", icon: "❋" },
   ];
+
+  const GALAXY_STORAGE_KEY = "Grokden.memoryGalaxy.v2";
+
+  function scheduleGalaxyPersist() {
+    clearTimeout(persistTimer);
+    persistTimer = setTimeout(() => {
+      try {
+        localStorage.setItem(GALAXY_STORAGE_KEY, JSON.stringify({ planets: PLANETS, connections: CONNECTIONS }));
+      } catch (error) {
+        planetNotice = "Galaxy changes are live, but local storage is full.";
+        console.warn("Failed to persist memory galaxy", error);
+      }
+    }, 220);
+  }
+
+  function restoreGalaxy() {
+    try {
+      const stored = localStorage.getItem(GALAXY_STORAGE_KEY);
+      if (!stored) return;
+      const parsed = JSON.parse(stored) as { planets?: Planet[]; connections?: Connection[] };
+      if (Array.isArray(parsed.planets) && parsed.planets.length) PLANETS = parsed.planets;
+      if (Array.isArray(parsed.connections)) CONNECTIONS = parsed.connections;
+    } catch (error) {
+      console.warn("Failed to restore memory galaxy", error);
+    }
+  }
+
+  function ensureProceduralWorlds() {
+    const names = [
+      "Idea Garden", "Project Vault", "Research", "Design Language", "Future Builds", "References",
+      "Experiments", "Dream Log", "Decisions", "People", "Places", "Reading", "Audio", "Visuals",
+      "Questions", "Prototypes", "Lessons", "Loose Threads",
+    ];
+    const colors = ["#7aa2f7", "#6bd6c8", "#e6b566", "#e78aa8", "#93c47d", "#9f8fe8"];
+    const additions: Planet[] = [];
+    const routes: Connection[] = [];
+    names.forEach((name, index) => {
+      const id = `archive-${index + 1}`;
+      if (PLANETS.some((planet) => planet.id === id)) return;
+      const band = Math.floor(index / 6);
+      const angle = (index % 6) / 6 * Math.PI * 2 + band * 0.38;
+      const distance = 2850 + band * 1650 + (index % 3) * 240;
+      const color = colors[index % colors.length];
+      additions.push({
+        id,
+        label: name.toUpperCase(),
+        x: Math.cos(angle) * distance,
+        y: Math.sin(angle) * distance * 0.72,
+        radius: 54 + (index * 13) % 34,
+        color,
+        atmosphere: color,
+        ringColor: color,
+        hasRing: index % 4 === 0,
+        orbitRadius: distance,
+        orbitSpeed: 0,
+        orbitPhase: 0,
+        surfaceSeed: 31 + index,
+        connections: 1200 + index * 931,
+        level: 2 + index % 6,
+        type: "Procedural Archive",
+        lastAccessed: `${index + 2}d ago`,
+        strength: 5.2 + (index % 5) * 0.7,
+        category: "archive",
+        description: "A procedurally placed memory world in the outer galaxy.",
+        glowIntensity: 0.58,
+        notes: "",
+        images: [],
+      });
+      const anchor = ["knowledge", "creativity", "experiences", "skills", "concepts", "insights"][index % 6];
+      if (!CONNECTIONS.some((route) => route.from === id && route.to === anchor)) {
+        routes.push({ from: id, to: anchor, color, strength: 0.42 });
+      }
+    });
+    if (additions.length) PLANETS = [...PLANETS, ...additions];
+    if (routes.length) CONNECTIONS = [...CONNECTIONS, ...routes];
+  }
+
+  function updatePlanet(id: string, patch: Partial<Planet>) {
+    PLANETS = PLANETS.map((planet) => planet.id === id ? { ...planet, ...patch } : planet);
+    if (selectedPlanet?.id === id) selectedPlanet = PLANETS.find((planet) => planet.id === id) ?? null;
+    scheduleGalaxyPersist();
+  }
+
+  function addPlanet() {
+    const name = planetDraft.name.trim();
+    if (!name) {
+      planetNotice = "Give the planet a name first.";
+      return;
+    }
+    const [x, y] = screenToWorld(W / 2, H / 2);
+    const id = `${name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "planet"}-${Date.now()}`;
+    const color = planetDraft.color;
+    const planet: Planet = {
+      id,
+      label: name.toUpperCase(),
+      x: x + 180 / camera.zoom,
+      y,
+      radius: Math.max(55, Math.min(180, planetDraft.radius)),
+      color,
+      atmosphere: color,
+      ringColor: color,
+      hasRing: planetDraft.hasRing,
+      orbitRadius: Math.hypot(x, y),
+      orbitSpeed: 0,
+      orbitPhase: 0,
+      surfaceSeed: Math.random() * 1000,
+      connections: 0,
+      level: 1,
+      type: planetDraft.type.trim() || "Project Memory",
+      lastAccessed: "just now",
+      strength: 5,
+      category: "custom",
+      description: "A new memory world, ready for ideas and artifacts.",
+      glowIntensity: 0.72,
+      notes: "",
+      images: [],
+      custom: true,
+    };
+    PLANETS = [...PLANETS, planet];
+    selectedPlanet = planet;
+    showPlanetSpawner = false;
+    planetNotice = `${name} entered the galaxy.`;
+    camera.targetX = -planet.x;
+    camera.targetY = -planet.y;
+    camera.targetZoom = 0.75;
+    scheduleGalaxyPersist();
+  }
+
+  function connectPlanets(fromId: string, toId: string) {
+    if (fromId === toId || CONNECTIONS.some((connection) => connection.from === fromId && connection.to === toId)) return;
+    const from = PLANETS.find((planet) => planet.id === fromId);
+    if (!from) return;
+    CONNECTIONS = [...CONNECTIONS, { from: fromId, to: toId, color: from.color, strength: 0.72 }];
+    connectFromId = null;
+    planetNotice = "Memory route connected.";
+    initStreamParticles();
+    scheduleGalaxyPersist();
+  }
+
+  function resizeImageFile(file: File): Promise<{ id: string; name: string; dataUrl: string; aspectRatio: number }> {
+    return new Promise((resolve, reject) => {
+      if (!file.type.startsWith("image/")) {
+        reject(new Error(`${file.name} is not an image.`));
+        return;
+      }
+      if (file.size > 12 * 1024 * 1024) {
+        reject(new Error(`${file.name} is larger than 12 MB.`));
+        return;
+      }
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error(`Could not read ${file.name}.`));
+      reader.onload = () => {
+        const image = new Image();
+        image.onerror = () => reject(new Error(`Could not decode ${file.name}.`));
+        image.onload = () => {
+          const maxWidth = 1600;
+          const maxHeight = 1000;
+          const scale = Math.min(1, maxWidth / image.naturalWidth, maxHeight / image.naturalHeight);
+          const width = Math.max(1, Math.round(image.naturalWidth * scale));
+          const height = Math.max(1, Math.round(image.naturalHeight * scale));
+          const output = document.createElement("canvas");
+          output.width = width;
+          output.height = height;
+          const context = output.getContext("2d");
+          if (!context) {
+            reject(new Error("Image preview is unavailable."));
+            return;
+          }
+          context.imageSmoothingEnabled = true;
+          context.imageSmoothingQuality = "high";
+          context.drawImage(image, 0, 0, width, height);
+          resolve({
+            id: `image-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            name: file.name,
+            dataUrl: output.toDataURL("image/webp", 0.86),
+            aspectRatio: width / height,
+          });
+        };
+        image.src = String(reader.result);
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function handlePlanetImageUpload(event: Event) {
+    if (!selectedPlanet) return;
+    const input = event.currentTarget as HTMLInputElement;
+    const files = Array.from(input.files ?? []).slice(0, 6);
+    if (!files.length) return;
+    planetNotice = "Preparing image previews…";
+    try {
+      const images = await Promise.all(files.map(resizeImageFile));
+      updatePlanet(selectedPlanet.id, { images: [...(selectedPlanet.images ?? []), ...images] });
+      planetNotice = `${images.length} image${images.length === 1 ? "" : "s"} added without stretching.`;
+    } catch (error) {
+      planetNotice = String(error instanceof Error ? error.message : error);
+    } finally {
+      input.value = "";
+    }
+  }
+
+  function removePlanetImage(planetId: string, imageId: string) {
+    const planet = PLANETS.find((item) => item.id === planetId);
+    if (!planet) return;
+    updatePlanet(planetId, { images: (planet.images ?? []).filter((image) => image.id !== imageId) });
+  }
 
   // ── Texture System ──────────────────────────────────────────────────
   const PLANET_TEX = ["planet00", "planet05", "planet03", "planet01", "planet04", "planet06", "planet08", "planet07", "planet09", "planet02", "planet08"];
@@ -370,14 +587,6 @@
     bg.addColorStop(1, "#030305");
     ctx.fillStyle = bg;
     ctx.fillRect(0, 0, W, H);
-    // Subtle ambient warmth near core (no purple)
-    const [cx, cy] = worldToScreen(0, 0);
-    const coreGlow = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(W, H) * 0.5);
-    coreGlow.addColorStop(0, "rgba(80,60,40,0.04)");
-    coreGlow.addColorStop(0.3, "rgba(50,40,30,0.02)");
-    coreGlow.addColorStop(1, "transparent");
-    ctx.fillStyle = coreGlow;
-    ctx.fillRect(0, 0, W, H);
     // Subtle cosmic dust wash (diagonal)
     const dust = ctx.createLinearGradient(0, 0, W, H);
     dust.addColorStop(0, "rgba(80,70,50,0.02)");
@@ -386,6 +595,40 @@
     dust.addColorStop(1, "rgba(60,90,70,0.008)");
     ctx.fillStyle = dust;
     ctx.fillRect(0, 0, W, H);
+  }
+
+  function hashStar(x: number, y: number, seed: number) {
+    const value = Math.sin(x * 127.1 + y * 311.7 + seed * 74.7) * 43758.5453;
+    return value - Math.floor(value);
+  }
+
+  /** Deterministic tiles keep the galaxy populated no matter how far the camera travels. */
+  function drawInfiniteStarfield(ctx: CanvasRenderingContext2D) {
+    const tileSize = 900;
+    const [minX, minY] = screenToWorld(-80, -80);
+    const [maxX, maxY] = screenToWorld(W + 80, H + 80);
+    const startX = Math.floor(minX / tileSize);
+    const endX = Math.ceil(maxX / tileSize);
+    const startY = Math.floor(minY / tileSize);
+    const endY = Math.ceil(maxY / tileSize);
+    ctx.save();
+    for (let tileX = startX; tileX <= endX; tileX++) {
+      for (let tileY = startY; tileY <= endY; tileY++) {
+        for (let index = 0; index < 22; index++) {
+          const wx = (tileX + hashStar(tileX, tileY, index * 2)) * tileSize;
+          const wy = (tileY + hashStar(tileX, tileY, index * 2 + 1)) * tileSize;
+          const [sx, sy] = worldToScreen(wx, wy);
+          const brightness = 0.22 + hashStar(tileY, tileX, index + 60) * 0.58;
+          const size = 0.45 + hashStar(tileX + 9, tileY - 4, index + 120) * 1.15;
+          ctx.globalAlpha = brightness * (0.86 + Math.sin(time * 0.008 + index) * 0.14);
+          ctx.fillStyle = index % 11 === 0 ? "#9ab8ff" : index % 7 === 0 ? "#ffe0a8" : "#ffffff";
+          ctx.beginPath();
+          ctx.arc(sx, sy, size, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+    ctx.restore();
   }
 
   function drawNebulae(ctx: CanvasRenderingContext2D) {
@@ -425,17 +668,6 @@
     // Galaxy spiral arm stars (adapted from 3d-galaxy-particles shader + particle-galaxy-3js)
     ctx.save();
     ctx.globalCompositeOperation = "lighter";
-    // Subtle core ambient glow (soft, no lightning)
-    const [gcx, gcy] = worldToScreen(0, 0);
-    const coreGlowR = 1200 * camera.zoom;
-    const cgPulse = Math.sin(time * 0.008) * 0.08 + 0.92;
-    const cg1 = ctx.createRadialGradient(gcx, gcy, 0, gcx, gcy, coreGlowR);
-    cg1.addColorStop(0, `rgba(255,220,150,${0.06 * cgPulse})`);
-    cg1.addColorStop(0.4, `rgba(255,200,120,${0.02 * cgPulse})`);
-    cg1.addColorStop(1, "transparent");
-    ctx.fillStyle = cg1;
-    ctx.beginPath(); ctx.arc(gcx, gcy, coreGlowR, 0, Math.PI * 2); ctx.fill();
-
     // ── Spiral arm stars ──
     for (let i = 0; i < galaxyStars.length; i++) {
       const s = galaxyStars[i];
@@ -504,47 +736,19 @@
       const [tx, ty] = getPlanetWorldPos(toP, time);
       const [sx1, sy1] = worldToScreen(fx, fy);
       const [sx2, sy2] = worldToScreen(tx, ty);
-      const mx = (sx1 + sx2) / 2 + Math.sin(time * 0.005 + ci) * 30 * camera.zoom;
-      const my = (sy1 + sy2) / 2 + Math.cos(time * 0.005 + ci) * 25 * camera.zoom;
+      const mx = (sx1 + sx2) / 2 + Math.sin(ci * 2.17) * 90 * camera.zoom;
+      const my = (sy1 + sy2) / 2 + Math.cos(ci * 1.63) * 70 * camera.zoom;
 
-      // Outer glow (controlled)
+      // Calm data cables replace the former luminous beams.
       ctx.save();
-      ctx.globalAlpha = 0.2 * conn.strength;
+      ctx.globalAlpha = 0.28 * conn.strength;
       ctx.strokeStyle = conn.color;
-      ctx.lineWidth = 8 * camera.zoom;
+      ctx.lineWidth = Math.max(0.65, 1.1 * camera.zoom);
       ctx.lineCap = "round";
       ctx.beginPath();
       ctx.moveTo(sx1, sy1);
       ctx.quadraticCurveTo(mx, my, sx2, sy2);
       ctx.stroke();
-
-      // Mid glow
-      ctx.globalAlpha = 0.5 * conn.strength;
-      ctx.lineWidth = 6 * camera.zoom;
-      ctx.beginPath();
-      ctx.moveTo(sx1, sy1);
-      ctx.quadraticCurveTo(mx, my, sx2, sy2);
-      ctx.stroke();
-
-      // Inner core line (very bright)
-      ctx.globalAlpha = 0.9 * conn.strength;
-      ctx.lineWidth = 2 * camera.zoom;
-      ctx.beginPath();
-      ctx.moveTo(sx1, sy1);
-      ctx.quadraticCurveTo(mx, my, sx2, sy2);
-      ctx.stroke();
-
-      // Dashed overlay (flowing)
-      ctx.setLineDash([8 * camera.zoom, 12 * camera.zoom]);
-      ctx.lineDashOffset = -time * 0.8;
-      ctx.globalAlpha = 0.45 * conn.strength;
-      ctx.lineWidth = 1.5 * camera.zoom;
-      ctx.strokeStyle = "#ffffff";
-      ctx.beginPath();
-      ctx.moveTo(sx1, sy1);
-      ctx.quadraticCurveTo(mx, my, sx2, sy2);
-      ctx.stroke();
-      ctx.setLineDash([]);
       ctx.restore();
     }
   }
@@ -736,14 +940,13 @@
     const glowMult = isHovered ? 1.3 : isSelected ? 1.2 : 1;
     const pulse = Math.sin(time * 0.012 + p.surfaceSeed * 2) * 0.1 + 0.9;
 
-    // MASSIVE atmosphere glow (5x radius)
-    const atmosR = r * 5 * glowMult;
+    // The planet halo is now the only large light source in the scene.
+    const atmosR = r * 2.15 * glowMult;
     const atmosG = ctx.createRadialGradient(sx, sy, r * 0.3, sx, sy, atmosR);
     atmosG.addColorStop(0, p.atmosphere + "cc");
     atmosG.addColorStop(0.15, p.atmosphere + "88");
     atmosG.addColorStop(0.3, p.atmosphere + "44");
-    atmosG.addColorStop(0.5, p.atmosphere + "18");
-    atmosG.addColorStop(0.75, p.atmosphere + "06");
+    atmosG.addColorStop(0.55, p.atmosphere + "14");
     atmosG.addColorStop(1, "transparent");
     ctx.fillStyle = atmosG;
     ctx.beginPath();
@@ -760,24 +963,6 @@
     ctx.beginPath();
     ctx.arc(sx, sy, haloR, 0, Math.PI * 2);
     ctx.fill();
-
-    // Connection line to core (brighter)
-    const [coreSx, coreSy] = worldToScreen(0, 0);
-    ctx.save();
-    ctx.globalAlpha = 0.3;
-    ctx.strokeStyle = p.color;
-    ctx.lineWidth = 2 * camera.zoom;
-    ctx.shadowColor = p.color;
-    ctx.shadowBlur = 12;
-    ctx.setLineDash([6 * camera.zoom, 12 * camera.zoom]);
-    ctx.lineDashOffset = -time * 0.5;
-    ctx.beginPath();
-    ctx.moveTo(sx, sy);
-    ctx.lineTo(coreSx, coreSy);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.shadowBlur = 0;
-    ctx.restore();
 
     // Ring (behind planet) - bigger
     if (p.hasRing) {
@@ -1119,30 +1304,66 @@
 
     ctx.clearRect(0, 0, W, H);
     drawBackground(ctx);
+    drawInfiniteStarfield(ctx);
     drawStars(ctx);
     drawUniverseStars(ctx);
     drawNebulae(ctx);
     drawDustClouds(ctx);
-    drawOrbitalPaths(ctx);
     drawAmbientParticles(ctx);
     drawConnections(ctx);
-    drawStreamParticlesOnPaths(ctx);
-    drawEnergyWaves(ctx);
     try {
-      drawCore(ctx);
       for (let pi = 0; pi < PLANETS.length; pi++) drawPlanet(ctx, PLANETS[pi], pi);
     } catch (_) { /* swallow to keep loop alive */ }
-    drawLensFlare(ctx);
 
     animFrame = requestAnimationFrame(render);
   }
 
   // ── Interaction ────────────────────────────────────────────────────────
-  function handleMouseDown(e: MouseEvent) {
-    if (e.button === 0) {
-      isDragging = true;
-      dragStart = { x: e.clientX, y: e.clientY };
+  function planetAtScreen(screenX: number, screenY: number): Planet | null {
+    const [wx, wy] = screenToWorld(screenX, screenY);
+    for (let index = PLANETS.length - 1; index >= 0; index--) {
+      const planet = PLANETS[index];
+      const [px, py] = getPlanetWorldPos(planet, time);
+      if (Math.hypot(wx - px, wy - py) < planet.radius + 16 / camera.zoom) return planet;
     }
+    return null;
+  }
+
+  function focusPlanet(planet: Planet) {
+    selectedPlanet = planet;
+    const [wx, wy] = getPlanetWorldPos(planet, time);
+    camera.targetX = -wx;
+    camera.targetY = -wy;
+    camera.targetZoom = Math.max(0.55, Math.min(2.5, 400 / (planet.radius * 5)));
+    updatePlanet(planet.id, { lastAccessed: "just now" });
+  }
+
+  function handleMouseDown(e: MouseEvent) {
+    if (e.button !== 0 || !canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const hit = planetAtScreen(e.clientX - rect.left, e.clientY - rect.top);
+    dragDistance = 0;
+    dragStart = { x: e.clientX, y: e.clientY };
+
+    if (galaxyTool === "connect" && hit) {
+      if (!connectFromId) {
+        connectFromId = hit.id;
+        selectedPlanet = hit;
+        planetNotice = `Select a destination for ${hit.label}.`;
+      } else {
+        connectPlanets(connectFromId, hit.id);
+      }
+      return;
+    }
+
+    if (galaxyTool === "move" && hit) {
+      draggedPlanetId = hit.id;
+      selectedPlanet = hit;
+      isDragging = true;
+      return;
+    }
+
+    isDragging = true;
   }
 
   function handleMouseMove(e: MouseEvent) {
@@ -1155,10 +1376,21 @@
     if (isDragging) {
       const dx = e.clientX - dragStart.x;
       const dy = e.clientY - dragStart.y;
-      camera.targetX += dx / camera.zoom;
-      camera.targetY += dy / camera.zoom;
-      camera.x += dx / camera.zoom;
-      camera.y += dy / camera.zoom;
+      dragDistance += Math.hypot(dx, dy);
+      if (draggedPlanetId) {
+        const planet = PLANETS.find((item) => item.id === draggedPlanetId);
+        if (planet) {
+          planet.x += dx / camera.zoom;
+          planet.y += dy / camera.zoom;
+          planet.orbitSpeed = 0;
+          planet.orbitPhase = 0;
+        }
+      } else {
+        camera.targetX += dx / camera.zoom;
+        camera.targetY += dy / camera.zoom;
+        camera.x += dx / camera.zoom;
+        camera.y += dy / camera.zoom;
+      }
       dragStart = { x: e.clientX, y: e.clientY };
     }
 
@@ -1174,24 +1406,20 @@
   }
 
   function handleMouseUp(e: MouseEvent) {
-    if (e.button === 0 && !isDragging) return;
-    const wasDrag = isDragging && (Math.abs(e.clientX - dragStart.x) > 3 || Math.abs(e.clientY - dragStart.y) > 3);
+    if (e.button !== 0) return;
+    const movedPlanet = draggedPlanetId;
+    const wasDrag = dragDistance > 4;
     isDragging = false;
-    if (!wasDrag && hoveredPlanet) {
-      if (selectedPlanet?.id === hoveredPlanet.id) {
-        selectedPlanet = null;
-        // Zoom back out
-        camera.targetZoom = 0.18;
-        camera.targetX = 0;
-        camera.targetY = 0;
-      } else {
-        selectedPlanet = hoveredPlanet;
-        // Zoom in to planet
-        const [wx, wy] = getPlanetWorldPos(hoveredPlanet, time);
-        camera.targetX = -wx;
-        camera.targetY = -wy;
-        camera.targetZoom = Math.max(0.55, Math.min(2.5, 400 / (hoveredPlanet.radius * 5)));
+    draggedPlanetId = null;
+    if (movedPlanet) {
+      if (wasDrag) {
+        planetNotice = "Planet position saved.";
+        scheduleGalaxyPersist();
       }
+      return;
+    }
+    if (!wasDrag && hoveredPlanet) {
+      focusPlanet(hoveredPlanet);
     }
   }
 
@@ -1202,7 +1430,9 @@
   }
 
   function handleMouseLeave() {
+    if (draggedPlanetId) scheduleGalaxyPersist();
     isDragging = false;
+    draggedPlanetId = null;
     hoveredPlanet = null;
   }
 
@@ -1254,6 +1484,8 @@
   let resizeTimeout: ReturnType<typeof setTimeout>;
 
   onMount(async () => {
+    restoreGalaxy();
+    ensureProceduralWorlds();
     initBackground();
     initStreamParticles();
     resize();
@@ -1266,7 +1498,7 @@
     resizeTimeout = setTimeout(() => resize(), 200);
     // Start render loop immediately (textures load async)
     animFrame = requestAnimationFrame(render);
-    selectedPlanet = PLANETS[2]; // knowledge
+    selectedPlanet = PLANETS.find((planet) => planet.id === "knowledge") ?? PLANETS[0] ?? null;
     // Load textures in background (render loop uses gradients until ready)
     await loadAllTextures();
   });
@@ -1274,6 +1506,7 @@
   onDestroy(() => {
     cancelAnimationFrame(animFrame);
     clearTimeout(resizeTimeout);
+    clearTimeout(persistTimer);
     resizeObserver?.disconnect();
   });
 </script>
@@ -1325,7 +1558,12 @@
   </div>
 
   <!-- Canvas -->
+  <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+  <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
   <div class="mg-canvas-wrap"
+    role="application"
+    aria-label="Interactive memory galaxy"
+    tabindex="0"
     onmousedown={handleMouseDown}
     onmousemove={handleMouseMove}
     onmouseup={handleMouseUp}
@@ -1333,6 +1571,35 @@
     onwheel={handleWheel}
   >
     <canvas bind:this={canvas} class="mg-canvas"></canvas>
+
+    <div class="mg-space-tools" role="toolbar" tabindex="0" aria-label="Galaxy tools" onmousedown={(event) => event.stopPropagation()}>
+      <button class:active={galaxyTool === "explore"} onclick={() => { galaxyTool = "explore"; connectFromId = null; }}>Explore</button>
+      <button class:active={galaxyTool === "move"} onclick={() => { galaxyTool = "move"; connectFromId = null; }}>Move</button>
+      <button class:active={galaxyTool === "connect"} onclick={() => { galaxyTool = "connect"; connectFromId = null; }}>Connect</button>
+      <span></span>
+      <button class="mg-space-tools__add" onclick={() => (showPlanetSpawner = !showPlanetSpawner)}>+ Planet</button>
+    </div>
+
+    {#if showPlanetSpawner}
+      <div class="mg-spawner" role="dialog" tabindex="-1" aria-label="Spawn a planet" onmousedown={(event) => event.stopPropagation()}>
+        <div class="mg-spawner__head">
+          <div><span>NEW MEMORY WORLD</span><strong>Spawn a planet</strong></div>
+          <button aria-label="Close planet spawner" onclick={() => (showPlanetSpawner = false)}>×</button>
+        </div>
+        <label><span>Name</span><input type="text" bind:value={planetDraft.name} /></label>
+        <label><span>Purpose</span><input type="text" bind:value={planetDraft.type} /></label>
+        <div class="mg-spawner__row">
+          <label><span>Atmosphere</span><input class="mg-color" type="color" bind:value={planetDraft.color} /></label>
+          <label class="mg-spawner__range"><span>Size · {planetDraft.radius}</span><input type="range" min="55" max="180" step="5" bind:value={planetDraft.radius} /></label>
+        </div>
+        <label class="mg-spawner__ring"><input type="checkbox" bind:checked={planetDraft.hasRing} /><span>Orbital ring</span></label>
+        <button class="mg-spawner__submit" onclick={addPlanet}>Create planet</button>
+      </div>
+    {/if}
+
+    {#if planetNotice}
+      <div class="mg-notice" role="status">{planetNotice}</div>
+    {/if}
 
     <!-- Tooltip -->
     {#if hoveredPlanet && !isDragging}
@@ -1374,7 +1641,12 @@
           <span class="mg-panel__title">NODE INSPECTOR</span>
         </div>
         <div class="mg-panel__body">
-          <div class="mg-inspector__name">{selectedPlanet.label}</div>
+          <input
+            class="mg-inspector__name-input"
+            value={selectedPlanet.label}
+            aria-label="Planet name"
+            oninput={(event) => updatePlanet(selectedPlanet!.id, { label: event.currentTarget.value.toUpperCase() })}
+          />
           <div class="mg-inspector__sub">{selectedPlanet.type} &middot; Level {selectedPlanet.level}</div>
           <div class="mg-inspector__row"><span>Last Accessed</span><span>{selectedPlanet.lastAccessed}</span></div>
           <div class="mg-inspector__row"><span>Connections</span><span>{formatCount(selectedPlanet.connections)}</span></div>
@@ -1384,6 +1656,33 @@
             <div class="mg-significance__bar"><div class="mg-significance__fill" style="width:{selectedPlanet.strength*10}%"></div></div>
             <span class="mg-significance__val">{(selectedPlanet.strength*10).toFixed(1)}%</span>
           </div>
+          <div class="mg-journal-head">
+            <span>PLANET JOURNAL</span>
+            <label class="mg-upload-btn">
+              + Images
+              <input type="file" accept="image/*" multiple onchange={handlePlanetImageUpload} />
+            </label>
+          </div>
+          <textarea
+            class="mg-journal"
+            rows="5"
+            value={selectedPlanet.notes ?? ""}
+            placeholder="Ideas, plans, future projects, or anything worth remembering…"
+            oninput={(event) => updatePlanet(selectedPlanet!.id, { notes: event.currentTarget.value })}
+          ></textarea>
+          {#if selectedPlanet.images?.length}
+            <div class="mg-image-grid">
+              {#each selectedPlanet.images as image (image.id)}
+                <figure style:--image-ratio={image.aspectRatio}>
+                  <img src={image.dataUrl} alt={image.name} />
+                  <button aria-label={`Remove ${image.name}`} onclick={() => removePlanetImage(selectedPlanet!.id, image.id)}>×</button>
+                  <figcaption title={image.name}>{image.name}</figcaption>
+                </figure>
+              {/each}
+            </div>
+          {:else}
+            <div class="mg-image-empty">Images are resized for this panel and always keep their original proportions.</div>
+          {/if}
         </div>
       </div>
     {/if}
@@ -1495,7 +1794,6 @@
   .mg-cluster-count { font-size: 10px; font-family: "JetBrains Mono", monospace; color: rgba(136,144,200,0.5); }
 
   /* Inspector */
-  .mg-inspector__name { font-size: 13px; font-weight: 700; color: #e0e4ff; }
   .mg-inspector__sub { font-size: 10px; color: rgba(136,144,200,0.55); }
   .mg-inspector__row { display: flex; justify-content: space-between; font-size: 10px; color: rgba(224,228,255,0.6); padding: 2px 0; border-bottom: 1px solid rgba(100,120,255,0.05); }
   .mg-inspector__row span:last-child { font-family: "JetBrains Mono", monospace; color: rgba(224,228,255,0.8); }
@@ -1520,6 +1818,65 @@
   /* Reset button */
   .mg-reset-btn { position: absolute; top: 12px; right: 12px; width: 32px; height: 32px; border: 1px solid rgba(200,150,80,0.15); border-radius: 8px; background: rgba(8,8,12,0.7); color: rgba(224,228,255,0.6); cursor: pointer; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(12px); transition: all 150ms; z-index: 5; }
   .mg-reset-btn:hover { background: rgba(200,150,80,0.2); border-color: rgba(200,150,80,0.3); color: #c89650; }
+
+  /* Galaxy builder */
+  .mg-space-tools {
+    position: absolute; top: 12px; left: 12px; z-index: 7;
+    display: flex; align-items: center; gap: 3px; padding: 4px;
+    border: 1px solid rgba(140,160,220,0.16); border-radius: 9px;
+    background: rgba(7,8,13,0.84); backdrop-filter: blur(18px) saturate(1.25);
+    box-shadow: 0 12px 32px rgba(0,0,0,.34);
+  }
+  .mg-space-tools button {
+    height: 27px; padding: 0 9px; border: 1px solid transparent; border-radius: 6px;
+    background: transparent; color: rgba(190,196,220,.55); font: 600 8px/1 "JetBrains Mono", monospace;
+    letter-spacing: .06em; cursor: pointer;
+  }
+  .mg-space-tools button:hover { color: rgba(236,238,248,.86); background: rgba(255,255,255,.045); }
+  .mg-space-tools button.active { color: #a9c3ff; border-color: rgba(130,160,230,.26); background: rgba(90,125,210,.14); }
+  .mg-space-tools > span { width: 1px; height: 17px; background: rgba(140,160,220,.14); }
+  .mg-space-tools .mg-space-tools__add { color: #ffd28a; }
+
+  .mg-spawner {
+    position: absolute; top: 52px; left: 12px; z-index: 8; width: 300px; padding: 12px;
+    box-sizing: border-box; border: 1px solid rgba(130,160,230,.22); border-radius: 11px;
+    background: rgba(7,8,13,.94); backdrop-filter: blur(24px) saturate(1.3);
+    box-shadow: 0 24px 60px rgba(0,0,0,.52);
+  }
+  .mg-spawner__head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; }
+  .mg-spawner__head > div { display: flex; flex-direction: column; gap: 4px; }
+  .mg-spawner__head span { color: rgba(120,155,230,.72); font: 600 7px/1 "JetBrains Mono", monospace; letter-spacing: .16em; }
+  .mg-spawner__head strong { color: #eceefa; font-size: 13px; font-weight: 600; }
+  .mg-spawner__head button { width: 24px; height: 24px; border: 0; border-radius: 5px; background: transparent; color: rgba(190,196,220,.5); font-size: 17px; cursor: pointer; }
+  .mg-spawner__head button:hover { color: #fff; background: rgba(255,255,255,.06); }
+  .mg-spawner > label, .mg-spawner__row label { display: flex; flex-direction: column; gap: 5px; margin-bottom: 9px; color: rgba(190,196,220,.5); font-size: 8px; font-weight: 600; }
+  .mg-spawner input[type="text"] { height: 31px; padding: 0 9px; border: 1px solid rgba(130,150,210,.16); border-radius: 7px; outline: 0; background: rgba(18,20,30,.78); color: #e8eaf4; font: 500 10px/1 Inter, sans-serif; }
+  .mg-spawner input[type="text"]:focus { border-color: rgba(120,155,240,.5); }
+  .mg-spawner__row { display: grid; grid-template-columns: 84px minmax(0,1fr); gap: 10px; }
+  .mg-spawner .mg-color { width: 100%; height: 31px; padding: 3px; border: 1px solid rgba(130,150,210,.16); border-radius: 7px; background: rgba(18,20,30,.78); cursor: pointer; }
+  .mg-spawner__range input { height: 31px; accent-color: #7aa2f7; }
+  .mg-spawner .mg-spawner__ring { flex-direction: row; align-items: center; gap: 7px; }
+  .mg-spawner__ring input { accent-color: #7aa2f7; }
+  .mg-spawner__submit { width: 100%; height: 32px; border: 1px solid rgba(120,155,240,.34); border-radius: 7px; background: rgba(85,120,205,.16); color: #dfe7ff; font: 600 9px/1 "JetBrains Mono", monospace; cursor: pointer; }
+  .mg-spawner__submit:hover { background: rgba(85,120,205,.26); }
+  .mg-notice { position: absolute; left: 12px; bottom: 12px; z-index: 6; max-width: min(360px, calc(100% - 70px)); padding: 7px 10px; border: 1px solid rgba(130,160,220,.15); border-radius: 7px; background: rgba(7,8,13,.82); color: rgba(205,210,230,.62); font: 500 8px/1.3 "JetBrains Mono", monospace; backdrop-filter: blur(12px); }
+
+  .mg-inspector__name-input { width: 100%; box-sizing: border-box; padding: 4px 6px; border: 1px solid transparent; border-radius: 5px; outline: 0; background: transparent; color: #e0e4ff; font: 700 13px/1 Inter, sans-serif; letter-spacing: .02em; }
+  .mg-inspector__name-input:hover, .mg-inspector__name-input:focus { border-color: rgba(130,160,230,.2); background: rgba(255,255,255,.025); }
+  .mg-journal-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 5px; padding-top: 8px; border-top: 1px solid rgba(120,140,220,.08); }
+  .mg-journal-head > span { color: rgba(150,170,225,.56); font: 600 7px/1 "JetBrains Mono", monospace; letter-spacing: .14em; }
+  .mg-upload-btn { display: inline-flex; align-items: center; height: 24px; padding: 0 8px; border: 1px solid rgba(120,155,230,.2); border-radius: 6px; background: rgba(80,115,200,.1); color: #a9c3ff; font: 600 8px/1 "JetBrains Mono", monospace; cursor: pointer; }
+  .mg-upload-btn:hover { background: rgba(80,115,200,.18); }
+  .mg-upload-btn input { display: none; }
+  .mg-journal { box-sizing: border-box; width: 100%; min-height: 86px; max-height: 180px; resize: vertical; padding: 8px 9px; border: 1px solid rgba(120,140,210,.12); border-radius: 7px; outline: 0; background: rgba(3,4,8,.52); color: rgba(225,228,242,.76); font: 400 10px/1.45 Inter, sans-serif; }
+  .mg-journal:focus { border-color: rgba(120,155,230,.35); }
+  .mg-image-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 6px; }
+  .mg-image-grid figure { position: relative; min-width: 0; margin: 0; overflow: hidden; border: 1px solid rgba(120,140,210,.12); border-radius: 7px; background: #030408; }
+  .mg-image-grid img { display: block; width: 100%; height: 88px; object-fit: contain; background: radial-gradient(circle at center, rgba(100,125,190,.09), transparent 70%); }
+  .mg-image-grid figcaption { padding: 5px 6px; overflow: hidden; color: rgba(190,196,220,.48); font: 500 7px/1 "JetBrains Mono", monospace; text-overflow: ellipsis; white-space: nowrap; }
+  .mg-image-grid figure button { position: absolute; top: 4px; right: 4px; width: 20px; height: 20px; padding: 0; border: 1px solid rgba(255,255,255,.12); border-radius: 5px; background: rgba(3,4,8,.76); color: rgba(230,232,242,.65); cursor: pointer; }
+  .mg-image-grid figure button:hover { color: #fff; background: rgba(160,50,65,.55); }
+  .mg-image-empty { padding: 9px; border: 1px dashed rgba(120,140,210,.13); border-radius: 7px; color: rgba(150,158,190,.4); font-size: 8px; line-height: 1.45; text-align: center; }
 
   /* Bottom */
   .mg-bottom { display: flex; flex-direction: column; gap: 0; }

@@ -23,10 +23,31 @@
     nodes: CanvasNode[];
     edges: CanvasEdge[];
   };
+
+  export type CanvasAgentLaunchSpec = {
+    id: string;
+    role: string;
+    model: string;
+    cwd: string;
+    goal: string;
+    prompt: string;
+    worktreeIsolation: boolean;
+    upstreamRoles: string[];
+  };
 </script>
 
 <script lang="ts">
   import { onMount, tick } from "svelte";
+  import { open } from "@tauri-apps/plugin-dialog";
+  import { grokModels } from "$lib/editor-utils";
+
+  let {
+    defaultCwd = null,
+    onLaunchAgents = undefined,
+  }: {
+    defaultCwd?: string | null;
+    onLaunchAgents?: (specs: CanvasAgentLaunchSpec[]) => void | Promise<void>;
+  } = $props();
 
   const MIN_ZOOM = 0.25;
   const MAX_ZOOM = 4;
@@ -34,6 +55,7 @@
   const NODE_WIDTH = 200;
   const NODE_HEIGHT = 96;
   const UNDO_LIMIT = 50;
+  const CANVAS_STORAGE_KEY = "Grokden.canvas.orchestration.v2";
 
   const NODE_PRESETS: Record<
     CanvasNodeType,
@@ -99,6 +121,20 @@
   let redoStack = $state<CanvasSnapshot[]>([]);
 
   let nextId = $state(1);
+  let showAgentLauncher = $state(true);
+  let launchingAgents = $state(false);
+  let launcherNotice = $state("");
+  let workspaceDir = $state("");
+  let sharedGoal = $state("Ship a reviewed, production-ready implementation");
+  let sharedPrompt = $state("Coordinate through concise handoffs. Keep changes scoped, tested, and easy to review.");
+  let isolateWorktrees = $state(false);
+  let canvasHydrated = false;
+  let canvasPersistTimer: ReturnType<typeof setTimeout> | undefined;
+  let agentDrafts = $state([
+    { id: "role-planner", role: "Planner", model: "grok-composer-2.5-fast", cwd: "", prompt: "Break the goal into an executable plan and identify risks before implementation." },
+    { id: "role-builder", role: "Builder", model: "grok-build", cwd: "", prompt: "Implement the approved plan, run focused checks, and document meaningful decisions." },
+    { id: "role-reviewer", role: "Reviewer", model: "grok-composer-2.5-fast", cwd: "", prompt: "Review the diff, test edge cases, and return actionable findings. Never mark your own review as done." },
+  ]);
 
   const zoomPercent = $derived(Math.round(zoom * 100));
   const isEmpty = $derived(nodes.length === 0);
@@ -116,6 +152,53 @@
     const id = `${prefix}-${nextId}`;
     nextId += 1;
     return id;
+  }
+
+  function scheduleCanvasPersist() {
+    if (!canvasHydrated) return;
+    clearTimeout(canvasPersistTimer);
+    canvasPersistTimer = setTimeout(() => {
+      try {
+        localStorage.setItem(CANVAS_STORAGE_KEY, JSON.stringify({
+          nodes,
+          edges,
+          agentDrafts,
+          workspaceDir,
+          sharedGoal,
+          sharedPrompt,
+          isolateWorktrees,
+        }));
+      } catch (error) {
+        console.warn("Failed to persist canvas orchestration", error);
+      }
+    }, 180);
+  }
+
+  function restoreCanvas() {
+    try {
+      const stored = localStorage.getItem(CANVAS_STORAGE_KEY);
+      if (!stored) return;
+      const parsed = JSON.parse(stored) as {
+        nodes?: CanvasNode[];
+        edges?: CanvasEdge[];
+        agentDrafts?: typeof agentDrafts;
+        workspaceDir?: string;
+        sharedGoal?: string;
+        sharedPrompt?: string;
+        isolateWorktrees?: boolean;
+      };
+      if (Array.isArray(parsed.nodes)) nodes = parsed.nodes;
+      if (Array.isArray(parsed.edges)) edges = parsed.edges;
+      if (Array.isArray(parsed.agentDrafts) && parsed.agentDrafts.length) agentDrafts = parsed.agentDrafts;
+      if (typeof parsed.workspaceDir === "string") workspaceDir = parsed.workspaceDir;
+      if (typeof parsed.sharedGoal === "string") sharedGoal = parsed.sharedGoal;
+      if (typeof parsed.sharedPrompt === "string") sharedPrompt = parsed.sharedPrompt;
+      if (typeof parsed.isolateWorktrees === "boolean") isolateWorktrees = parsed.isolateWorktrees;
+      const ids = [...nodes.map((node) => node.id), ...edges.map((edge) => edge.id)];
+      nextId = Math.max(1, ...ids.map((id) => Number(id.match(/-(\d+)$/)?.[1] ?? 0) + 1));
+    } catch (error) {
+      console.warn("Failed to restore canvas orchestration", error);
+    }
   }
 
   function cloneSnapshot(): CanvasSnapshot {
@@ -277,6 +360,110 @@
     tool = "select";
   }
 
+  function slugify(value: string) {
+    return value
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "") || "agent";
+  }
+
+  function addRoleDraft(role = `Agent ${agentDrafts.length + 1}`) {
+    if (agentDrafts.length >= 8) return;
+    agentDrafts = [
+      ...agentDrafts,
+      {
+        id: `role-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        role,
+        model: "grok-build",
+        cwd: "",
+        prompt: "",
+      },
+    ];
+  }
+
+  function updateRoleDraft(id: string, field: "role" | "model" | "cwd" | "prompt", value: string) {
+    agentDrafts = agentDrafts.map((draft) => draft.id === id ? { ...draft, [field]: value } : draft);
+  }
+
+  function removeRoleDraft(id: string) {
+    if (agentDrafts.length <= 1) return;
+    agentDrafts = agentDrafts.filter((draft) => draft.id !== id);
+  }
+
+  async function browseWorkspaceDirectory() {
+    try {
+      const result = await open({
+        directory: true,
+        multiple: false,
+        title: "Choose agent workspace",
+        defaultPath: workspaceDir || undefined,
+      });
+      if (typeof result === "string") workspaceDir = result;
+    } catch (error) {
+      launcherNotice = `Could not open the folder picker: ${String(error)}`;
+    }
+  }
+
+  function addAgentLayout(specs: CanvasAgentLaunchSpec[]) {
+    pushUndo();
+    const center = getViewportCenterWorld();
+    const gapX = 268;
+    const startX = center.x - ((specs.length - 1) * gapX) / 2 - NODE_WIDTH / 2;
+    const created = specs.map((spec, index) => ({
+      id: createId("node"),
+      type: "agent" as const,
+      x: startX + index * gapX,
+      y: center.y - NODE_HEIGHT / 2 + (index % 2 ? 28 : -28),
+      width: NODE_WIDTH,
+      height: NODE_HEIGHT,
+      title: spec.role,
+      subtitle: `${grokModels.find((model) => model.id === spec.model)?.label ?? spec.model}${spec.worktreeIsolation ? " · isolated" : ""}`,
+    }));
+    const createdEdges = created.slice(1).map((node, index) => ({
+      id: createId("edge"),
+      fromId: created[index].id,
+      toId: node.id,
+    }));
+    nodes = [...nodes, ...created];
+    edges = [...edges, ...createdEdges];
+    selectedIds = new Set(created.map((node) => node.id));
+  }
+
+  async function launchAgentWorkspace() {
+    const cwd = workspaceDir.trim();
+    const validDrafts = agentDrafts.filter((draft) => draft.role.trim());
+    if (!cwd) {
+      launcherNotice = "Choose a working directory before launch.";
+      return;
+    }
+    if (!validDrafts.length) {
+      launcherNotice = "Add at least one named role.";
+      return;
+    }
+    const specs: CanvasAgentLaunchSpec[] = validDrafts.map((draft, index) => ({
+      id: `${slugify(draft.role)}-${Date.now()}-${index + 1}`,
+      role: draft.role.trim(),
+      model: draft.model,
+      cwd: draft.cwd.trim() || cwd,
+      goal: sharedGoal.trim(),
+      prompt: [sharedPrompt.trim(), draft.prompt.trim()].filter(Boolean).join("\n\n"),
+      worktreeIsolation: isolateWorktrees,
+      upstreamRoles: validDrafts.slice(0, index).map((item) => item.role.trim()),
+    }));
+    launcherNotice = isolateWorktrees ? "Preparing isolated branches…" : "Launching connected terminals…";
+    launchingAgents = true;
+    addAgentLayout(specs);
+    try {
+      await onLaunchAgents?.(specs);
+      launcherNotice = `${specs.length} connected agent${specs.length === 1 ? "" : "s"} launched.`;
+    } catch (error) {
+      launcherNotice = `Launch failed: ${String(error)}`;
+    } finally {
+      launchingAgents = false;
+    }
+  }
+
   function deleteSelected() {
     if (!selectedIds.size) return;
     pushUndo();
@@ -362,7 +549,7 @@
   function isChromeTarget(target: EventTarget | null) {
     if (!(target instanceof Element) || !rootEl) return false;
     return !!target.closest(
-      ".grok-canvas__node, .grok-canvas__toolbar, .grok-canvas__zoom, .grok-canvas__minimap-toggle, .grok-canvas__empty-actions",
+      ".grok-canvas__node, .grok-canvas__toolbar, .grok-canvas__zoom, .grok-canvas__minimap-toggle, .grok-canvas__empty-actions, .grok-canvas__agent-launcher, .grok-canvas__launch-button",
     );
   }
 
@@ -588,12 +775,30 @@
   let resizeObserver: ResizeObserver | undefined;
 
   onMount(() => {
+    restoreCanvas();
     updateViewportSize();
     resizeObserver = new ResizeObserver(() => updateViewportSize());
     if (rootEl) resizeObserver.observe(rootEl);
     void tick().then(() => rootEl?.focus({ preventScroll: true }));
 
-    return () => resizeObserver?.disconnect();
+    if (!workspaceDir && defaultCwd) workspaceDir = defaultCwd;
+    canvasHydrated = true;
+
+    return () => {
+      clearTimeout(canvasPersistTimer);
+      resizeObserver?.disconnect();
+    };
+  });
+
+  $effect(() => {
+    void nodes;
+    void edges;
+    void agentDrafts;
+    void workspaceDir;
+    void sharedGoal;
+    void sharedPrompt;
+    void isolateWorktrees;
+    scheduleCanvasPersist();
   });
 
   // ── Live Minimap ─────────────────────────────────────────────────────
@@ -794,6 +999,132 @@
 
   <div class="grok-canvas__vignette" aria-hidden="true"></div>
 
+  {#if !showAgentLauncher}
+    <button
+      type="button"
+      class="grok-canvas__launch-button"
+      onclick={() => (showAgentLauncher = true)}
+    >
+      <span>+</span> Launch agents
+    </button>
+  {/if}
+
+  {#if showAgentLauncher}
+    <section class="grok-canvas__agent-launcher" aria-label="Launch connected agents">
+      <header class="grok-canvas__launcher-head">
+        <div>
+          <span class="grok-canvas__launcher-kicker">ORCHESTRATION</span>
+          <h2>Launch connected agents</h2>
+        </div>
+        <button type="button" class="grok-canvas__launcher-close" aria-label="Close agent launcher" onclick={() => (showAgentLauncher = false)}>×</button>
+      </header>
+
+      <div class="grok-canvas__launcher-scroll">
+        <label class="grok-canvas__field">
+          <span>Working directory</span>
+          <div class="grok-canvas__path-field">
+            <input type="text" bind:value={workspaceDir} placeholder="Choose a folder" spellcheck="false" />
+            <button type="button" onclick={browseWorkspaceDirectory}>Browse</button>
+          </div>
+        </label>
+
+        <label class="grok-canvas__field">
+          <span>Shared goal</span>
+          <input type="text" bind:value={sharedGoal} placeholder="What should this team accomplish?" />
+        </label>
+
+        <label class="grok-canvas__field">
+          <span>Starting context</span>
+          <textarea rows="2" bind:value={sharedPrompt} placeholder="Context sent to every terminal"></textarea>
+        </label>
+
+        <div class="grok-canvas__roles-head">
+          <div>
+            <span>Agent roles</span>
+            <small>Connected top to bottom as a handoff chain</small>
+          </div>
+          <span class="grok-canvas__role-count">{agentDrafts.length}/8</span>
+        </div>
+
+        <div class="grok-canvas__role-list">
+          {#each agentDrafts as draft, index (draft.id)}
+            <article class="grok-canvas__role-card">
+              <div class="grok-canvas__role-index">{String(index + 1).padStart(2, "0")}</div>
+              <div class="grok-canvas__role-main">
+                <div class="grok-canvas__role-line">
+                  <input
+                    class="grok-canvas__role-name"
+                    type="text"
+                    value={draft.role}
+                    aria-label="Agent role"
+                    oninput={(event) => updateRoleDraft(draft.id, "role", event.currentTarget.value)}
+                  />
+                  <select
+                    value={draft.model}
+                    aria-label="Agent model"
+                    onchange={(event) => updateRoleDraft(draft.id, "model", event.currentTarget.value)}
+                  >
+                    {#each grokModels as model}
+                      <option value={model.id}>{model.label}</option>
+                    {/each}
+                  </select>
+                  <button
+                    type="button"
+                    class="grok-canvas__role-remove"
+                    aria-label="Remove role"
+                    disabled={agentDrafts.length <= 1}
+                    onclick={() => removeRoleDraft(draft.id)}
+                  >×</button>
+                </div>
+                <textarea
+                  rows="2"
+                  value={draft.prompt}
+                  aria-label="Role-specific starting prompt"
+                  placeholder="Specific instructions for this role"
+                  oninput={(event) => updateRoleDraft(draft.id, "prompt", event.currentTarget.value)}
+                ></textarea>
+                <input
+                  class="grok-canvas__role-cwd"
+                  type="text"
+                  value={draft.cwd}
+                  aria-label="Role-specific working directory"
+                  placeholder="Optional directory override"
+                  spellcheck="false"
+                  oninput={(event) => updateRoleDraft(draft.id, "cwd", event.currentTarget.value)}
+                />
+                {#if index > 0}
+                  <span class="grok-canvas__handoff">↳ receives context from {agentDrafts[index - 1].role || `Agent ${index}`}</span>
+                {/if}
+              </div>
+            </article>
+          {/each}
+        </div>
+
+        <div class="grok-canvas__role-adds">
+          <button type="button" onclick={() => addRoleDraft()}>+ Add role</button>
+          <button type="button" onclick={() => addRoleDraft("Researcher")}>Researcher</button>
+          <button type="button" onclick={() => addRoleDraft("QA")}>QA</button>
+        </div>
+
+        <label class="grok-canvas__isolation">
+          <span>
+            <strong>Git worktree isolation</strong>
+            <small>Give every agent its own branch and checkout</small>
+          </span>
+          <input type="checkbox" bind:checked={isolateWorktrees} />
+          <i aria-hidden="true"></i>
+        </label>
+      </div>
+
+      <footer class="grok-canvas__launcher-foot">
+        <span class:grok-canvas__launcher-notice--error={launcherNotice.startsWith("Launch failed")}>{launcherNotice || "Ready to spawn"}</span>
+        <button type="button" class="grok-canvas__launch-primary" disabled={launchingAgents} onclick={launchAgentWorkspace}>
+          {launchingAgents ? "Launching…" : `Launch ${agentDrafts.length} terminal${agentDrafts.length === 1 ? "" : "s"}`}
+        </button>
+      </footer>
+    </section>
+  {/if}
+
   {#if isEmpty}
     <div class="grok-canvas__empty">
       <p class="grok-canvas__empty-prompt">Map agents, missions, and files on an infinite canvas</p>
@@ -848,6 +1179,9 @@
     <span class="grok-canvas__tool-divider" aria-hidden="true"></span>
     <button type="button" class="grok-canvas__tool-btn" title="Add node (N)" onclick={() => addNode("agent")}>
       Add node <span class="grok-canvas__tool-kbd">N</span>
+    </button>
+    <button type="button" class="grok-canvas__tool-btn" title="Open agent launcher" onclick={() => (showAgentLauncher = !showAgentLauncher)}>
+      Agents
     </button>
     <span class="grok-canvas__tool-divider" aria-hidden="true"></span>
     <button type="button" class="grok-canvas__tool-btn" title="Fit to view" onclick={fitToView}>
@@ -905,6 +1239,8 @@
     {#if ctxNode}
       <div
         class="grok-canvas__ctx-menu"
+        role="menu"
+        tabindex="-1"
         style:left="{contextMenu.x}px"
         style:top="{contextMenu.y}px"
         oncontextmenu={(e) => e.preventDefault()}
@@ -921,7 +1257,6 @@
               oninput={(e) => contextUpdateField(contextEditField!, (e.target as HTMLInputElement).value)}
               onkeydown={(e) => { if (e.key === 'Enter' || e.key === 'Escape') contextEditField = null; }}
               placeholder={contextEditField === 'title' ? 'Node title...' : 'Description...'}
-              autofocus
             />
           </div>
         {:else}
@@ -947,3 +1282,141 @@
     {/if}
   {/if}
 </div>
+
+<style>
+  .grok-canvas__launch-button {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    z-index: 6;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 34px;
+    padding: 0 13px;
+    border: 1px solid var(--grok-border);
+    border-radius: var(--grok-radius-pill);
+    background: color-mix(in srgb, var(--grok-surface) 90%, transparent);
+    color: var(--grok-text);
+    box-shadow: var(--grok-shadow-md);
+    backdrop-filter: blur(18px) saturate(1.2);
+    font: 600 11px/1 var(--grok-font);
+    cursor: pointer;
+  }
+  .grok-canvas__launch-button span { color: var(--grok-accent); font-size: 16px; }
+  .grok-canvas__launch-button:hover { background: var(--grok-hover); border-color: var(--grok-border-strong); }
+
+  .grok-canvas__agent-launcher {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    bottom: 68px;
+    z-index: 30;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    width: min(430px, calc(100% - 28px));
+    overflow: hidden;
+    border: 1px solid var(--grok-border-strong);
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--grok-surface) 94%, transparent);
+    color: var(--grok-text);
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.48);
+    backdrop-filter: blur(26px) saturate(1.25);
+    user-select: text;
+  }
+  .grok-canvas__launcher-head,
+  .grok-canvas__launcher-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 13px 14px;
+    border-bottom: 1px solid var(--grok-border);
+    background: color-mix(in srgb, var(--grok-surface-2) 66%, transparent);
+  }
+  .grok-canvas__launcher-head h2 { margin: 3px 0 0; font-size: 14px; font-weight: 600; letter-spacing: -0.02em; }
+  .grok-canvas__launcher-kicker { color: var(--grok-accent); font: 600 8px/1 "JetBrains Mono", monospace; letter-spacing: 0.17em; }
+  .grok-canvas__launcher-close,
+  .grok-canvas__role-remove { border: 0; background: transparent; color: var(--grok-muted); cursor: pointer; }
+  .grok-canvas__launcher-close { width: 28px; height: 28px; border-radius: 7px; font-size: 18px; }
+  .grok-canvas__launcher-close:hover,
+  .grok-canvas__role-remove:hover:not(:disabled) { background: var(--grok-hover); color: var(--grok-text); }
+  .grok-canvas__launcher-scroll { overflow: auto; padding: 14px; scrollbar-width: thin; scrollbar-color: var(--grok-border-strong) transparent; }
+  .grok-canvas__field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+  .grok-canvas__field > span,
+  .grok-canvas__roles-head > div > span { color: var(--grok-muted); font-size: 10px; font-weight: 600; }
+  .grok-canvas__field input,
+  .grok-canvas__field textarea,
+  .grok-canvas__role-card input,
+  .grok-canvas__role-card select,
+  .grok-canvas__role-card textarea {
+    box-sizing: border-box;
+    width: 100%;
+    border: 1px solid var(--grok-border);
+    border-radius: 8px;
+    background: var(--grok-surface-2);
+    color: var(--grok-text);
+    outline: none;
+    font: 500 11px/1.35 var(--grok-font);
+  }
+  .grok-canvas__field input { height: 34px; padding: 0 10px; }
+  .grok-canvas__field textarea,
+  .grok-canvas__role-card textarea { resize: vertical; min-height: 48px; padding: 8px 10px; }
+  .grok-canvas__field input:focus,
+  .grok-canvas__field textarea:focus,
+  .grok-canvas__role-card input:focus,
+  .grok-canvas__role-card select:focus,
+  .grok-canvas__role-card textarea:focus { border-color: color-mix(in srgb, var(--grok-accent) 48%, var(--grok-border)); }
+  .grok-canvas__path-field { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; }
+  .grok-canvas__path-field button,
+  .grok-canvas__role-adds button {
+    border: 1px solid var(--grok-border);
+    border-radius: 8px;
+    background: var(--grok-surface-2);
+    color: var(--grok-muted);
+    font: 600 10px/1 var(--grok-font);
+    cursor: pointer;
+  }
+  .grok-canvas__path-field button { padding: 0 11px; }
+  .grok-canvas__path-field button:hover,
+  .grok-canvas__role-adds button:hover { color: var(--grok-text); background: var(--grok-hover); }
+  .grok-canvas__roles-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; margin: 17px 0 8px; }
+  .grok-canvas__roles-head > div { display: flex; flex-direction: column; gap: 3px; }
+  .grok-canvas__roles-head small,
+  .grok-canvas__isolation small { color: var(--grok-muted); font-size: 9px; font-weight: 400; }
+  .grok-canvas__role-count { color: var(--grok-muted); font: 500 9px/1 "JetBrains Mono", monospace; }
+  .grok-canvas__role-list { display: flex; flex-direction: column; gap: 7px; }
+  .grok-canvas__role-card { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 8px; padding: 9px; border: 1px solid var(--grok-border); border-radius: 10px; background: color-mix(in srgb, var(--grok-surface-2) 78%, transparent); }
+  .grok-canvas__role-index { padding-top: 7px; color: var(--grok-accent); font: 600 9px/1 "JetBrains Mono", monospace; }
+  .grok-canvas__role-main { display: flex; min-width: 0; flex-direction: column; gap: 7px; }
+  .grok-canvas__role-line { display: grid; grid-template-columns: minmax(80px, 0.85fr) minmax(130px, 1.15fr) 22px; gap: 6px; }
+  .grok-canvas__role-card input,
+  .grok-canvas__role-card select { height: 30px; padding: 0 8px; }
+  .grok-canvas__role-card select { appearance: none; background-image: linear-gradient(45deg, transparent 50%, var(--grok-muted) 50%), linear-gradient(135deg, var(--grok-muted) 50%, transparent 50%); background-position: calc(100% - 12px) 12px, calc(100% - 8px) 12px; background-size: 4px 4px, 4px 4px; background-repeat: no-repeat; }
+  .grok-canvas__role-remove { width: 22px; height: 30px; border-radius: 6px; font-size: 15px; }
+  .grok-canvas__role-remove:disabled { opacity: 0.25; cursor: default; }
+  .grok-canvas__handoff { color: color-mix(in srgb, var(--grok-accent) 64%, var(--grok-muted)); font: 500 8px/1.2 "JetBrains Mono", monospace; }
+  .grok-canvas__role-adds { display: flex; gap: 6px; margin-top: 8px; }
+  .grok-canvas__role-adds button { height: 29px; padding: 0 10px; }
+  .grok-canvas__isolation { position: relative; display: flex; align-items: center; gap: 12px; margin-top: 14px; padding: 11px 12px; border: 1px solid var(--grok-border); border-radius: 10px; background: var(--grok-surface-2); cursor: pointer; }
+  .grok-canvas__isolation > span { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 3px; }
+  .grok-canvas__isolation strong { font-size: 10px; font-weight: 600; }
+  .grok-canvas__isolation input { position: absolute; opacity: 0; pointer-events: none; }
+  .grok-canvas__isolation i { position: relative; width: 30px; height: 17px; border: 1px solid var(--grok-border-strong); border-radius: 99px; background: var(--grok-bg); }
+  .grok-canvas__isolation i::after { content: ""; position: absolute; top: 2px; left: 2px; width: 11px; height: 11px; border-radius: 50%; background: var(--grok-muted); transition: 140ms ease; }
+  .grok-canvas__isolation input:checked + i { border-color: var(--grok-accent); background: var(--grok-accent-soft); }
+  .grok-canvas__isolation input:checked + i::after { transform: translateX(13px); background: var(--grok-accent); }
+  .grok-canvas__launcher-foot { border-top: 1px solid var(--grok-border); border-bottom: 0; }
+  .grok-canvas__launcher-foot > span { min-width: 0; overflow: hidden; color: var(--grok-muted); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+  .grok-canvas__launcher-notice--error { color: var(--grok-danger) !important; }
+  .grok-canvas__launch-primary { height: 32px; padding: 0 13px; border: 1px solid color-mix(in srgb, var(--grok-accent) 48%, var(--grok-border)); border-radius: 8px; background: var(--grok-accent-soft); color: var(--grok-text); font: 600 10px/1 var(--grok-font); cursor: pointer; white-space: nowrap; }
+  .grok-canvas__launch-primary:hover:not(:disabled) { background: color-mix(in srgb, var(--grok-accent) 22%, transparent); }
+  .grok-canvas__launch-primary:disabled { opacity: 0.55; cursor: wait; }
+
+  @media (max-width: 700px) {
+    .grok-canvas__agent-launcher { right: 14px; width: auto; }
+    .grok-canvas__role-line { grid-template-columns: 1fr 22px; }
+    .grok-canvas__role-line select { grid-column: 1; grid-row: 2; }
+    .grok-canvas__role-remove { grid-column: 2; grid-row: 1 / 3; height: 100%; }
+  }
+</style>

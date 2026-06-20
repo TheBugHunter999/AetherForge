@@ -46,9 +46,10 @@
   let showQuickMenu = $state(false);
   let showModeMenu = $state(false);
   let starred = $state(false);
-  let comparePercent = $state(50);
-  let compareDragging = $state(false);
+  let starReact = $state(false);
+  let starMessage = $state("");
   let launchAnim = $state(false);
+  let previewThemeId = $state<WelcomeThemeId>("default-dark");
 
   const agentPresets: {
     id: AgentModePreset;
@@ -101,6 +102,10 @@
       accent: "#55aadd",
     },
   ];
+
+  const previewTheme = $derived(
+    themePreviews.find((theme) => theme.id === previewThemeId) ?? themePreviews[0],
+  );
 
   const emptyExamples = [
     { label: "Open a sample folder", id: "open-folder" },
@@ -191,8 +196,31 @@
     }, 900);
   }
 
+  function handleStarToggle(next: boolean) {
+    starred = next;
+    try {
+      localStorage.setItem("Grokden.workspace.starred", next ? "1" : "0");
+    } catch (_) {
+      // The animation still works when storage is unavailable.
+    }
+    starMessage = next
+      ? "Workspace achieved escape velocity."
+      : "Workspace returned to a responsible orbit.";
+    starReact = false;
+    requestAnimationFrame(() => {
+      starReact = true;
+      window.setTimeout(() => (starReact = false), 980);
+    });
+    window.setTimeout(() => (starMessage = ""), 2400);
+  }
+
   onMount(() => {
     storedWorkspaces = loadRecentWorkspaces();
+    try {
+      starred = localStorage.getItem("Grokden.workspace.starred") === "1";
+    } catch (_) {
+      starred = false;
+    }
     commandInput?.focus();
   });
 </script>
@@ -202,12 +230,19 @@
   <div class="ambient-vignette" aria-hidden="true"></div>
 
   <div class="welcome-center grok-welcome__shell">
-    <div class="welcome-supergrok-hero" class:launch-react={launchAnim} aria-label="SuperGrok Heavy">
+    <div class="welcome-supergrok-hero" class:launch-react={launchAnim} class:star-react={starReact} aria-label="SuperGrok Heavy">
       <span class="welcome-supergrok-word">SuperGrok</span>
       <span class="welcome-supergrok-badge">HEAVY</span>
       <!-- StarToggle (adapted from Button.svelte sparkle bookmark) -->
-      <div class="star-toggle" title={starred ? 'Unstar' : 'Star this workspace'}>
-        <input class="star-toggle__input" id="star-fav" type="checkbox" bind:checked={starred} />
+      <div class="star-toggle" title={starred ? 'Unstar workspace' : 'Star this workspace'}>
+        <input
+          class="star-toggle__input"
+          id="star-fav"
+          type="checkbox"
+          checked={starred}
+          aria-label={starred ? "Unstar workspace" : "Star this workspace"}
+          onchange={(event) => handleStarToggle(event.currentTarget.checked)}
+        />
         <label class="star-toggle__label" for="star-fav">
           <div class="star-toggle__icon">
             <span style="--sw:2;--sd:25;--ss:11" class="star-toggle__sparkle"></span>
@@ -229,6 +264,9 @@
         </label>
       </div>
     </div>
+    {#if starMessage}
+      <div class="star-toast" role="status">{starMessage}</div>
+    {/if}
 
     <div class="cmdbar cmdbar--pill" role="search">
       <button
@@ -367,76 +405,70 @@
         {/each}
       </div>
 
-      <!-- ThemeCompare slider (ported from next-app Compare component) -->
+      <!-- A composed theme stage replaces the old full-height comparison divider. -->
       {#if themePreviews.length >= 2}
-        <div class="theme-compare" aria-label="Compare themes">
+        <div class="theme-stage" aria-label="Theme preview">
+          <div class="theme-stage__header">
+            <div>
+              <span class="theme-stage__eyebrow">LIVE PREVIEW</span>
+              <strong class="theme-stage__title">{previewTheme.label}</strong>
+            </div>
+            <div class="theme-stage__switcher" role="tablist" aria-label="Preview theme">
+              {#each themePreviews as theme}
+                <button
+                  type="button"
+                  role="tab"
+                  class="theme-stage__tab"
+                  class:theme-stage__tab--active={previewThemeId === theme.id}
+                  aria-selected={previewThemeId === theme.id}
+                  onclick={() => (previewThemeId = theme.id)}
+                >
+                  <span class="theme-stage__swatch" style:background={theme.accent}></span>
+                  {theme.label}
+                </button>
+              {/each}
+            </div>
+          </div>
           <div
-            class="theme-compare__viewport"
-            role="slider"
-            aria-valuenow={Math.round(comparePercent)}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            tabindex={0}
-            onmousemove={(e) => {
-              if (compareDragging) {
-                const rect = e.currentTarget.getBoundingClientRect();
-                comparePercent = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
-              }
-            }}
-            onmouseenter={(e) => {
-              if (!compareDragging) {
-                const rect = e.currentTarget.getBoundingClientRect();
-                comparePercent = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
-              }
-            }}
-            onmousedown={(e) => { compareDragging = true; e.preventDefault(); }}
-            onmouseup={() => { compareDragging = false; }}
-            onmouseleave={() => { if (!compareDragging) comparePercent = 50; else compareDragging = false; }}
-            onkeydown={(e) => {
-              if (e.key === 'ArrowLeft') comparePercent = Math.max(0, comparePercent - 2);
-              if (e.key === 'ArrowRight') comparePercent = Math.min(100, comparePercent + 2);
-            }}
+            class="theme-stage__viewport"
+            style:--grok-theme-frame={previewTheme.frame}
+            style:--grok-theme-side={previewTheme.sidebar}
+            style:--grok-theme-editor={previewTheme.editor}
+            style:--grok-theme-accent={previewTheme.accent}
           >
-            <!-- Second theme (background, always visible) -->
-            <div class="theme-compare__layer theme-compare__layer--back"
-              style:--grok-theme-frame={themePreviews[1].frame}
-              style:--grok-theme-side={themePreviews[1].sidebar}
-              style:--grok-theme-editor={themePreviews[1].editor}
-              style:--grok-theme-accent={themePreviews[1].accent}
-            >
-              <span class="grok-welcome__theme-bar"></span>
-              <span class="grok-welcome__theme-side"></span>
-              <span class="grok-welcome__theme-editor">
-                <span class="grok-welcome__theme-line"></span>
-                <span class="grok-welcome__theme-line grok-welcome__theme-line--short"></span>
-                <span class="grok-welcome__theme-line grok-welcome__theme-line--accent"></span>
-              </span>
+            <div class="theme-stage__chrome">
+              <span class="theme-stage__traffic"><i></i><i></i><i></i></span>
+              <span class="theme-stage__path">grokden / workspace</span>
+              <span class="theme-stage__ready">READY</span>
             </div>
-            <!-- First theme (clipped by slider) -->
-            <div class="theme-compare__layer theme-compare__layer--front"
-              style:clip-path="inset(0 {100 - comparePercent}% 0 0)"
-              style:--grok-theme-frame={themePreviews[0].frame}
-              style:--grok-theme-side={themePreviews[0].sidebar}
-              style:--grok-theme-editor={themePreviews[0].editor}
-              style:--grok-theme-accent={themePreviews[0].accent}
-            >
-              <span class="grok-welcome__theme-bar"></span>
-              <span class="grok-welcome__theme-side"></span>
-              <span class="grok-welcome__theme-editor">
-                <span class="grok-welcome__theme-line"></span>
-                <span class="grok-welcome__theme-line grok-welcome__theme-line--short"></span>
-                <span class="grok-welcome__theme-line grok-welcome__theme-line--accent"></span>
-              </span>
-            </div>
-            <!-- Slider line + handle -->
-            <div class="theme-compare__slider" style:left="{comparePercent}%">
-              <div class="theme-compare__handle">
-                <svg viewBox="0 0 16 16" width="12" height="12"><path d="M6 3v10M10 3v10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <div class="theme-stage__body">
+              <aside class="theme-stage__sidebar">
+                <span class="theme-stage__section">WORKSPACE</span>
+                <span class="theme-stage__file theme-stage__file--active">src</span>
+                <span class="theme-stage__file">agents</span>
+                <span class="theme-stage__file">memory</span>
+              </aside>
+              <div class="theme-stage__editor">
+                <div class="theme-stage__editor-top">
+                  <span>orchestrator.ts</span>
+                  <span>Composer 2.5 Fast</span>
+                </div>
+                <div class="theme-stage__code">
+                  <span><b>01</b><em>const</em> workspace = createGalaxy();</span>
+                  <span><b>02</b><em>await</em> workspace.connect(agents);</span>
+                  <span class="theme-stage__code-accent"><b>03</b>reviewer.verify(build);</span>
+                  <span><b>04</b>planner.handoff({'{'} status: "ready" {'}'});</span>
+                </div>
+                <div class="theme-stage__terminal">
+                  <span class="theme-stage__prompt">›</span>
+                  <span>Three agents connected · waiting for launch</span>
+                </div>
               </div>
             </div>
-            <!-- Labels -->
-            <span class="theme-compare__label theme-compare__label--left">{themePreviews[0].label}</span>
-            <span class="theme-compare__label theme-compare__label--right">{themePreviews[1].label}</span>
+          </div>
+          <div class="theme-stage__footer">
+            <span>{previewTheme.subtitle}</span>
+            <button type="button" onclick={() => onApplyTheme(previewTheme.id)}>Use {previewTheme.label}</button>
           </div>
         </div>
       {/if}
@@ -617,6 +649,24 @@
     background-color: #acacac;
   }
 
+  .star-toast {
+    margin: -4px 0 12px;
+    padding: 6px 11px;
+    border: 1px solid color-mix(in srgb, var(--accent, #c89650) 28%, transparent);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--panel-solid, #111116) 88%, transparent);
+    color: var(--text-dim, #b8b8c2);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    animation: star-toast-in 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  @keyframes star-toast-in {
+    from { opacity: 0; transform: translateY(-5px) scale(0.96); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
   /* ── StartButton (cyberpunk grid from StartButton.svelte) ── */
   .start-btn {
     --main-color: rgb(46, 213, 115);
@@ -650,106 +700,119 @@
   }
 
   /* ── ThemeCompare slider (ported from next-app Compare component) ── */
-  .theme-compare {
-    margin-top: 16px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-  }
-  .theme-compare__viewport {
-    position: relative;
-    width: 100%;
-    max-width: 480px;
-    height: 180px;
+  /* Theme stage: aligned labels and a clean segmented switcher, with no divider. */
+  .theme-stage {
+    width: min(100%, 620px);
+    margin: 18px auto 0;
     overflow: hidden;
-    border-radius: 12px;
-    border: 1px solid rgba(200,150,80,0.15);
-    cursor: col-resize;
-    background: #111;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+    border: 1px solid color-mix(in srgb, var(--border, #2a2a32) 82%, transparent);
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--panel-solid, #0d0d12) 94%, transparent);
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.3);
   }
-  .theme-compare__layer {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    flex-direction: row;
-  }
-  .theme-compare__layer--back {
-    z-index: 1;
-  }
-  .theme-compare__layer--front {
-    z-index: 2;
-  }
-  .theme-compare__layer .grok-welcome__theme-bar {
-    width: 100%;
-    height: 10px;
-    background: var(--grok-theme-frame);
-    flex-shrink: 0;
-  }
-  .theme-compare__layer .grok-welcome__theme-side {
-    width: 28%;
-    flex-shrink: 0;
-    background: var(--grok-theme-side);
-    min-height: 0;
-    flex: 1;
-  }
-  .theme-compare__layer .grok-welcome__theme-editor {
-    flex: 1;
-    background: var(--grok-theme-editor);
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-    padding: 10px;
-  }
-  .theme-compare__layer .grok-welcome__theme-line {
-    height: 5px;
-    width: 70%;
-    background: rgba(255,255,255,0.1);
-    border-radius: 2px;
-  }
-  .theme-compare__layer .grok-welcome__theme-line--short {
-    width: 45%;
-  }
-  .theme-compare__layer .grok-welcome__theme-line--accent {
-    width: 55%;
-    background: var(--grok-theme-accent);
-    opacity: 0.5;
-  }
-  .theme-compare__slider {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    width: 2px;
-    z-index: 10;
-    background: linear-gradient(to bottom, transparent 5%, #c89650 30%, #c89650 70%, transparent 95%);
-    pointer-events: none;
-  }
-  .theme-compare__handle {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 22px;
-    height: 22px;
-    border-radius: 6px;
-    background: white;
+
+  .theme-stage__header,
+  .theme-stage__footer {
     display: flex;
     align-items: center;
-    justify-content: center;
-    box-shadow: 0 0 12px rgba(200,150,80,0.4), 0 2px 6px rgba(0,0,0,0.3);
-    color: #333;
-    pointer-events: auto;
-    cursor: col-resize;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px 14px;
   }
-  .theme-compare__label {
-    font-size: 10px;
+
+  .theme-stage__header > div:first-child {
+    display: flex;
+    align-items: baseline;
+    gap: 9px;
+    min-width: 0;
+  }
+
+  .theme-stage__eyebrow {
+    color: var(--text-mute, #777782);
+    font: 600 8px/1 "JetBrains Mono", monospace;
+    letter-spacing: 0.16em;
+  }
+
+  .theme-stage__title {
+    color: var(--text, #f2f2f5);
+    font-size: 13px;
     font-weight: 600;
-    letter-spacing: 0.08em;
-    color: rgba(224,228,255,0.6);
+    white-space: nowrap;
   }
-  .theme-compare__label--left { align-self: flex-start; margin-left: 8px; }
-  .theme-compare__label--right { align-self: flex-end; margin-right: 8px; }
+
+  .theme-stage__switcher {
+    display: flex;
+    gap: 3px;
+    padding: 3px;
+    border: 1px solid var(--border, #24242b);
+    border-radius: 9px;
+    background: var(--surface-inset, #09090d);
+  }
+
+  .theme-stage__tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 27px;
+    padding: 0 9px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-mute, #85858f);
+    font: 500 10px/1 inherit;
+    cursor: pointer;
+  }
+
+  .theme-stage__tab:hover { color: var(--text, #f4f4f6); }
+  .theme-stage__tab--active {
+    background: var(--hover, rgba(255,255,255,0.07));
+    color: var(--text, #f4f4f6);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border, #333) 70%, transparent);
+  }
+
+  .theme-stage__swatch { width: 6px; height: 6px; border-radius: 50%; box-shadow: 0 0 8px currentColor; }
+  .theme-stage__viewport { height: 220px; border-block: 1px solid var(--border, #23232a); background: var(--grok-theme-editor); }
+  .theme-stage__chrome {
+    display: flex;
+    align-items: center;
+    height: 30px;
+    gap: 10px;
+    padding: 0 11px;
+    background: var(--grok-theme-frame);
+    border-bottom: 1px solid color-mix(in srgb, var(--grok-theme-accent) 18%, transparent);
+    font: 500 8px/1 "JetBrains Mono", monospace;
+  }
+  .theme-stage__traffic { display: flex; gap: 4px; }
+  .theme-stage__traffic i { width: 6px; height: 6px; border-radius: 50%; background: #ff625c; }
+  .theme-stage__traffic i:nth-child(2) { background: #f6bd3b; }
+  .theme-stage__traffic i:nth-child(3) { background: #35c85a; }
+  .theme-stage__path { color: rgba(220,220,232,0.55); }
+  .theme-stage__ready { margin-left: auto; color: var(--grok-theme-accent); letter-spacing: 0.12em; }
+  .theme-stage__body { display: grid; grid-template-columns: 126px minmax(0, 1fr); height: 190px; }
+  .theme-stage__sidebar { display: flex; flex-direction: column; gap: 4px; padding: 12px 8px; background: var(--grok-theme-side); border-right: 1px solid rgba(255,255,255,0.045); }
+  .theme-stage__section { padding: 0 7px 5px; color: rgba(220,220,232,0.35); font: 600 7px/1 "JetBrains Mono", monospace; letter-spacing: 0.15em; }
+  .theme-stage__file { padding: 5px 8px; border-radius: 5px; color: rgba(220,220,232,0.47); font-size: 9px; }
+  .theme-stage__file--active { background: color-mix(in srgb, var(--grok-theme-accent) 14%, transparent); color: rgba(245,245,250,0.82); }
+  .theme-stage__editor { display: grid; grid-template-rows: 27px 1fr 34px; min-width: 0; background: var(--grok-theme-editor); }
+  .theme-stage__editor-top { display: flex; align-items: center; justify-content: space-between; padding: 0 11px; border-bottom: 1px solid rgba(255,255,255,0.045); color: rgba(220,220,232,0.48); font: 500 8px/1 "JetBrains Mono", monospace; }
+  .theme-stage__editor-top span:last-child { color: var(--grok-theme-accent); }
+  .theme-stage__code { display: flex; flex-direction: column; gap: 8px; padding: 14px 12px; color: rgba(224,224,235,0.56); font: 9px/1.25 "JetBrains Mono", monospace; overflow: hidden; }
+  .theme-stage__code span { white-space: nowrap; }
+  .theme-stage__code b { display: inline-block; width: 24px; color: rgba(180,180,195,0.25); font-weight: 400; }
+  .theme-stage__code em { color: var(--grok-theme-accent); font-style: normal; }
+  .theme-stage__code-accent { color: color-mix(in srgb, var(--grok-theme-accent) 72%, white); }
+  .theme-stage__terminal { display: flex; align-items: center; gap: 8px; padding: 0 12px; border-top: 1px solid rgba(255,255,255,0.045); color: rgba(220,220,232,0.42); font: 8px/1 "JetBrains Mono", monospace; }
+  .theme-stage__prompt { color: var(--grok-theme-accent); font-size: 13px; }
+  .theme-stage__footer { color: var(--text-mute, #85858f); font-size: 10px; }
+  .theme-stage__footer button { height: 28px; padding: 0 11px; border: 1px solid color-mix(in srgb, var(--accent, #c89650) 32%, var(--border, #333)); border-radius: 7px; background: var(--accent-soft, rgba(200,150,80,0.1)); color: var(--text, #f4f4f6); font: 600 10px/1 inherit; cursor: pointer; }
+  .theme-stage__footer button:hover { background: color-mix(in srgb, var(--accent, #c89650) 18%, transparent); }
+
+  @media (max-width: 620px) {
+    .theme-stage__header { align-items: flex-start; flex-direction: column; }
+    .theme-stage__switcher { width: 100%; }
+    .theme-stage__tab { flex: 1; justify-content: center; }
+    .theme-stage__body { grid-template-columns: 92px minmax(0, 1fr); }
+  }
 
   /* ── Launch animation: SuperGrok HEAVY reacts on "Start" ── */
   .welcome-supergrok-hero.launch-react {
@@ -760,6 +823,34 @@
   }
   .welcome-supergrok-hero.launch-react .welcome-supergrok-badge {
     animation: badge-burst 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s forwards;
+  }
+
+  .welcome-supergrok-hero.star-react {
+    transform-origin: center;
+    animation: star-hero-orbit 920ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .welcome-supergrok-hero.star-react .welcome-supergrok-word {
+    animation: star-word-flip 900ms cubic-bezier(0.2, 0.9, 0.2, 1.2) both;
+  }
+  .welcome-supergrok-hero.star-react .welcome-supergrok-badge {
+    animation: star-badge-comedy 900ms cubic-bezier(0.2, 0.9, 0.2, 1.2) both;
+  }
+
+  @keyframes star-hero-orbit {
+    0%, 100% { filter: none; }
+    35% { filter: drop-shadow(0 0 24px color-mix(in srgb, var(--accent, #c89650) 55%, transparent)); }
+  }
+  @keyframes star-word-flip {
+    0% { transform: perspective(800px) rotateY(0) translateY(0); }
+    42% { transform: perspective(800px) rotateY(190deg) translateY(-4px) scale(1.05); }
+    64% { transform: perspective(800px) rotateY(350deg) translateY(1px) scale(0.98); }
+    100% { transform: perspective(800px) rotateY(360deg) translateY(0) scale(1); }
+  }
+  @keyframes star-badge-comedy {
+    0% { transform: translateY(4px) rotate(0); }
+    30% { transform: translate(5px, -9px) rotate(12deg) scale(1.16); }
+    58% { transform: translate(-3px, 2px) rotate(-7deg) scale(0.94); }
+    100% { transform: translateY(4px) rotate(0) scale(1); }
   }
 
   @keyframes hero-shockwave {

@@ -11,8 +11,9 @@ use std::fs;
 use std::fs::OpenOptions;
 use std::io::ErrorKind;
 use std::path::Path;
+use std::process::Command;
 use std::sync::Mutex;
-use tauri::{AppHandle, LogicalSize, Manager, State, window::Color};
+use tauri::{window::Color, AppHandle, LogicalSize, Manager, State};
 use terminal::TerminalState;
 
 const WIZARD_WIDTH: u32 = 1080;
@@ -215,6 +216,198 @@ fn create_folder(
 
     fs::create_dir(&folder_path).map_err(|e| format!("Failed to create folder: {e}"))?;
     Ok(folder_path.to_string_lossy().to_string())
+}
+
+fn validate_git_ref(value: &str) -> Result<(), String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty()
+        || trimmed.starts_with('-')
+        || trimmed.contains("..")
+        || trimmed.contains(' ')
+        || trimmed
+            .chars()
+            .any(|ch| !(ch.is_ascii_alphanumeric() || "-_/".contains(ch)))
+    {
+        return Err("Invalid Git branch name".to_string());
+    }
+    Ok(())
+}
+
+fn git_repo_root(workspace_path: &str) -> Result<std::path::PathBuf, String> {
+    let workspace = Path::new(workspace_path);
+    if !workspace.is_dir() {
+        return Err("Workspace directory does not exist".to_string());
+    }
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(workspace)
+        .args(["rev-parse", "--show-toplevel"])
+        .output()
+        .map_err(|error| format!("Failed to run git: {error}"))?;
+    if !output.status.success() {
+        return Err("Git worktree isolation requires a Git repository".to_string());
+    }
+    let root = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if root.is_empty() {
+        return Err("Git did not return a repository root".to_string());
+    }
+    Ok(std::path::PathBuf::from(root))
+}
+
+fn worktree_base(root: &Path) -> Result<std::path::PathBuf, String> {
+    let parent = root
+        .parent()
+        .ok_or_else(|| "Repository has no parent directory".to_string())?;
+    let repo_name = root
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or("workspace");
+    Ok(parent.join(".grokden-worktrees").join(repo_name))
+}
+
+#[tauri::command]
+fn workspace_create_agent_worktree(
+    workspace_path: String,
+    branch: String,
+    slug: String,
+) -> Result<String, String> {
+    validate_git_ref(&branch)?;
+    validate_name(&slug)?;
+    let root = git_repo_root(&workspace_path)?;
+    let base = worktree_base(&root)?;
+    fs::create_dir_all(&base)
+        .map_err(|error| format!("Failed to prepare worktree directory: {error}"))?;
+    let target = base.join(slug.trim());
+
+    if target.join(".git").exists() {
+        return Ok(target.to_string_lossy().to_string());
+    }
+    if target.exists() {
+        return Err("The worktree target already exists and is not a Git worktree".to_string());
+    }
+
+    let create = Command::new("git")
+        .arg("-C")
+        .arg(&root)
+        .args(["worktree", "add", "-b"])
+        .arg(branch.trim())
+        .arg(&target)
+        .output()
+        .map_err(|error| format!("Failed to create Git worktree: {error}"))?;
+
+    if !create.status.success() {
+        let stderr = String::from_utf8_lossy(&create.stderr);
+        if stderr.contains("already exists") {
+            let attach = Command::new("git")
+                .arg("-C")
+                .arg(&root)
+                .args(["worktree", "add"])
+                .arg(&target)
+                .arg(branch.trim())
+                .output()
+                .map_err(|error| format!("Failed to attach Git worktree: {error}"))?;
+            if attach.status.success() {
+                return Ok(target.to_string_lossy().to_string());
+            }
+            return Err(String::from_utf8_lossy(&attach.stderr).trim().to_string());
+        }
+        return Err(stderr.trim().to_string());
+    }
+
+    Ok(target.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+fn workspace_remove_agent_worktree(
+    workspace_path: String,
+    worktree_path: String,
+    branch: Option<String>,
+) -> Result<(), String> {
+    let root = git_repo_root(&workspace_path)?;
+    let base = worktree_base(&root)?;
+    let canonical_base = base
+        .canonicalize()
+        .map_err(|error| format!("Failed to resolve worktree directory: {error}"))?;
+    let target = std::path::PathBuf::from(&worktree_path)
+        .canonicalize()
+        .map_err(|error| format!("Failed to resolve worktree: {error}"))?;
+    if !target.starts_with(&canonical_base) {
+        return Err(
+            "Refusing to remove a worktree outside Grokden's isolation directory".to_string(),
+        );
+    }
+    let remove = Command::new("git")
+        .arg("-C")
+        .arg(&root)
+        .args(["worktree", "remove", "--force"])
+        .arg(&target)
+        .output()
+        .map_err(|error| format!("Failed to remove Git worktree: {error}"))?;
+    if !remove.status.success() {
+        return Err(String::from_utf8_lossy(&remove.stderr).trim().to_string());
+    }
+    if let Some(branch) = branch.filter(|value| !value.trim().is_empty()) {
+        validate_git_ref(&branch)?;
+        let _ = Command::new("git")
+            .arg("-C")
+            .arg(&root)
+            .args(["branch", "-D"])
+            .arg(branch.trim())
+            .output();
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn workspace_merge_agent_worktree(
+    workspace_path: String,
+    worktree_path: String,
+    branch: String,
+) -> Result<(), String> {
+    validate_git_ref(&branch)?;
+    let root = git_repo_root(&workspace_path)?;
+    let base = worktree_base(&root)?;
+    let canonical_base = base
+        .canonicalize()
+        .map_err(|error| format!("Failed to resolve worktree directory: {error}"))?;
+    let target = std::path::PathBuf::from(&worktree_path)
+        .canonicalize()
+        .map_err(|error| format!("Failed to resolve worktree: {error}"))?;
+    if !target.starts_with(&canonical_base) {
+        return Err(
+            "Refusing to merge a worktree outside Grokden's isolation directory".to_string(),
+        );
+    }
+
+    let status = Command::new("git")
+        .arg("-C")
+        .arg(&root)
+        .args(["status", "--porcelain"])
+        .output()
+        .map_err(|error| format!("Failed to inspect the main worktree: {error}"))?;
+    if !status.status.success() {
+        return Err(String::from_utf8_lossy(&status.stderr).trim().to_string());
+    }
+    if !status.stdout.is_empty() {
+        return Err("Commit or stash changes in the main worktree before merging an agent".to_string());
+    }
+
+    let merge = Command::new("git")
+        .arg("-C")
+        .arg(&root)
+        .args(["merge", "--no-ff"])
+        .arg(branch.trim())
+        .output()
+        .map_err(|error| format!("Failed to merge agent branch: {error}"))?;
+    if !merge.status.success() {
+        return Err(String::from_utf8_lossy(&merge.stderr).trim().to_string());
+    }
+
+    workspace_remove_agent_worktree(
+        workspace_path,
+        target.to_string_lossy().to_string(),
+        Some(branch),
+    )
 }
 
 fn center_window(main: &tauri::WebviewWindow) {
@@ -465,7 +658,10 @@ pub fn run() {
             workspace::workspace_children,
             workspace::workspace_refresh,
             workspace::workspace_git_status,
-            workspace::workspace_search_fuzzy
+            workspace::workspace_search_fuzzy,
+            workspace_create_agent_worktree,
+            workspace_remove_agent_worktree,
+            workspace_merge_agent_worktree
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -607,5 +803,14 @@ mod tests {
                 assert!(!broken.is_dir);
             }
         });
+    }
+
+    #[test]
+    fn validates_agent_worktree_branch_names() {
+        assert!(validate_git_ref("grokden/planner-123").is_ok());
+        assert!(validate_git_ref("grokden/review_branch").is_ok());
+        assert!(validate_git_ref("--force").is_err());
+        assert!(validate_git_ref("grokden/../outside").is_err());
+        assert!(validate_git_ref("grokden/has space").is_err());
     }
 }

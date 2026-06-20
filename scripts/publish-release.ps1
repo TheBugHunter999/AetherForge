@@ -84,10 +84,11 @@ Grokden $version — Windows desktop workspace for Grok CLI.
 
 ## What's new
 
-- **Premium Grok & Midnight themes** — neutral black/gray surfaces (no navy/teal bleed)
-- **Minimal terminal** — compact docked panel, flat header matching body, simplified chrome
-- **Welcome layout** — cleaner home view; glass/liquid theme overlays removed
-- Signed in-app auto-updater (NSIS), parallel agents, integrated terminals
+- **Cosmic Memory Galaxy** — animated 3D planet visualization for workspace memory
+- **Git worktree bridge** — isolated parallel agent worktrees with create/merge/remove
+- **Canvas & Welcome polish** — expanded canvas mode and refreshed welcome experience
+- **Parallel agents** — improved agent grid layout and worktree integration
+- Signed in-app auto-updater (NSIS), integrated terminals, premium themes
 
 ## Requirements
 
@@ -126,7 +127,7 @@ Grokden also needs the Microsoft Edge WebView2 runtime. The installers below ins
 
 $latestJson = @{
     version = $version
-    notes = "- Premium Grok & Midnight neutral dark themes`n- Compact minimal terminal`n- Signed auto-updater (NSIS)"
+    notes = "- Cosmic Memory Galaxy visualization`n- Git worktree bridge for parallel agents`n- Canvas and Welcome UI polish`n- Signed auto-updater (NSIS)"
     pub_date = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ss.fffZ')
     platforms = @{
         'windows-x86_64' = @{

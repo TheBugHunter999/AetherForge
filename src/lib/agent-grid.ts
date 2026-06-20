@@ -1,7 +1,7 @@
 import type { AppSettings } from "$lib/editor-utils";
 import { buildGrokLaunchCommand } from "$lib/settings-runtime";
 
-export const MAX_AGENTS = 4;
+export const MAX_AGENTS = 8;
 
 export type AgentStatus = "idle" | "launching" | "running" | "done" | "error";
 
@@ -11,6 +11,14 @@ export type ParallelAgent = {
   goalId: string | null;
   injectToken: number;
   status: AgentStatus;
+  role?: string;
+  model?: string;
+  cwd?: string | null;
+  prompt?: string;
+  worktreeIsolation?: boolean;
+  worktreePath?: string | null;
+  branch?: string | null;
+  upstreamRoles?: string[];
 };
 
 export type MissionGoal = {
@@ -55,6 +63,16 @@ export function buildAgentGrokCommand(settings: AppSettings): string {
   return buildGrokLaunchCommand(settings);
 }
 
+export function buildAgentSpecificGrokCommand(
+  settings: AppSettings,
+  agent: ParallelAgent,
+): string {
+  if (!agent.model || agent.model === settings.grokModel) {
+    return buildGrokLaunchCommand(settings);
+  }
+  return buildGrokLaunchCommand({ ...settings, grokModel: agent.model });
+}
+
 export function groupGoalsByCategory(goals: MissionGoal[]): Map<string, MissionGoal[]> {
   const map = new Map<string, MissionGoal[]>();
   for (const goal of goals) {
@@ -76,12 +94,13 @@ export function computeAgentGridLayout(count: number): { cols: number; rows: num
   const n = clampAgentCount(count);
   if (n <= 1) return { cols: 1, rows: 1 };
   if (n === 2) return { cols: 2, rows: 1 };
-  return { cols: 2, rows: 2 };
+  if (n <= 6) return { cols: 3, rows: Math.ceil(n / 3) };
+  return { cols: 4, rows: 2 };
 }
 
 /** Third pane spans both columns so a 3-agent swarm does not leave an empty grid cell. */
 export function shouldSpanAgentCell(agentCount: number, index: number): boolean {
-  return clampAgentCount(agentCount) === 3 && index === 2;
+  return false;
 }
 
 export function getAssignedGoalIds(agents: ParallelAgent[]): Set<string> {
@@ -112,12 +131,22 @@ export function buildAgentInjectPrompt(
   agent: ParallelAgent,
   goals: MissionGoal[],
 ): string | null {
-  if (!agent.goalId) return null;
-  const goal = goals.find((g) => g.id === agent.goalId);
-  if (!goal) return null;
-  const title = goal.title.trim();
-  const notes = goal.notes.trim();
-  if (!title && !notes) return null;
-  if (notes) return `${title}\n\n${notes}`.trim();
-  return title;
+  const goal = agent.goalId ? goals.find((g) => g.id === agent.goalId) : null;
+  const title = goal?.title.trim() ?? "";
+  const notes = goal?.notes.trim() ?? "";
+  const customPrompt = agent.prompt?.trim() ?? "";
+  const role = agent.role?.trim() || agent.label.trim();
+  const upstream = agent.upstreamRoles?.filter(Boolean) ?? [];
+  const sections = [
+    role ? `ROLE\nYou are the ${role} in a connected Grokden agent workspace.` : "",
+    title || notes ? `GOAL\n${[title, notes].filter(Boolean).join("\n\n")}` : "",
+    customPrompt ? `STARTING CONTEXT\n${customPrompt}` : "",
+    upstream.length
+      ? `ORCHESTRATION\nYour upstream collaborators are: ${upstream.join(", ")}. Read their handoff notes before changing shared artifacts, and leave a concise handoff for downstream agents.`
+      : "",
+    agent.worktreeIsolation
+      ? `ISOLATION\nYou are running in Git worktree ${agent.branch ?? "an isolated branch"}. Keep changes scoped to this role and finish with a concise diff summary.`
+      : "",
+  ].filter(Boolean);
+  return sections.length ? sections.join("\n\n") : null;
 }
