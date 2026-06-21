@@ -31,7 +31,7 @@
     const btn = document.querySelector(".grokden-layout-btn-panel");
     if (!ide || !(btn instanceof HTMLElement)) return;
     btn.classList.toggle(HIDDEN, ide.classList.contains(HIDDEN));
-    btn.classList.toggle("active", !ide.classList.contains(HIDDEN) && visible(document.querySelector(".terminal")));
+    btn.classList.toggle("active", !ide.classList.contains(HIDDEN) && visible(document.querySelector("footer.terminal")));
   }
 
   function toggleTerminal(event) {
@@ -41,7 +41,7 @@
     event.preventDefault();
     event.stopImmediatePropagation();
 
-    const terminal = document.querySelector(".terminal");
+    const terminal = document.querySelector("footer.terminal");
     const isOpen = !ide.classList.contains(HIDDEN) && visible(terminal);
 
     clearOldHidden(ide);

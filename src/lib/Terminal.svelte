@@ -1254,10 +1254,19 @@
     letter-spacing: 0.04em;
   }
 
-  :global(.terminal-host .xterm) {
-    height: 100%;
-    width: 100%;
+  /* xterm intentionally uses the generic class name `terminal`. Keep this
+     selector stronger than legacy workspace-panel styles so closing the
+     bottom panel can never hide Canvas or Parallel Agent terminals. */
+  :global([data-terminal-root].terminal-host > .xterm.terminal) {
+    display: block !important;
+    flex: none !important;
+    height: 100% !important;
+    width: 100% !important;
+    min-height: 0 !important;
+    margin: 0 !important;
     padding: 0;
+    border: 0 !important;
+    box-shadow: none !important;
     opacity: 1 !important;
     visibility: visible !important;
   }

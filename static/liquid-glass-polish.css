@@ -282,7 +282,7 @@
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
 }
 
-.ide.glass-window .terminal {
+.ide.glass-window footer.terminal {
   margin: 0 8px 8px;
   border-radius: var(--liquid-radius-xl);
   overflow: hidden;
@@ -290,7 +290,7 @@
   box-shadow: var(--liquid-shadow-soft), inset 0 1px 0 rgba(255, 255, 255, 0.11);
 }
 
-.ide.glass-window .terminal.panel-side {
+.ide.glass-window footer.terminal.panel-side {
   margin: 8px 8px 8px 0;
 }
 
@@ -299,7 +299,7 @@
   display: none !important;
 }
 
-.ide.liquid-terminal-force-closed .terminal {
+.ide.liquid-terminal-force-closed footer.terminal {
   display: none !important;
 }
 

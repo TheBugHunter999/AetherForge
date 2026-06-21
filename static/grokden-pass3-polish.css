@@ -12,7 +12,7 @@ body {
   color: var(--text);
 }
 
-.terminal {
+footer.terminal {
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -23,7 +23,7 @@ body {
   box-shadow: none;
 }
 
-.terminal.panel-side {
+footer.terminal.panel-side {
   border-top: 0;
   border-left: 1px solid var(--border);
 }

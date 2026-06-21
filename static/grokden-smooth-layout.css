@@ -10,7 +10,7 @@
 
 .ide .activity-rail,
 .ide .secondary-sidebar,
-.ide .terminal {
+.ide footer.terminal {
   transition:
     width 320ms cubic-bezier(0.22, 1, 0.36, 1),
     height 320ms cubic-bezier(0.22, 1, 0.36, 1),
@@ -58,8 +58,8 @@
   pointer-events: none !important;
 }
 
-.ide.grokden-terminal-hidden .terminal,
-.ide.liquid-terminal-force-closed .terminal {
+.ide.grokden-terminal-hidden footer.terminal,
+.ide.liquid-terminal-force-closed footer.terminal {
   display: flex !important;
   height: 0 !important;
   min-height: 0 !important;
@@ -107,8 +107,8 @@
   stroke-width: 1.35 !important;
 }
 
-.ide.grokden-terminal-hidden .terminal.panel-side,
-.ide.liquid-terminal-force-closed .terminal.panel-side {
+.ide.grokden-terminal-hidden footer.terminal.panel-side,
+.ide.liquid-terminal-force-closed footer.terminal.panel-side {
   width: 0 !important;
   min-width: 0 !important;
   max-width: 0 !important;

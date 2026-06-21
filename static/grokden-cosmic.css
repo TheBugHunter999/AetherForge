@@ -103,7 +103,7 @@ body { background: transparent; color: var(--text); }
 [data-theme="cosmic"] .sidebar .row:hover, [data-theme="cosmic"] .activity-rail .row:hover { background: var(--hover); color: var(--cosmic-cyan); }
 [data-theme="cosmic"] .sidebar .row.active, [data-theme="cosmic"] .activity-rail .row.active { background: rgba(124,92,255,0.13); color: var(--cosmic-cyan); }
 [data-theme="cosmic"] .sidebar .eyebrow, [data-theme="cosmic"] .activity-rail .eyebrow { color: var(--cosmic-violet); opacity: 0.5; }
-[data-theme="cosmic"] .terminal { background: var(--terminal-bg); border-top: 1px solid rgba(100,120,255,0.08); }
+[data-theme="cosmic"] footer.terminal { background: var(--terminal-bg); border-top: 1px solid rgba(100,120,255,0.08); }
 [data-theme="cosmic"] .terminal-header { background: rgba(6,6,22,0.88); border-bottom: 1px solid rgba(100,120,255,0.06); }
 [data-theme="cosmic"] .btn--primary {
   background: linear-gradient(135deg, var(--accent), var(--cosmic-violet));

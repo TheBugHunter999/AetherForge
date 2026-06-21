@@ -75,7 +75,7 @@
 
       const ide = document.querySelector(ROOT_SELECTOR);
       if (!(ide instanceof HTMLElement)) return;
-      const terminal = document.querySelector(".terminal");
+      const terminal = document.querySelector("footer.terminal");
       const open = !ide.classList.contains(PANEL_HIDDEN) && isVisible(terminal);
 
       if (open) {
@@ -86,7 +86,7 @@
 
       ide.classList.remove(PANEL_HIDDEN, "liquid-terminal-force-closed");
       clickTerminalEntry();
-      window.setTimeout(() => button.classList.toggle("active", isVisible(document.querySelector(".terminal"))), 160);
+      window.setTimeout(() => button.classList.toggle("active", isVisible(document.querySelector("footer.terminal"))), 160);
     }, true);
   }
 

@@ -297,7 +297,7 @@ fn spawn_reader_thread(
             }
         }
 
-        pty_debug!("reader cleanup id={id} chunks={chunk_index} bytes={total_bytes}");
+        pty_debug!("reader cleanup id={id} chunks={chunk_index} bytes={_total_bytes}");
         remove_session(id, &alive, &sessions);
     });
 }

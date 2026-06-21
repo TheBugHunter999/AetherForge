@@ -286,8 +286,8 @@
 }
 
 /* Terminal, make the bottom panel look intentional and prevent stale hidden states from keeping it dead. */
-.ide .terminal,
-.ide.glass-window .terminal {
+.ide footer.terminal,
+.ide.glass-window footer.terminal {
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0)),
     #0b0f14 !important;
@@ -301,7 +301,7 @@
   will-change: height, width, opacity, transform !important;
 }
 
-.ide:not(.grokden-terminal-final-hidden):not(.grokden-panel-safe-hidden):not(.grokden-terminal-hidden):not(.liquid-terminal-force-closed) .terminal {
+.ide:not(.grokden-terminal-final-hidden):not(.grokden-panel-safe-hidden):not(.grokden-terminal-hidden):not(.liquid-terminal-force-closed) footer.terminal {
   opacity: 1 !important;
   transform: none !important;
   pointer-events: auto !important;

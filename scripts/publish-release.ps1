@@ -84,12 +84,10 @@ Grokden $version - Windows desktop workspace for Grok CLI.
 
 ## What's new
 
-- **Terminal reliability** - improved PTY output delivery, startup detection, and resize handling
-- **Terminal debug tooling** - `window.__GROKDEN_TERMINAL_DEBUG__` registry for diagnosing output issues
-- **Canvas & Memory Galaxy** - expanded canvas mode and cosmic memory visualization polish
-- **Theme refinements** - updated palette tokens for Premium Grok, Midnight, and dark themes
-- **Welcome & layout** - smoother panel transitions and refreshed welcome experience
-- Signed in-app auto-updater (NSIS), parallel agents, git worktree bridge
+- **Terminals actually render** - fixed xterm opacity collision where global `.terminal` panel CSS hid Canvas and Parallel Agent terminals
+- **Scoped panel selectors** - bottom dock panel rules now target `footer.terminal` only; xterm gets a defensive visibility reset
+- **PTY output delivery** - improved startup detection, resize handling, and terminal debug snapshots
+- Canvas, Memory Galaxy, parallel agents, and signed in-app auto-updater (NSIS)
 
 ## Requirements
 
@@ -128,7 +126,7 @@ Grokden also needs the Microsoft Edge WebView2 runtime. The installers below ins
 
 $latestJson = @{
     version = $version
-    notes = "- Terminal reliability and debug tooling`n- Canvas and Memory Galaxy polish`n- Theme and welcome refinements`n- Signed auto-updater (NSIS)"
+    notes = "- Fix terminal blank screen (xterm opacity collision)`n- Scope panel CSS to footer.terminal`n- PTY output and resize improvements`n- Signed auto-updater (NSIS)"
     pub_date = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ss.fffZ')
     platforms = @{
         'windows-x86_64' = @{

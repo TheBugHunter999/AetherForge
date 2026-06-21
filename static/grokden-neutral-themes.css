@@ -1,7 +1,7 @@
 /* Premium Grok + Midnight — flat neutral surfaces (no navy/teal glass overrides). */
 
-.ide[data-theme="premium-grok"] .terminal,
-.ide[data-theme="midnight"] .terminal,
+.ide[data-theme="premium-grok"] footer.terminal,
+.ide[data-theme="midnight"] footer.terminal,
 .ide[data-theme="premium-grok"] .terminal-header,
 .ide[data-theme="midnight"] .terminal-header,
 .ide[data-theme="premium-grok"] .terminal-body,
