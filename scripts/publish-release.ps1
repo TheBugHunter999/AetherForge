@@ -85,7 +85,7 @@ Grokden $version - Windows desktop workspace for Grok CLI.
 ## What's new
 
 - **Terminals actually render** - fixed xterm opacity collision where global `.terminal` panel CSS hid Canvas and Parallel Agent terminals
-- **Scoped panel selectors** - bottom dock panel rules now target `footer.terminal` only; xterm gets a defensive visibility reset
+- **Scoped panel selectors** - bottom dock panel rules now target footer.terminal only; xterm gets a defensive visibility reset
 - **PTY output delivery** - improved startup detection, resize handling, and terminal debug snapshots
 - Canvas, Memory Galaxy, parallel agents, and signed in-app auto-updater (NSIS)
 
