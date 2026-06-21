@@ -84,10 +84,11 @@ Grokden $version - Windows desktop workspace for Grok CLI.
 
 ## What's new
 
-- **Terminals actually render** - fixed xterm opacity collision where global `.terminal` panel CSS hid Canvas and Parallel Agent terminals
-- **Scoped panel selectors** - bottom dock panel rules now target footer.terminal only; xterm gets a defensive visibility reset
-- **PTY output delivery** - improved startup detection, resize handling, and terminal debug snapshots
-- Canvas, Memory Galaxy, parallel agents, and signed in-app auto-updater (NSIS)
+- **Canvas privacy overlays** — New **Blur** (privacy veil) and **Lens** (reveal lens) tools on the Canvas. Drag and resize semi-transparent privacy areas over terminals, nodes, agents, or anything to hide sensitive content or focus on specific parts.
+  - Hotkeys: **B** = add blur veil, **L** = add reveal lens
+  - 8-way resize handles, fully draggable, and saved with your canvas state
+- Privacy veils use backdrop blur; lenses cut clean "reveal" holes through blurs where they overlap
+- Canvas orchestration now includes persistent privacy layers alongside nodes, edges, and missions
 
 ## Requirements
 
@@ -121,12 +122,12 @@ Grokden also needs the Microsoft Edge WebView2 runtime. The installers below ins
 
 1. Launch Grokden from the Start menu.
 2. Open a folder.
-3. Use **Launch Grok CLI** or **Parallel Agents** from the top bar.
+3. Use the Canvas (or **Launch Grok CLI** / **Parallel Agents**) from the top bar.
 "@
 
 $latestJson = @{
     version = $version
-    notes = "- Fix terminal blank screen (xterm opacity collision)`n- Scope panel CSS to footer.terminal`n- PTY output and resize improvements`n- Signed auto-updater (NSIS)"
+    notes = "- Added Blur (B) and Lens (L) privacy overlays to Canvas\n- Drag/resize privacy veils over terminals, nodes, and agents for privacy or focus\n- Privacy layers persist with canvas layouts\n- Signed auto-updater (NSIS)"
     pub_date = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ss.fffZ')
     platforms = @{
         'windows-x86_64' = @{
