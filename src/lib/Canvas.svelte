@@ -1,6 +1,8 @@
 <script lang="ts" module>
   export type CanvasNodeType = "agent" | "mission" | "file" | "note" | "terminal";
   export type CanvasTool = "select" | "pan" | "connect";
+  export type CanvasPrivacyType = "blur" | "lens";
+  export type CanvasResizeHandle = "n" | "ne" | "e" | "se" | "s" | "sw" | "w" | "nw";
 
   export type CanvasNode = {
     id: string;
@@ -19,9 +21,19 @@
     toId: string;
   };
 
+  export type CanvasPrivacyOverlay = {
+    id: string;
+    type: CanvasPrivacyType;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+
   export type CanvasSnapshot = {
     nodes: CanvasNode[];
     edges: CanvasEdge[];
+    privacyOverlays: CanvasPrivacyOverlay[];
   };
 
   export type CanvasAgentLaunchSpec = {
@@ -65,6 +77,7 @@
   const NODE_HEIGHT = 96;
   const UNDO_LIMIT = 50;
   const CANVAS_STORAGE_KEY = "Grokden.canvas.orchestration.v2";
+  const PRIVACY_HANDLES: CanvasResizeHandle[] = ["n", "ne", "e", "se", "s", "sw", "w", "nw"];
 
   const NODE_PRESETS: Record<
     CanvasNodeType,
@@ -94,7 +107,9 @@
 
   let nodes = $state<CanvasNode[]>([]);
   let edges = $state<CanvasEdge[]>([]);
+  let privacyOverlays = $state<CanvasPrivacyOverlay[]>([]);
   let selectedIds = $state<Set<string>>(new Set());
+  let selectedPrivacyId = $state<string | null>(null);
 
   let tool = $state<CanvasTool>("select");
   let showMinimap = $state(false);
@@ -119,6 +134,18 @@
     nodeY: 0,
     selectedPositions: new Map<string, { x: number; y: number }>(),
   });
+  let draggingPrivacyId = $state<string | null>(null);
+  let dragPrivacyStart = $state({ x: 0, y: 0, overlayX: 0, overlayY: 0 });
+  let resizingPrivacy = $state<{
+    id: string;
+    handle: CanvasResizeHandle;
+    pointerX: number;
+    pointerY: number;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
 
   let connectFromId = $state<string | null>(null);
   let connectPreview = $state<{ x: number; y: number } | null>(null);
@@ -155,7 +182,7 @@
   ]);
 
   const zoomPercent = $derived(Math.round(zoom * 100));
-  const isEmpty = $derived(nodes.length === 0);
+  const isEmpty = $derived(nodes.length === 0 && privacyOverlays.length === 0);
   const worldTransform = $derived(`translate(${panX}px, ${panY}px) scale(${zoom})`);
 
   const marqueeRect = $derived.by(() => {
@@ -179,6 +206,7 @@
       try {
         localStorage.setItem(CANVAS_STORAGE_KEY, JSON.stringify({
           nodes: nodes.filter((node) => node.type !== "terminal"),
+          privacyOverlays,
           edges: edges.filter((edge) => {
             const from = nodes.find((node) => node.id === edge.fromId);
             const to = nodes.find((node) => node.id === edge.toId);
@@ -203,6 +231,7 @@
       const parsed = JSON.parse(stored) as {
         nodes?: CanvasNode[];
         edges?: CanvasEdge[];
+        privacyOverlays?: CanvasPrivacyOverlay[];
         agentDrafts?: typeof agentDrafts;
         workspaceDir?: string;
         sharedGoal?: string;
@@ -211,12 +240,13 @@
       };
       if (Array.isArray(parsed.nodes)) nodes = parsed.nodes;
       if (Array.isArray(parsed.edges)) edges = parsed.edges;
+      if (Array.isArray(parsed.privacyOverlays)) privacyOverlays = parsed.privacyOverlays;
       if (Array.isArray(parsed.agentDrafts) && parsed.agentDrafts.length) agentDrafts = parsed.agentDrafts;
       if (typeof parsed.workspaceDir === "string") workspaceDir = parsed.workspaceDir;
       if (typeof parsed.sharedGoal === "string") sharedGoal = parsed.sharedGoal;
       if (typeof parsed.sharedPrompt === "string") sharedPrompt = parsed.sharedPrompt;
       if (typeof parsed.isolateWorktrees === "boolean") isolateWorktrees = parsed.isolateWorktrees;
-      const ids = [...nodes.map((node) => node.id), ...edges.map((edge) => edge.id)];
+      const ids = [...nodes.map((node) => node.id), ...edges.map((edge) => edge.id), ...privacyOverlays.map((overlay) => overlay.id)];
       nextId = Math.max(1, ...ids.map((id) => Number(id.match(/-(\d+)$/)?.[1] ?? 0) + 1));
     } catch (error) {
       console.warn("Failed to restore canvas orchestration", error);
@@ -227,15 +257,20 @@
     return {
       nodes: nodes.map((n) => ({ ...n })),
       edges: edges.map((e) => ({ ...e })),
+      privacyOverlays: privacyOverlays.map((overlay) => ({ ...overlay })),
     };
   }
 
   function restoreSnapshot(snapshot: CanvasSnapshot) {
     nodes = snapshot.nodes.map((n) => ({ ...n }));
     edges = snapshot.edges.map((e) => ({ ...e }));
+    privacyOverlays = snapshot.privacyOverlays.map((overlay) => ({ ...overlay }));
     selectedIds = new Set(
       [...selectedIds].filter((id) => nodes.some((n) => n.id === id)),
     );
+    if (selectedPrivacyId && !privacyOverlays.some((overlay) => overlay.id === selectedPrivacyId)) {
+      selectedPrivacyId = null;
+    }
   }
 
   function pushUndo() {
@@ -310,6 +345,7 @@
   }
 
   function setSelection(ids: Iterable<string>, replace = true) {
+    selectedPrivacyId = null;
     const next = replace ? new Set<string>() : new Set(selectedIds);
     for (const id of ids) next.add(id);
     selectedIds = next;
@@ -317,13 +353,105 @@
 
   function clearSelection() {
     selectedIds = new Set();
+    selectedPrivacyId = null;
   }
 
   function toggleSelection(id: string) {
+    selectedPrivacyId = null;
     const next = new Set(selectedIds);
     if (next.has(id)) next.delete(id);
     else next.add(id);
     selectedIds = next;
+  }
+
+  function addPrivacyOverlay(type: CanvasPrivacyType) {
+    const center = getViewportCenterWorld();
+    const isLens = type === "lens";
+    const width = isLens ? 176 : 360;
+    const height = isLens ? 112 : 220;
+    const offset = privacyOverlays.filter((overlay) => overlay.type === type).length % 5;
+    const overlay: CanvasPrivacyOverlay = {
+      id: createId(type),
+      type,
+      x: center.x - width / 2 + offset * 22,
+      y: center.y - height / 2 + offset * 18,
+      width,
+      height,
+    };
+    pushUndo();
+    privacyOverlays = [...privacyOverlays, overlay];
+    selectedIds = new Set();
+    selectedPrivacyId = overlay.id;
+    tool = "select";
+  }
+
+  function removePrivacyOverlay(id: string) {
+    pushUndo();
+    privacyOverlays = privacyOverlays.filter((overlay) => overlay.id !== id);
+    if (selectedPrivacyId === id) selectedPrivacyId = null;
+  }
+
+  function roundedRectPath(x: number, y: number, width: number, height: number, radius: number) {
+    const r = Math.max(0, Math.min(radius, width / 2, height / 2));
+    return [
+      `M ${x + r} ${y}`,
+      `H ${x + width - r}`,
+      `Q ${x + width} ${y} ${x + width} ${y + r}`,
+      `V ${y + height - r}`,
+      `Q ${x + width} ${y + height} ${x + width - r} ${y + height}`,
+      `H ${x + r}`,
+      `Q ${x} ${y + height} ${x} ${y + height - r}`,
+      `V ${y + r}`,
+      `Q ${x} ${y} ${x + r} ${y}`,
+      "Z",
+    ].join(" ");
+  }
+
+  function blurClipPath(blur: CanvasPrivacyOverlay) {
+    const holes = privacyOverlays
+      .filter((overlay) => overlay.type === "lens" && rectsIntersect(blur, overlay))
+      .map((lens) => {
+        const left = Math.max(blur.x, lens.x) - blur.x;
+        const top = Math.max(blur.y, lens.y) - blur.y;
+        const right = Math.min(blur.x + blur.width, lens.x + lens.width) - blur.x;
+        const bottom = Math.min(blur.y + blur.height, lens.y + lens.height) - blur.y;
+        return roundedRectPath(left, top, right - left, bottom - top, 24);
+      });
+    if (!holes.length) return "none";
+    const outer = `M 0 0 H ${blur.width} V ${blur.height} H 0 Z`;
+    return `path(evenodd, "${outer} ${holes.join(" ")}")`;
+  }
+
+  function onPrivacyPointerDown(e: PointerEvent, overlay: CanvasPrivacyOverlay) {
+    e.stopPropagation();
+    rootEl?.focus({ preventScroll: true });
+    if (tool !== "select" || e.button !== 0) return;
+    selectedIds = new Set();
+    selectedPrivacyId = overlay.id;
+    pushUndo();
+    const pt = localPoint(e);
+    draggingPrivacyId = overlay.id;
+    dragPrivacyStart = { x: pt.x, y: pt.y, overlayX: overlay.x, overlayY: overlay.y };
+  }
+
+  function onPrivacyResizeDown(e: PointerEvent, overlay: CanvasPrivacyOverlay, handle: CanvasResizeHandle) {
+    e.stopPropagation();
+    e.preventDefault();
+    rootEl?.focus({ preventScroll: true });
+    selectedIds = new Set();
+    selectedPrivacyId = overlay.id;
+    pushUndo();
+    const pt = localPoint(e);
+    resizingPrivacy = {
+      id: overlay.id,
+      handle,
+      pointerX: pt.x,
+      pointerY: pt.y,
+      x: overlay.x,
+      y: overlay.y,
+      width: overlay.width,
+      height: overlay.height,
+    };
   }
 
   function selectNodesInMarquee(additive: boolean) {
@@ -551,6 +679,10 @@
   }
 
   function deleteSelected() {
+    if (selectedPrivacyId) {
+      removePrivacyOverlay(selectedPrivacyId);
+      return;
+    }
     if (!selectedIds.size) return;
     pushUndo();
     const removed = selectedIds;
@@ -587,7 +719,8 @@
   }
 
   function fitToView() {
-    if (!nodes.length) {
+    const items = [...nodes, ...privacyOverlays];
+    if (!items.length) {
       setZoomAt(1, viewportW / 2, viewportH / 2, true);
       panX = 0;
       panY = 0;
@@ -598,7 +731,7 @@
     let minY = Infinity;
     let maxX = -Infinity;
     let maxY = -Infinity;
-    for (const n of nodes) {
+    for (const n of items) {
       minX = Math.min(minX, n.x);
       minY = Math.min(minY, n.y);
       maxX = Math.max(maxX, n.x + n.width);
@@ -636,7 +769,7 @@
   function isChromeTarget(target: EventTarget | null) {
     if (!(target instanceof Element) || !rootEl) return false;
     return !!target.closest(
-      ".grok-canvas__node, .grok-canvas__toolbar, .grok-canvas__zoom, .grok-canvas__minimap-toggle, .grok-canvas__empty-actions, .grok-canvas__agent-launcher, .grok-canvas__launch-button",
+      ".grok-canvas__node, .grok-canvas__privacy, .grok-canvas__toolbar, .grok-canvas__zoom, .grok-canvas__minimap-toggle, .grok-canvas__empty-actions, .grok-canvas__agent-launcher, .grok-canvas__launch-button",
     );
   }
 
@@ -696,6 +829,46 @@
       return;
     }
 
+    if (draggingPrivacyId) {
+      const dx = (pt.x - dragPrivacyStart.x) / zoom;
+      const dy = (pt.y - dragPrivacyStart.y) / zoom;
+      privacyOverlays = privacyOverlays.map((overlay) =>
+        overlay.id === draggingPrivacyId
+          ? { ...overlay, x: dragPrivacyStart.overlayX + dx, y: dragPrivacyStart.overlayY + dy }
+          : overlay,
+      );
+      return;
+    }
+
+    if (resizingPrivacy) {
+      const dx = (pt.x - resizingPrivacy.pointerX) / zoom;
+      const dy = (pt.y - resizingPrivacy.pointerY) / zoom;
+      const minWidth = privacyOverlays.find((overlay) => overlay.id === resizingPrivacy!.id)?.type === "lens" ? 92 : 160;
+      const minHeight = privacyOverlays.find((overlay) => overlay.id === resizingPrivacy!.id)?.type === "lens" ? 64 : 100;
+      const west = resizingPrivacy.handle.includes("w");
+      const east = resizingPrivacy.handle.includes("e");
+      const north = resizingPrivacy.handle.includes("n");
+      const south = resizingPrivacy.handle.includes("s");
+      let x = resizingPrivacy.x;
+      let y = resizingPrivacy.y;
+      let width = resizingPrivacy.width;
+      let height = resizingPrivacy.height;
+      if (east) width = Math.max(minWidth, resizingPrivacy.width + dx);
+      if (south) height = Math.max(minHeight, resizingPrivacy.height + dy);
+      if (west) {
+        width = Math.max(minWidth, resizingPrivacy.width - dx);
+        x = resizingPrivacy.x + resizingPrivacy.width - width;
+      }
+      if (north) {
+        height = Math.max(minHeight, resizingPrivacy.height - dy);
+        y = resizingPrivacy.y + resizingPrivacy.height - height;
+      }
+      privacyOverlays = privacyOverlays.map((overlay) =>
+        overlay.id === resizingPrivacy!.id ? { ...overlay, x, y, width, height } : overlay,
+      );
+      return;
+    }
+
     if (tool === "connect" && connectFromId) {
       connectPreview = screenToWorld(pt.x, pt.y);
     }
@@ -722,6 +895,22 @@
         undo();
       }
       draggingNodeId = null;
+    }
+
+    if (draggingPrivacyId) {
+      const current = privacyOverlays.find((overlay) => overlay.id === draggingPrivacyId);
+      if (current && Math.abs(current.x - dragPrivacyStart.overlayX) < 0.5 && Math.abs(current.y - dragPrivacyStart.overlayY) < 0.5) {
+        undo();
+      }
+      draggingPrivacyId = null;
+    }
+
+    if (resizingPrivacy) {
+      const current = privacyOverlays.find((overlay) => overlay.id === resizingPrivacy!.id);
+      if (current && Math.abs(current.x - resizingPrivacy.x) < 0.5 && Math.abs(current.y - resizingPrivacy.y) < 0.5 && Math.abs(current.width - resizingPrivacy.width) < 0.5 && Math.abs(current.height - resizingPrivacy.height) < 0.5) {
+        undo();
+      }
+      resizingPrivacy = null;
     }
 
     isPanning = false;
@@ -751,6 +940,8 @@
     }
 
     if (tool !== "select" || e.button !== 0) return;
+
+    selectedPrivacyId = null;
 
     if (e.shiftKey) toggleSelection(node.id);
     else if (!selectedIds.has(node.id)) setSelection([node.id]);
@@ -840,11 +1031,15 @@
     if (key === "h") tool = "pan";
     if (key === "c") tool = "connect";
     if (key === "n") addNode("agent");
+    if (key === "b") addPrivacyOverlay("blur");
+    if (key === "l") addPrivacyOverlay("lens");
 
     if (key === "escape") {
       connectFromId = null;
       connectPreview = null;
       draggingNodeId = null;
+      draggingPrivacyId = null;
+      resizingPrivacy = null;
       isMarqueeing = false;
       isPanning = false;
     }
@@ -881,6 +1076,7 @@
   $effect(() => {
     void nodes;
     void edges;
+    void privacyOverlays;
     void agentDrafts;
     void workspaceDir;
     void sharedGoal;
@@ -891,9 +1087,10 @@
 
   // ── Live Minimap ─────────────────────────────────────────────────────
   function getMinimapBounds() {
-    if (!nodes.length) return { minX: -500, minY: -300, maxX: 500, maxY: 300, scaleX: 1, scaleY: 1, scale: 1 };
+    const items = [...nodes, ...privacyOverlays];
+    if (!items.length) return { minX: -500, minY: -300, maxX: 500, maxY: 300, scaleX: 1, scaleY: 1, scale: 1 };
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    for (const n of nodes) {
+    for (const n of items) {
       minX = Math.min(minX, n.x);
       minY = Math.min(minY, n.y);
       maxX = Math.max(maxX, n.x + n.width);
@@ -966,6 +1163,18 @@
       ctx.lineWidth = 0.5;
       ctx.strokeRect(p.x, p.y, nw, nh);
     }
+    // Privacy overlays
+    for (const overlay of privacyOverlays) {
+      const p = toMini(overlay.x, overlay.y);
+      const ow = Math.max(4, overlay.width * bounds.scale);
+      const oh = Math.max(3, overlay.height * bounds.scale);
+      const selected = selectedPrivacyId === overlay.id;
+      ctx.fillStyle = overlay.type === "blur" ? "rgba(160,185,205,0.28)" : "rgba(130,220,235,0.12)";
+      ctx.fillRect(p.x, p.y, ow, oh);
+      ctx.strokeStyle = selected ? "rgba(190,240,248,0.95)" : "rgba(180,225,235,0.55)";
+      ctx.lineWidth = selected ? 1.2 : 0.7;
+      ctx.strokeRect(p.x, p.y, ow, oh);
+    }
     // Viewport rectangle
     const vpTL = toMini((-panX) / zoom, (-panY) / zoom);
     const vpBR = toMini((viewportW - panX) / zoom, (viewportH - panY) / zoom);
@@ -978,7 +1187,7 @@
 
   function onMinimapClick(e: MouseEvent) {
     const mc = minimapCanvas;
-    if (!mc || !nodes.length) return;
+    if (!mc || (!nodes.length && !privacyOverlays.length)) return;
     const rect = mc.getBoundingClientRect();
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
@@ -992,12 +1201,12 @@
     panY = viewportH / 2 - worldY * zoom;
   }
 
-  // Re-render minimap whenever nodes/edges/pan/zoom change
+  // Re-render minimap whenever canvas geometry changes
   $effect(() => {
     if (!showMinimap) return;
     // Touch reactive dependencies
-    void nodes.length; void edges.length; void panX; void panY; void zoom;
-    void selectedIds.size; void viewportW; void viewportH;
+    void nodes.length; void edges.length; void privacyOverlays.length; void panX; void panY; void zoom;
+    void selectedIds.size; void selectedPrivacyId; void viewportW; void viewportH;
     requestAnimationFrame(renderMinimap);
   });
 
@@ -1123,6 +1332,61 @@
               <p class="grok-canvas__node-sub">{node.subtitle}</p>
             </div>
           {/if}
+        {/each}
+      </div>
+
+      <div class="grok-canvas__privacy-layer" aria-label="Canvas privacy overlays">
+        {#each privacyOverlays as overlay (overlay.id)}
+          <!-- svelte-ignore a11y_no_static_element_interactions -->
+          <div
+            class="grok-canvas__privacy grok-canvas__privacy--{overlay.type}"
+            class:grok-canvas__privacy--selected={selectedPrivacyId === overlay.id}
+            class:grok-canvas__privacy--dragging={draggingPrivacyId === overlay.id}
+            role="group"
+            aria-label={overlay.type === "blur" ? "Privacy blur veil" : "Privacy reveal lens"}
+            style:left="{overlay.x}px"
+            style:top="{overlay.y}px"
+            style:width="{overlay.width}px"
+            style:height="{overlay.height}px"
+            onpointerdown={(event) => onPrivacyPointerDown(event, overlay)}
+          >
+            {#if overlay.type === "blur"}
+              <div
+                class="grok-canvas__privacy-blur-veil"
+                style:clip-path={blurClipPath(overlay)}
+                aria-hidden="true"
+              ></div>
+            {:else}
+              <div class="grok-canvas__privacy-lens-glass" aria-hidden="true">
+                <span></span>
+              </div>
+            {/if}
+
+            <div class="grok-canvas__privacy-label">
+              <span class="grok-canvas__privacy-icon" aria-hidden="true">{overlay.type === "blur" ? "◌" : "⌾"}</span>
+              <strong>{overlay.type === "blur" ? "PRIVACY VEIL" : "REVEAL LENS"}</strong>
+              <small>{Math.round(overlay.width)} × {Math.round(overlay.height)}</small>
+            </div>
+            <button
+              type="button"
+              class="grok-canvas__privacy-close"
+              aria-label={`Remove ${overlay.type}`}
+              title={`Remove ${overlay.type}`}
+              onpointerdown={(event) => event.stopPropagation()}
+              onclick={(event) => { event.stopPropagation(); removePrivacyOverlay(overlay.id); }}
+            >×</button>
+
+            {#if selectedPrivacyId === overlay.id}
+              {#each PRIVACY_HANDLES as handle}
+                <button
+                  type="button"
+                  class="grok-canvas__privacy-handle grok-canvas__privacy-handle--{handle}"
+                  aria-label={`Resize ${overlay.type} ${handle}`}
+                  onpointerdown={(event) => onPrivacyResizeDown(event, overlay, handle)}
+                ></button>
+              {/each}
+            {/if}
+          </div>
         {/each}
       </div>
     </div>
@@ -1324,6 +1588,12 @@
     </button>
     <button type="button" class="grok-canvas__tool-btn" title="Open agent launcher" onclick={() => (showAgentLauncher = !showAgentLauncher)}>
       Agents
+    </button>
+    <button type="button" class="grok-canvas__tool-btn grok-canvas__tool-btn--privacy" title="Add privacy blur (B)" onclick={() => addPrivacyOverlay("blur")}>
+      Blur <span class="grok-canvas__tool-kbd">B</span>
+    </button>
+    <button type="button" class="grok-canvas__tool-btn grok-canvas__tool-btn--privacy" title="Add reveal lens (L)" onclick={() => addPrivacyOverlay("lens")}>
+      Lens <span class="grok-canvas__tool-kbd">L</span>
     </button>
     <span class="grok-canvas__tool-divider" aria-hidden="true"></span>
     <button type="button" class="grok-canvas__tool-btn" title="Fit to view" onclick={fitToView}>
@@ -1554,6 +1824,184 @@
   .grok-canvas__launch-primary { height: 32px; padding: 0 13px; border: 1px solid color-mix(in srgb, var(--grok-accent) 48%, var(--grok-border)); border-radius: 8px; background: var(--grok-accent-soft); color: var(--grok-text); font: 600 10px/1 var(--grok-font); cursor: pointer; white-space: nowrap; }
   .grok-canvas__launch-primary:hover:not(:disabled) { background: color-mix(in srgb, var(--grok-accent) 22%, transparent); }
   .grok-canvas__launch-primary:disabled { opacity: 0.55; cursor: wait; }
+
+  .grok-canvas__privacy-layer {
+    position: absolute;
+    inset: 0;
+    z-index: 18;
+    pointer-events: none;
+  }
+  .grok-canvas__privacy {
+    position: absolute;
+    box-sizing: border-box;
+    min-width: 0;
+    min-height: 0;
+    border: 1px solid transparent;
+    border-radius: 18px;
+    pointer-events: auto;
+    cursor: grab;
+    user-select: none;
+    touch-action: none;
+    isolation: isolate;
+  }
+  .grok-canvas__privacy--dragging { cursor: grabbing; }
+  .grok-canvas__privacy--selected {
+    border-color: color-mix(in srgb, var(--grok-text) 44%, var(--grok-border-strong));
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--grok-accent) 13%, transparent),
+      0 16px 48px rgba(0, 0, 0, 0.2);
+  }
+  .grok-canvas__privacy-blur-veil {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    border-radius: 17px;
+    background:
+      radial-gradient(circle at 15% 0%, rgba(255,255,255,0.14), transparent 38%),
+      linear-gradient(145deg,
+        color-mix(in srgb, var(--grok-surface-2) 74%, transparent),
+        color-mix(in srgb, var(--grok-editor) 88%, transparent));
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.16),
+      inset 0 0 0 1px color-mix(in srgb, var(--grok-text) 7%, transparent),
+      0 14px 38px rgba(0, 0, 0, 0.25);
+    backdrop-filter: blur(24px) saturate(0.7) brightness(0.64);
+    -webkit-backdrop-filter: blur(24px) saturate(0.7) brightness(0.64);
+  }
+  .grok-canvas__privacy-blur-veil::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    opacity: 0.34;
+    background-image:
+      radial-gradient(circle at 22% 32%, rgba(255,255,255,0.19) 0 0.65px, transparent 0.8px),
+      radial-gradient(circle at 76% 68%, rgba(255,255,255,0.11) 0 0.55px, transparent 0.75px);
+    background-size: 7px 7px, 9px 9px;
+    mix-blend-mode: soft-light;
+  }
+  .grok-canvas__privacy--blur::after {
+    content: "";
+    position: absolute;
+    inset: 5px;
+    z-index: 1;
+    border: 1px solid rgba(255,255,255,0.055);
+    border-radius: 14px;
+    pointer-events: none;
+  }
+  .grok-canvas__privacy--lens {
+    z-index: 2;
+    border-radius: 28px;
+    border-color: color-mix(in srgb, var(--grok-text) 25%, var(--grok-border));
+    background: rgba(255,255,255,0.012);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.3),
+      inset 0 -1px 0 rgba(0,0,0,0.18),
+      0 12px 34px rgba(0,0,0,0.18),
+      0 0 24px color-mix(in srgb, var(--grok-accent) 7%, transparent);
+  }
+  .grok-canvas__privacy-lens-glass {
+    position: absolute;
+    inset: 3px;
+    overflow: hidden;
+    border-radius: 24px;
+    background:
+      radial-gradient(ellipse at 28% 10%, rgba(255,255,255,0.14), transparent 34%),
+      linear-gradient(135deg, rgba(255,255,255,0.025), transparent 48%, rgba(255,255,255,0.04));
+    box-shadow:
+      inset 0 0 0 1px rgba(255,255,255,0.09),
+      inset 9px 11px 24px rgba(255,255,255,0.025);
+    pointer-events: none;
+  }
+  .grok-canvas__privacy-lens-glass::before,
+  .grok-canvas__privacy-lens-glass::after {
+    content: "";
+    position: absolute;
+    background: color-mix(in srgb, var(--grok-text) 16%, transparent);
+    opacity: 0.55;
+  }
+  .grok-canvas__privacy-lens-glass::before { left: 50%; top: 10px; bottom: 10px; width: 1px; }
+  .grok-canvas__privacy-lens-glass::after { top: 50%; left: 10px; right: 10px; height: 1px; }
+  .grok-canvas__privacy-lens-glass > span {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 6px;
+    height: 6px;
+    border: 1px solid color-mix(in srgb, var(--grok-text) 42%, transparent);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 12px color-mix(in srgb, var(--grok-accent) 18%, transparent);
+  }
+  .grok-canvas__privacy-label {
+    position: absolute;
+    top: 9px;
+    left: 10px;
+    z-index: 4;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    max-width: calc(100% - 48px);
+    height: 23px;
+    padding: 0 8px 0 6px;
+    border: 1px solid color-mix(in srgb, var(--grok-text) 12%, transparent);
+    border-radius: 999px;
+    color: color-mix(in srgb, var(--grok-text) 74%, var(--grok-muted));
+    background: color-mix(in srgb, var(--grok-surface) 72%, transparent);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 5px 16px rgba(0,0,0,0.14);
+    backdrop-filter: blur(14px) saturate(1.1);
+    opacity: 0.72;
+    transition: opacity 140ms ease, transform 140ms ease;
+    font: 600 8px/1 "JetBrains Mono", var(--grok-font-mono), monospace;
+    letter-spacing: 0.09em;
+  }
+  .grok-canvas__privacy:hover .grok-canvas__privacy-label,
+  .grok-canvas__privacy--selected .grok-canvas__privacy-label { opacity: 1; transform: translateY(-1px); }
+  .grok-canvas__privacy-icon { display: grid; width: 14px; height: 14px; place-items: center; color: var(--grok-accent); font-size: 12px; }
+  .grok-canvas__privacy-label strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .grok-canvas__privacy-label small { color: var(--grok-muted); font-size: 7px; letter-spacing: 0; white-space: nowrap; }
+  .grok-canvas__privacy-close {
+    position: absolute;
+    top: 9px;
+    right: 9px;
+    z-index: 5;
+    display: grid;
+    width: 23px;
+    height: 23px;
+    place-items: center;
+    padding: 0;
+    border: 1px solid color-mix(in srgb, var(--grok-text) 10%, transparent);
+    border-radius: 50%;
+    color: var(--grok-muted);
+    background: color-mix(in srgb, var(--grok-surface) 72%, transparent);
+    opacity: 0;
+    cursor: pointer;
+    backdrop-filter: blur(12px);
+    transition: 120ms ease;
+  }
+  .grok-canvas__privacy:hover .grok-canvas__privacy-close,
+  .grok-canvas__privacy--selected .grok-canvas__privacy-close { opacity: 1; }
+  .grok-canvas__privacy-close:hover { color: var(--grok-text); background: var(--grok-hover); }
+  .grok-canvas__privacy-handle {
+    position: absolute;
+    z-index: 8;
+    width: 10px;
+    height: 10px;
+    padding: 0;
+    border: 2px solid color-mix(in srgb, var(--grok-surface) 88%, transparent);
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--grok-text) 82%, var(--grok-accent));
+    box-shadow: 0 2px 7px rgba(0,0,0,0.32);
+    touch-action: none;
+  }
+  .grok-canvas__privacy-handle--n { top: -5px; left: calc(50% - 5px); cursor: ns-resize; }
+  .grok-canvas__privacy-handle--ne { top: -5px; right: -5px; cursor: nesw-resize; }
+  .grok-canvas__privacy-handle--e { top: calc(50% - 5px); right: -5px; cursor: ew-resize; }
+  .grok-canvas__privacy-handle--se { right: -5px; bottom: -5px; cursor: nwse-resize; }
+  .grok-canvas__privacy-handle--s { bottom: -5px; left: calc(50% - 5px); cursor: ns-resize; }
+  .grok-canvas__privacy-handle--sw { bottom: -5px; left: -5px; cursor: nesw-resize; }
+  .grok-canvas__privacy-handle--w { top: calc(50% - 5px); left: -5px; cursor: ew-resize; }
+  .grok-canvas__privacy-handle--nw { top: -5px; left: -5px; cursor: nwse-resize; }
+  .grok-canvas__tool-btn--privacy { color: color-mix(in srgb, var(--grok-text) 82%, var(--grok-accent)); }
 
   .grok-canvas__terminal-node {
     box-sizing: border-box;
